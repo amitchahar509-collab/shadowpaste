@@ -2,9 +2,10 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
 export async function GET() {
-  const [agents, tools, packages, projects, toolCalls, attacks, publicScans, sandboxChanges] = await Promise.all([
+  const [agents, tools, packages, projects, toolCalls, attacks, publicScans, sandboxChanges, vaultEntries, toolExecutions] = await Promise.all([
     db.agent.count(), db.mcpTool.count(), db.mcpPackage.count(), db.project.count(),
     db.toolCall.count(), db.attackTest.count(), db.publicScan.count(), db.sandboxChange.count(),
+    db.vaultEntry.count(), db.toolExecution.count(),
   ])
   const allowedCalls = await db.toolCall.count({ where: { decision: "allowed" } })
   const deniedCalls = await db.toolCall.count({ where: { decision: "denied" } })
@@ -20,7 +21,7 @@ export async function GET() {
   const allAgents = await db.agent.findMany({ select: { trustScore: true } })
   const avgTrust = allAgents.length ? Math.round(allAgents.reduce((s, a) => s + a.trustScore, 0) / allAgents.length) : 0
   return NextResponse.json({
-    counts: { agents, tools, packages, projects, toolCalls, attacks, publicScans, sandboxChanges },
+    counts: { agents, tools, packages, projects, toolCalls, attacks, publicScans, sandboxChanges, vaultEntries, toolExecutions },
     calls: { allowed: allowedCalls, denied: deniedCalls, sandboxed: sandboxedCalls, pending: pendingCalls },
     agents: { active: activeAgents, quarantined: quarantinedAgents, avgTrust },
     attacks: { blocked: blockedAttacks, allowed: allowedAttacks },

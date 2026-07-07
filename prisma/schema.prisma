@@ -1,5 +1,6 @@
-// ShadowPaste V18 — AI Agent Security Operating System
-// Comprehensive schema covering all 10 phases
+// ShadowPaste V19 — AI Agent Security Operating System (Production Schema)
+// Multi-tenant SaaS: User / Organization / Team / Membership + orgId isolation.
+// SQLite (sandbox); Postgres is the production target (see docker-compose.yml).
 
 generator client {
   provider = "prisma-client-js"
@@ -11,17 +12,82 @@ datasource db {
 }
 
 // ============================================================
-// PHASE 2 — AI AGENT IDENTITY SYSTEM
+// PHASE 6 — SaaS BACKEND: User / Organization / Team
+// ============================================================
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  image         String?
+  memberships   Membership[]
+  sessions      UserSession[]
+  agents        Agent[]   // agents created by this user
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model UserSession {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+}
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  plan          String   @default("free") // free, pro, enterprise
+  memberships   Membership[]
+  agents        Agent[]
+  projects      Project[]
+  vaultEntries  VaultEntry[]
+  toolExecutions ToolExecution[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  orgId         String
+  name          String
+  memberships   Membership[]
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId        String?
+  team          Team?    @relation(fields: [teamId], references: [id])
+  role          String   @default("VIEWER") // OWNER, ADMIN, DEVELOPER, VIEWER
+  createdAt     DateTime @default(now())
+}
+
+// ============================================================
+// PHASE 5 — AI AGENT IDENTITY (multi-tenant)
 // ============================================================
 model Agent {
   id            String   @id @default(cuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdById   String?
+  createdBy     User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   name          String
   provider      String   // ChatGPT, Claude, Cursor, Gemini, Copilot, Custom
   description   String?
-  trustScore    Int      @default(50) // 0-100
+  trustScore    Int      @default(50)
   status        String   @default("active") // active, suspended, revoked, quarantined
   avatarColor   String   @default("#10b981")
-  modelVersion  String?  // claude-sonnet-4, gpt-4o, etc.
+  modelVersion  String?
+  apiKeyHash    String?  // hash of agent's own API key (if it connects via key)
   sessions      Session[]
   permissions   Permission[]
   toolCalls     ToolCall[]
@@ -37,9 +103,9 @@ model Session {
   id            String   @id @default(cuid())
   agentId       String
   agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  status        String   @default("active") // active, ended, blocked, sandboxed
-  context       String?  // JSON: { project, environment, source }
-  source        String?  // claude-code, cursor, chatgpt, api
+  status        String   @default("active")
+  context       String?
+  source        String?  // claude-code, cursor, chatgpt, mcp-stdio, mcp-sse, api
   ipAddr        String?
   toolCalls     ToolCall[]
   permissions   Permission[]
@@ -48,7 +114,7 @@ model Session {
 }
 
 // ============================================================
-// PHASE 3 — AI PERMISSION CONTROL CENTER
+// PHASE 3 — PERMISSION CONTROL CENTER
 // ============================================================
 model Permission {
   id            String   @id @default(cuid())
@@ -56,28 +122,28 @@ model Permission {
   agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   sessionId     String?
   session       Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  toolName      String   // e.g. github.delete_repo
-  scope         String   // read, write, admin, dangerous, network, database
+  toolName      String
+  scope         String
   decision      String   @default("ask") // allow_always, allow_once, ask, deny
-  riskLevel     String   @default("low") // low, medium, high, critical
-  grantedBy     String?  // user, auto-policy, sandbox
+  riskLevel     String   @default("low")
+  grantedBy     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
 // ============================================================
-// PHASE 1 & 8 — MCP ZERO TRUST GATEWAY + MARKETPLACE
+// PHASE 1 & 8 — MCP TOOL REGISTRY + MARKETPLACE
 // ============================================================
 model McpTool {
   id            String   @id @default(cuid())
-  name          String   @unique // github.delete_repo
-  category      String   // github, stripe, database, filesystem, shell, network, ai
+  name          String   @unique
+  category      String
   description   String
-  riskLevel     String   @default("low") // low, medium, high, critical
-  riskScore     Int      @default(10) // 0-100
-  inputSchema   String   // JSON schema string
+  riskLevel     String   @default("low")
+  riskScore     Int      @default(10)
+  inputSchema   String
   enabled       Boolean  @default(true)
-  packageName   String?  // safe-github, safe-stripe...
+  packageName   String?
   toolCalls     ToolCall[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -85,10 +151,10 @@ model McpTool {
 
 model McpPackage {
   id            String   @id @default(cuid())
-  name          String   @unique // safe-github-mcp
+  name          String   @unique
   displayName   String
   description   String
-  category      String   // github, stripe, database, devops, communication
+  category      String
   icon          String?
   installs      Int      @default(0)
   verified      Boolean  @default(false)
@@ -101,7 +167,28 @@ model McpPackage {
 }
 
 // ============================================================
-// PHASE 1 & 4 — MCP TOOL CALLS + FLIGHT RECORDER (Audit)
+// PHASE 4 — ENCRYPTED VAULT (AES-GCM-256)
+// ============================================================
+model VaultEntry {
+  id              String   @id @default(cuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  projectId       String?
+  name            String
+  provider        String   // GITHUB, STRIPE, AWS, OPENAI, ...
+  scope           String   // github.repo, stripe.charges, ...
+  fingerprint     String   // sha256(raw) for dedup
+  masked          String   // masked evidence for display
+  encryptedIv     String   // JSON array
+  encryptedCipher String   // base64
+  rotatedAt       DateTime?
+  revokedAt       DateTime?
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+}
+
+// ============================================================
+// PHASE 1 & 4 & 10 — TOOL CALLS (real execution audit) + FLIGHT RECORDER
 // ============================================================
 model ToolCall {
   id            String   @id @default(cuid())
@@ -112,22 +199,52 @@ model ToolCall {
   toolId        String?
   tool          McpTool? @relation(fields: [toolId], references: [id])
   toolName      String
-  input         String   // JSON
-  output        String?  // JSON
+  input         String   // JSON, REDACTED of any secrets
+  output        String?  // JSON, REDACTED of any secrets
   riskScore     Int      @default(0)
   riskLevel     String   @default("low")
   decision      String   // allowed, denied, blocked, pending, sandboxed
   reason        String?
-  duration      Int?     // ms
-  replayStep    Int?     // for flight recorder replay order
+  duration      Int?
+  capabilityToken String? // nonce of the capability token used (if any)
+  executed      Boolean  @default(false) // did real execution happen?
+  createdAt     DateTime @default(now())
+}
+
+model ToolExecution {
+  id            String   @id @default(cuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  toolCallId    String?
+  toolName      String
+  adapter       String   // filesystem, github, database, stripe
+  input         String   // JSON
+  output        String?  // JSON
+  status        String   // success, error, blocked
+  errorMessage  String?
+  durationMs    Int
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actorType     String   // user, agent, system
+  actorId       String?
+  action        String   // agent.create, vault.store, tool.invoke, scan.run
+  target        String?
+  metadata      String?  // JSON
   createdAt     DateTime @default(now())
 }
 
 // ============================================================
-// PHASE 5 — AI SANDBOX MODE (Shadow Workspace)
+// PHASE 5 — PROJECTS + SANDBOX
 // ============================================================
 model Project {
   id               String   @id @default(cuid())
+  orgId            String
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name             String
   repoUrl          String?
   description      String?
@@ -136,11 +253,12 @@ model Project {
   riskyFiles       Int      @default(0)
   agentPermissions Int      @default(0)
   securityIssues   Int      @default(0)
-  status           String   @default("scanned") // pending, scanning, scanned, safe, at-risk
-  sandboxStatus    String   @default("none") // none, created, modified, scanning, approved, merged, rejected
+  status           String   @default("scanned")
+  sandboxStatus    String   @default("none")
   fileCount        Int      @default(0)
   scans            Scan[]
   sandboxChanges   SandboxChange[]
+  vaultEntries     VaultEntry[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -149,9 +267,9 @@ model Scan {
   id            String   @id @default(cuid())
   projectId     String
   project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  type          String   // secrets, permissions, configs, full
+  type          String
   status        String   @default("completed")
-  findings      String   // JSON array
+  findings      String
   score         Int      @default(0)
   createdAt     DateTime @default(now())
 }
@@ -162,7 +280,7 @@ model SandboxChange {
   project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   agentId       String?
   filePath      String
-  changeType    String   // created, modified, deleted
+  changeType    String
   diff          String
   riskLevel     String   @default("low")
   riskReason    String?
@@ -171,21 +289,21 @@ model SandboxChange {
 }
 
 // ============================================================
-// PHASE 11 — ATTACK TESTS (Red Team)
+// PHASE 11 — ATTACK TESTS
 // ============================================================
 model AttackTest {
   id            String   @id @default(cuid())
-  type          String   // prompt_injection, malicious_mcp, stolen_token, rogue_agent
+  type          String
   description   String
   payload       String
-  result        String   // blocked, allowed, quarantined
-  severity      String   // low, medium, high, critical
-  defense       String?  // what stopped it
+  result        String
+  severity      String
+  defense       String?
   createdAt     DateTime @default(now())
 }
 
 // ============================================================
-// PHASE 10 — VIRAL FREE PUBLIC SCANNER (no login)
+// PHASE 10 — PUBLIC SCANNER (no login)
 // ============================================================
 model PublicScan {
   id            String   @id @default(cuid())
@@ -195,7 +313,7 @@ model PublicScan {
   secrets       Int
   permissions   Int
   configs       Int
-  findings      String   // JSON
+  findings      String
   shareId       String   @unique
   createdAt     DateTime @default(now())
 }
