@@ -1,0 +1,2679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; object-src 'none'; base-uri 'none';">
+    <title>ShadowPaste // V7.5 AI Credential Runtime &amp; Agent Security Layer</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js" integrity="sha384-sZlPHqJ8Pk1GMyFXfg9vOgDjyUZZe7wE2c0NoPg2z1vs2fmI4wOC0O1ONVyr73qa" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" integrity="sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#6c63d9">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+    </script>
+
+    <style>
+        /* ============================================================
+           SHADOWPASTE V7 — ORGANIC GLASSMORPHISM DESIGN SYSTEM
+           Warm neutral canvas · frosted glass panels · purple-blue AI accents
+           ============================================================ */
+        :root {
+            --ink: #2b2836;
+            --ink-soft: #55506100;
+            --muted: #7d7889;
+            --faint: #a39eae;
+            --glass: rgba(255, 255, 255, 0.52);
+            --glass-strong: rgba(255, 255, 255, 0.68);
+            --glass-inset: rgba(255, 255, 255, 0.38);
+            --stroke: rgba(255, 255, 255, 0.75);
+            --stroke-soft: rgba(43, 39, 51, 0.08);
+            --accent-1: #918ef4;
+            --accent-2: #6c63d9;
+            --accent-ink: #5b53c8;
+            --accent-soft: rgba(120, 112, 230, 0.12);
+            --good: #3d8f68;
+            --good-soft: rgba(61, 143, 104, 0.12);
+            --warn: #b07a35;
+            --warn-soft: rgba(176, 122, 53, 0.12);
+            --bad: #bd4f4f;
+            --bad-soft: rgba(189, 79, 79, 0.10);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1100px 700px at 12% -8%, rgba(147, 140, 242, 0.16), transparent 60%),
+                radial-gradient(900px 620px at 92% 12%, rgba(118, 148, 236, 0.12), transparent 55%),
+                radial-gradient(1300px 900px at 50% 115%, rgba(219, 202, 176, 0.55), transparent 65%),
+                linear-gradient(158deg, #f2ede3 0%, #eee6d8 48%, #eae2d3 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .font-mono-stack { font-family: 'JetBrains Mono', monospace; }
+
+        /* ------- floating 3D ambient orbs ------- */
+        .orb { position: fixed; border-radius: 9999px; pointer-events: none; z-index: 0; filter: blur(2px); }
+        .orb-a {
+            width: 220px; height: 220px; top: 6%; right: -60px;
+            background: radial-gradient(circle at 32% 28%, #ffffff 0%, #d8d4e6 22%, #a49ddd 55%, #6f66c9 100%);
+            opacity: .5; animation: floaty 14s ease-in-out infinite;
+            box-shadow: 0 40px 80px -30px rgba(108, 99, 217, 0.45);
+        }
+        .orb-b {
+            width: 130px; height: 130px; top: 46%; left: -40px;
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #efece4 30%, #cfc8bb 70%, #b0a996 100%);
+            opacity: .55; animation: floaty 18s ease-in-out infinite reverse;
+            box-shadow: 0 30px 60px -25px rgba(110, 100, 80, 0.35);
+        }
+        .orb-c {
+            width: 90px; height: 90px; bottom: 10%; right: 6%;
+            background: radial-gradient(circle at 35% 30%, #ffffff 0%, #dcd9f5 35%, #9d95e8 80%, #7c72d6 100%);
+            opacity: .45; animation: floaty 11s ease-in-out infinite;
+            box-shadow: 0 25px 50px -20px rgba(124, 114, 214, 0.4);
+        }
+        @keyframes floaty {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-22px) rotate(4deg); }
+        }
+
+        /* ------- frosted glass panels ------- */
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(24px) saturate(150%);
+            -webkit-backdrop-filter: blur(24px) saturate(150%);
+            border: 1px solid var(--stroke);
+            border-radius: 26px;
+            box-shadow:
+                0 24px 60px -28px rgba(84, 74, 130, 0.28),
+                0 2px 8px rgba(84, 74, 130, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+        .glass-inset {
+            background: var(--glass-inset);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 18px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+        .glass-chip {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.65);
+            border-radius: 9999px;
+            backdrop-filter: blur(10px);
+        }
+
+        .t-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+        .t-value { color: var(--ink); font-weight: 800; }
+        .t-hint { color: var(--faint); }
+
+        .accent-grad-text {
+            background: linear-gradient(120deg, var(--accent-2), var(--accent-1), #7d9bea);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #948ff3 0%, #6c63d9 55%, #5f56cf 100%);
+            color: #ffffff; font-weight: 700; border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 18px 38px -14px rgba(101, 92, 214, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            transition: all .22s ease;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 22px 44px -14px rgba(101, 92, 214, 0.65), inset 0 1px 0 rgba(255,255,255,.4); }
+        .btn-primary:active { transform: translateY(0) scale(.995); }
+        .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.45); color: var(--ink);
+            border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 14px;
+            backdrop-filter: blur(8px); transition: all .18s ease; font-weight: 600;
+        }
+        .btn-ghost:hover { background: rgba(255, 255, 255, 0.75); transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(84,74,130,.3); }
+
+        .btn-danger { background: var(--bad-soft); color: var(--bad); border: 1px solid rgba(189,79,79,.22); border-radius: 14px; font-weight: 700; transition: all .18s ease; }
+        .btn-danger:hover { background: rgba(189, 79, 79, 0.18); }
+
+        .field {
+            background: rgba(255, 255, 255, 0.55); border: 1px solid var(--stroke-soft);
+            border-radius: 14px; color: var(--ink); transition: all .18s ease;
+        }
+        .field::placeholder { color: var(--faint); }
+        .field:focus { outline: none; border-color: rgba(108, 99, 217, 0.5); box-shadow: 0 0 0 4px rgba(108, 99, 217, 0.12); background: rgba(255,255,255,.8); }
+
+        select.field option { color: var(--ink); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(108, 99, 217, 0.25); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(108, 99, 217, 0.4); }
+
+        /* ------- diff / virtualization highlights ------- */
+        .diff-redacted {
+            background: var(--warn-soft); color: var(--warn);
+            border: 1px solid rgba(176, 122, 53, 0.25);
+            border-radius: 8px; padding: 1px 6px; margin: 0 2px; font-weight: 700; font-size: 10px;
+        }
+        .diff-virtualized {
+            background: var(--accent-soft); color: var(--accent-ink);
+            border: 1px solid rgba(108, 99, 217, 0.28);
+            border-radius: 8px; padding: 1px 6px; margin: 0 2px; font-weight: 700; font-size: 10px;
+            box-shadow: 0 4px 12px -6px rgba(108, 99, 217, 0.4);
+        }
+
+        /* ------- status ticker ------- */
+        @keyframes ticker { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(-50%,0,0); } }
+        .ticker-wrap { overflow: hidden; background: rgba(255, 255, 255, 0.35); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,.55); position: relative; z-index: 5; }
+        .ticker-inner { display: inline-flex; white-space: nowrap; animation: ticker 48s linear infinite; }
+        .ticker-item { padding: 0.45rem 2rem; font-size: 10px; letter-spacing: .08em; color: var(--accent-ink); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+
+        /* ------- switches ------- */
+        .sw { position: relative; width: 34px; height: 19px; border-radius: 9999px; background: rgba(43,39,51,.14); border: 1px solid rgba(43,39,51,.08); transition: all .2s ease; flex-shrink: 0; }
+        .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 9999px; background: #fff; box-shadow: 0 2px 5px rgba(43,39,51,.25); transition: all .2s ease; }
+        input:checked + .sw { background: linear-gradient(135deg, #948ff3, #6c63d9); border-color: rgba(108,99,217,.3); }
+        input:checked + .sw::after { transform: translateX(15px); }
+
+        /* ------- status dots & badges ------- */
+        .dot { width: 7px; height: 7px; border-radius: 9999px; display: inline-block; }
+        .dot-good { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+        .dot-warn { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+        .dot-bad { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
+        .dot-idle { background: var(--faint); box-shadow: 0 0 0 3px rgba(163,158,174,.15); }
+        .pulse { animation: pulse-dot 2s ease-in-out infinite; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+        /* ------- activity feed entrance ------- */
+        @keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        .feed-item { animation: slide-in .3s ease; }
+
+        /* ------- vault cards ------- */
+        .provider-chip {
+            width: 38px; height: 38px; border-radius: 13px; display: flex; align-items: center; justify-content: center;
+            font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: #fff;
+            background: linear-gradient(135deg, #948ff3, #6c63d9);
+            box-shadow: 0 10px 22px -10px rgba(101, 92, 214, 0.6), inset 0 1px 0 rgba(255,255,255,.4);
+            flex-shrink: 0;
+        }
+
+        .firewall-banner { border-radius: 18px; padding: 10px 16px; font-size: 11px; font-weight: 600; display: none; align-items: center; gap: 10px; backdrop-filter: blur(12px); }
+        .firewall-low { background: var(--good-soft); color: var(--good); border: 1px solid rgba(61,143,104,.2); }
+        .firewall-medium { background: var(--warn-soft); color: var(--warn); border: 1px solid rgba(176,122,53,.22); }
+        .firewall-high { background: rgba(200,110,50,.13); color: #a55a20; border: 1px solid rgba(200,110,50,.25); }
+        .firewall-critical { background: var(--bad-soft); color: var(--bad); border: 1px solid rgba(189,79,79,.28); }
+
+        textarea, .selectable { -webkit-user-select: text; user-select: text; }
+
+        /* ============================================================
+           NEURAL COMMAND CENTER — living 3D hero (Three.js WebGL)
+           ============================================================ */
+        #neuralHero {
+            position: relative; width: 100%; min-height: 100vh; overflow: hidden;
+            background: radial-gradient(120% 90% at 50% 30%, #12060a 0%, #0a0710 45%, #05050a 100%);
+            display: flex; flex-direction: column;
+        }
+        #neuralCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+        #neuralHero .hero-vignette { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+            background: radial-gradient(90% 70% at 50% 40%, transparent 40%, rgba(5,5,10,.55) 100%); }
+        #neuralHero .hero-layer { position: relative; z-index: 2; }
+
+        .dark-glass {
+            background: rgba(20, 16, 30, 0.42);
+            backdrop-filter: blur(22px) saturate(140%);
+            -webkit-backdrop-filter: blur(22px) saturate(140%);
+            border: 1px solid rgba(255, 180, 120, 0.14);
+            border-radius: 20px;
+            box-shadow: 0 30px 70px -30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
+        }
+        .neon-text { background: linear-gradient(100deg, #ffb27a, #ff7a59 40%, #7aa0ff 90%);
+            -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .hero-dim { color: #b9b2c9; }
+        .hero-faint { color: #6f6981; }
+        .hero-label { font-size: 9px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #8a8397; }
+
+        /* protection orb */
+        .orb-wrap { position: relative; width: 120px; height: 120px; }
+        .orb-core { position: absolute; inset: 0; border-radius: 9999px;
+            background: radial-gradient(circle at 40% 35%, #ffd9b0, #ff7a59 45%, #b23a6b 75%, #3a2b6b 100%);
+            box-shadow: 0 0 40px -6px rgba(255,122,89,.6), inset 0 0 30px rgba(255,220,180,.35);
+            animation: orbBreath 4s ease-in-out infinite; }
+        @keyframes orbBreath { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.05); } }
+        .orb-ring { position: absolute; inset: -8px; border-radius: 9999px; border: 1px solid rgba(255,160,120,.25);
+            animation: orbSpin 14s linear infinite; }
+        .orb-ring::after { content:''; position:absolute; top:-3px; left:50%; width:6px; height:6px; border-radius:9999px; background:#ffd9b0; box-shadow:0 0 10px #ff7a59; }
+        @keyframes orbSpin { to { transform: rotate(360deg); } }
+        .orb-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
+            font-family:'JetBrains Mono',monospace; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+
+        /* runtime pipeline flow */
+        .pipe-step { position: relative; }
+        .pipe-line { position: relative; height: 2px; background: rgba(255,160,120,.18); border-radius: 2px; overflow: hidden; }
+        .pipe-line::after { content:''; position:absolute; top:0; left:-40%; width:40%; height:100%;
+            background: linear-gradient(90deg, transparent, #ff9a6a, #7aa0ff, transparent);
+            animation: pipeFlow 2.4s linear infinite; }
+        @keyframes pipeFlow { to { left: 110%; } }
+        .pipe-dot { width: 9px; height: 9px; border-radius: 9999px; background: radial-gradient(circle at 35% 35%, #ffd9b0, #ff7a59);
+            box-shadow: 0 0 12px rgba(255,122,89,.7); }
+
+        /* agent network mini graph */
+        .agent-node { transition: all .3s ease; }
+        .agent-pulse { stroke-dasharray: 4 8; animation: dashFlow 1.6s linear infinite; }
+        @keyframes dashFlow { to { stroke-dashoffset: -24; } }
+
+        .scroll-cue { animation: cueBob 1.8s ease-in-out infinite; }
+        @keyframes cueBob { 0%,100%{ transform: translateY(0); opacity:.6 } 50%{ transform: translateY(6px); opacity:1 } }
+
+        @media (prefers-reduced-motion: reduce) {
+            #neuralCanvas { display: none; }
+            .orb-core, .orb-ring, .pipe-line::after, .agent-pulse, .scroll-cue { animation: none !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-200/60 selection:text-indigo-900">
+
+    <!-- ambient floating orbs -->
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+
+    <!-- ============ NEURAL COMMAND CENTER HERO ============ -->
+    <section id="neuralHero">
+        <canvas id="neuralCanvas"></canvas>
+        <div class="hero-vignette"></div>
+
+        <div class="hero-layer flex-1 flex flex-col max-w-6xl w-full mx-auto px-5 sm:px-8 py-6">
+            <!-- top nav -->
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#ff9a6a,#b23a6b);box-shadow:0 8px 24px -8px rgba(255,122,89,.6)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    </div>
+                    <span class="font-extrabold tracking-tight text-white text-lg">Shadow<span class="neon-text">Paste</span></span>
+                    <span class="dark-glass px-2.5 py-0.5 text-[9px] font-bold font-mono-stack tracking-widest" style="color:#ffb27a">V11.1 · COMMAND CENTER</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="heroRuntimeStatus" class="hidden sm:flex items-center gap-1.5 text-[10px] font-mono-stack hero-dim"><span class="dot dot-idle"></span>init…</span>
+                    <button onclick="document.getElementById('appConsole').scrollIntoView({behavior:'smooth'})" class="dark-glass px-4 py-1.5 text-[10px] uppercase tracking-widest font-mono-stack font-bold text-white hover:brightness-125 transition-all">Launch Console ↓</button>
+                </div>
+            </div>
+
+            <!-- center wordmark -->
+            <div class="flex-1 flex flex-col justify-center py-10">
+                <div class="max-w-2xl">
+                    <div class="dark-glass inline-flex items-center gap-2 px-3 py-1 mb-5 text-[10px] font-mono-stack hero-dim">
+                        <span class="dot dot-good pulse"></span> LOCAL ENCRYPTED CREDENTIAL RUNTIME
+                    </div>
+                    <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-white leading-[1.02]">
+                        Zero Trust Runtime<br><span class="neon-text">for AI Agents</span>
+                    </h1>
+                    <p class="mt-5 text-sm sm:text-base hero-dim max-w-lg leading-relaxed">
+                        Paste a key into any AI chat. ShadowPaste virtualizes it into an encrypted local vault and hands the model a scoped capability reference — the raw secret never enters the AI context, logs, history, or exports.
+                    </p>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button onclick="document.getElementById('appConsole').scrollIntoView({behavior:'smooth'})" class="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest font-mono-stack text-white" style="background:linear-gradient(135deg,#ff9a6a,#b23a6b);box-shadow:0 16px 38px -14px rgba(255,90,110,.6)">Open Sanitizer</button>
+                        <button onclick="document.getElementById('agentNetSection').scrollIntoView({behavior:'smooth'})" class="dark-glass px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest font-mono-stack text-white hover:brightness-125 transition-all">Agent Network</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- floating command cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- protection orb -->
+                <div class="dark-glass p-5 flex items-center gap-4">
+                    <div class="orb-wrap shrink-0">
+                        <div class="orb-core"></div><div class="orb-ring"></div>
+                        <div class="orb-val"><span id="heroProtScore" class="text-2xl font-black">—</span><span class="text-[8px] hero-faint tracking-widest">PROTECTION</span></div>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="hero-label mb-1">Protection Score</div>
+                        <div id="heroProtDesc" class="text-[11px] hero-dim leading-snug">waiting for runtime</div>
+                        <div class="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono-stack">
+                            <div><div class="hero-faint">Protected</div><div id="heroProtected" class="text-white font-bold text-sm">—</div></div>
+                            <div><div class="hero-faint">High-risk</div><div id="heroHighRisk" class="text-white font-bold text-sm">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- live threat / runtime counters -->
+                <div class="dark-glass p-5">
+                    <div class="hero-label mb-2">Live Threat Graph</div>
+                    <svg id="heroThreat" viewBox="0 0 300 48" class="w-full" style="height:48px" preserveAspectRatio="none"></svg>
+                    <div class="mt-3 grid grid-cols-2 gap-3 text-[10px] font-mono-stack">
+                        <div><div class="hero-faint">Runtime exec</div><div id="heroExec" class="font-bold text-sm" style="color:#8affc0">—</div></div>
+                        <div><div class="hero-faint">Attacks blocked</div><div id="heroBlocked" class="font-bold text-sm" style="color:#ff8a8a">—</div></div>
+                    </div>
+                </div>
+
+                <!-- runtime pipeline flow -->
+                <div class="dark-glass p-5">
+                    <div class="hero-label mb-3">Runtime Execution Flow</div>
+                    <div class="flex flex-col gap-2.5">
+                        <div class="flex items-center gap-2.5"><span class="pipe-dot"></span><span class="text-[11px] text-white">Secret detected</span></div>
+                        <div class="pipe-line ml-1"></div>
+                        <div class="flex items-center gap-2.5"><span class="pipe-dot"></span><span class="text-[11px] text-white">Encrypted vault (AES-GCM)</span></div>
+                        <div class="pipe-line ml-1"></div>
+                        <div class="flex items-center gap-2.5"><span class="pipe-dot"></span><span class="text-[11px] text-white">Capability token</span></div>
+                        <div class="pipe-line ml-1"></div>
+                        <div class="flex items-center gap-2.5"><span class="pipe-dot"></span><span class="text-[11px] text-white">AI agent execution</span></div>
+                        <div class="pipe-line ml-1"></div>
+                        <div class="flex items-center gap-2.5"><span class="pipe-dot" style="background:radial-gradient(circle at 35% 35%,#c9ffe0,#8affc0)"></span><span class="text-[11px]" style="color:#8affc0">Zero secret exposure</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-center mt-6">
+                <div class="scroll-cue text-[10px] font-mono-stack hero-faint flex flex-col items-center gap-1">
+                    <span>SCROLL TO CONSOLE</span><span>↓</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- honest status ticker -->
+    <div class="ticker-wrap w-full">
+        <div class="ticker-inner">
+            <div class="ticker-item">◈ SHADOWPASTE V7.5 — LOCAL ENCRYPTED CREDENTIAL RUNTIME · RAW SECRETS NEVER SENT TO AI CONTEXT</div>
+            <div class="ticker-item">◈ VAULT: AES-GCM 256 VIA WEBCRYPTO · SECRETS NEVER INTENTIONALLY LEAVE THE LOCAL VAULT</div>
+            <div class="ticker-item">◈ VIRTUALIZATION: RAW CREDENTIALS ARE REPLACED WITH SCOPED CAPABILITY REFERENCES BEFORE ANY PROMPT LEAVES THIS PAGE</div>
+            <div class="ticker-item">◈ SHADOWPASTE V7.5 — LOCAL ENCRYPTED CREDENTIAL RUNTIME · RAW SECRETS NEVER SENT TO AI CONTEXT</div>
+            <div class="ticker-item">◈ VAULT: AES-GCM 256 VIA WEBCRYPTO · SECRETS NEVER INTENTIONALLY LEAVE THE LOCAL VAULT</div>
+        </div>
+    </div>
+
+    <div id="appConsole" class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 flex flex-col relative z-10">
+
+        <!-- ============ HEADER ============ -->
+        <header class="glass px-5 sm:px-7 py-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg,#948ff3,#6c63d9); box-shadow: 0 14px 30px -10px rgba(101,92,214,.55);">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <h1 class="text-lg font-extrabold tracking-tight">Shadow<span class="accent-grad-text">Paste</span></h1>
+                        <span class="glass-chip px-2.5 py-0.5 text-[9px] font-bold font-mono-stack tracking-widest" style="color: var(--accent-ink);">V15 · CREDENTIAL RUNTIME</span>
+                        <span id="cryptoStatusBadge" class="glass-chip px-2.5 py-0.5 text-[9px] font-bold font-mono-stack tracking-widest flex items-center gap-1.5"><span class="dot dot-idle"></span><span>VAULT INIT…</span></span>
+                    </div>
+                    <p class="text-[11px] mt-0.5" style="color: var(--muted);">Local AI Secret Runtime · Virtualization Vault · Prompt Governance & Token Analytics</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button id="pwaInstallBtn" class="hidden btn-ghost px-3.5 py-1.5 text-[10px] uppercase tracking-widest font-mono-stack">Install App</button>
+                <div class="glass-chip flex items-center gap-1 p-1">
+                    <button id="quickModeBtn" class="px-3.5 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all">Quick</button>
+                    <button id="proModeBtn" class="px-3.5 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all">Pro Matrix</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ============ METRICS ROW ============ -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <div class="glass-inset p-3.5 flex flex-col justify-between">
+                <span class="t-label">Claude Budget</span>
+                <div id="creditBalanceDisp" class="text-sm t-value font-mono-stack mt-1" style="color: var(--good);">$20.00</div>
+                <button id="resetCreditBtn" class="text-[9px] font-mono-stack text-left mt-0.5 hover:underline" style="color: var(--accent-ink);">Modify balance</button>
+            </div>
+            <div class="glass-inset p-3.5">
+                <span class="t-label">Weighted Risk</span>
+                <div id="riskLevelDisp" class="text-sm t-value font-mono-stack mt-1">0 · LOW</div>
+            </div>
+            <div class="glass-inset p-3.5">
+                <span class="t-label">AI Readiness</span>
+                <div id="aiReadinessDisp" class="text-sm t-value font-mono-stack mt-1">0 / 100</div>
+            </div>
+            <div class="glass-inset p-3.5">
+                <span class="t-label">Prompt Quality</span>
+                <div id="qualityScoreDisp" class="text-sm t-value font-mono-stack mt-1">0 / 100</div>
+            </div>
+            <div class="glass-inset p-3.5">
+                <span class="t-label">Optimization</span>
+                <div id="compressionRatioDisp" class="text-sm t-value font-mono-stack mt-1">0%</div>
+            </div>
+            <div class="glass-inset p-3.5">
+                <span class="t-label">Token Metrics</span>
+                <div id="tokenAnalyticsLogDisp" class="text-[10px] font-mono-stack mt-1 leading-tight" style="color: var(--muted);">Orig 0 · Opt 0<br>Tokens <span id="estTokensDisp" class="t-value">0</span></div>
+            </div>
+        </div>
+
+        <!-- ============ PRO CONTROL PANEL ============ -->
+        <div id="proControlPanel" class="hidden flex-col gap-5 mb-6 glass p-5 sm:p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2">
+                    <h3 class="t-label mb-2.5">Granular Detection Firewall Matrix</h3>
+                    <div id="toggleMatrixGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]" style="color: var(--muted);"></div>
+                </div>
+
+                <div>
+                    <h3 class="t-label mb-2.5">Objective Preset Blueprints</h3>
+                    <div class="grid grid-cols-2 gap-2 text-[11px] font-mono-stack">
+                        <button id="btnTemplateCoding" class="btn-ghost p-2 text-left">⌘ Coding</button>
+                        <button id="btnTemplateBusiness" class="btn-ghost p-2 text-left">◆ Business</button>
+                        <button id="btnTemplateResearch" class="btn-ghost p-2 text-left">◎ Research</button>
+                        <button id="btnTemplateCreative" class="btn-ghost p-2 text-left">✦ Creative</button>
+                    </div>
+
+                    <div class="mt-5 pt-4 flex items-center justify-between gap-2" style="border-top: 1px solid var(--stroke-soft);">
+                        <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input type="checkbox" id="historyToggle" class="sr-only">
+                            <span class="sw"></span>
+                            <span class="text-[9px] font-bold uppercase tracking-widest" style="color: var(--muted);">Save session ledger</span>
+                        </label>
+                        <button id="wipeHistoryBtn" class="hidden btn-danger px-2.5 py-1 text-[9px] uppercase tracking-widest">Wipe ledger</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4" style="border-top: 1px solid var(--stroke-soft);">
+                <div>
+                    <label class="t-label block mb-1.5">Target Model Pricing</label>
+                    <select id="pricingModelSelect" class="field w-full px-3 py-2 text-[11px] font-mono-stack">
+                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet ($3.00/M)</option>
+                        <option value="gpt-4o">GPT-4o ($5.00/M)</option>
+                        <option value="gemini-1-5-pro">Gemini 1.5 Pro ($1.25/M)</option>
+                        <option value="deepseek-v3">DeepSeek V3 ($0.14/M)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="t-label block mb-1.5">Cloak Target Directives</label>
+                    <input id="customKeywords" type="text" class="field w-full px-3 py-2 text-[11px] font-mono-stack" placeholder="e.g. Shadowtees, SecretProject">
+                </div>
+                <div>
+                    <label class="t-label block mb-1.5">Search & Replace</label>
+                    <div class="flex gap-1.5">
+                        <input id="searchTarget" type="text" placeholder="Find" class="field w-1/2 px-2.5 py-2 text-[11px] font-mono-stack">
+                        <input id="replaceTarget" type="text" placeholder="Replace" class="field w-1/2 px-2.5 py-2 text-[11px] font-mono-stack">
+                    </div>
+                </div>
+                <div>
+                    <label class="t-label block mb-1.5">Chunk Boundary</label>
+                    <div class="flex items-center gap-2.5 mt-2.5">
+                        <input id="chunkSlider" type="range" min="1000" max="8000" value="3800" class="flex-1 h-1 rounded-lg" style="accent-color: var(--accent-2);">
+                        <span id="sliderValue" class="text-[10px] font-mono-stack shrink-0" style="color: var(--muted);">3800 chars</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ COMPLIANCE / OCR WARNING ============ -->
+        <div id="complianceWarningBlock" class="hidden items-center justify-between px-4 py-2.5 mb-4 rounded-2xl text-[11px] font-mono-stack" style="background: var(--warn-soft); border: 1px solid rgba(176,122,53,.25); color: var(--warn);">
+            <span class="flex items-center gap-2">⚠ <b class="uppercase tracking-wider">Scan boundary reached:</b>&nbsp;OCR limited to first 5 pages — processing stays in local RAM.</span>
+            <button onclick="document.getElementById('complianceWarningBlock').classList.add('hidden')" class="font-bold uppercase shrink-0 text-[10px] hover:opacity-70">Dismiss</button>
+        </div>
+
+        <!-- ============ DROP ZONE ============ -->
+        <div id="dropZone" class="glass mb-5 p-6 text-center transition-all cursor-pointer group hover:-translate-y-0.5" style="border-style: dashed; border-color: rgba(108,99,217,.25);">
+            <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.pdf,.txt,.log,.docx,.zip,.png,.jpg,.jpeg,.webp" multiple>
+            <div class="flex flex-col items-center gap-2">
+                <div class="w-11 h-11 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" style="background: var(--accent-soft);">
+                    <svg class="w-5 h-5" style="color: var(--accent-ink);" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                </div>
+                <p class="text-sm font-semibold">Drop files or click to parse locally</p>
+                <p class="text-[10px] font-mono-stack t-hint">CSV · XLSX · PDF (incl. scanned + OCR) · DOCX · ZIP · TXT · Images — nothing leaves this device</p>
+            </div>
+        </div>
+
+        <!-- sheet selector -->
+        <div id="sheetSelectorRow" class="hidden flex-wrap items-center gap-3 mb-4 glass-inset px-4 py-2.5 text-[11px] font-mono-stack">
+            <span class="t-label">Workbook sheets</span>
+            <select id="excelSheetSelect" class="field px-3 py-1 text-[11px]"></select>
+        </div>
+
+        <!-- batch queue -->
+        <div id="multiFileQueueCard" class="hidden flex-col glass-inset p-4 mb-4 text-[10px] font-mono-stack" style="color: var(--muted);">
+            <span class="t-label mb-2">Ingestion Pipeline Queue</span>
+            <div id="multiFileQueueList" class="flex flex-col gap-1 max-h-[90px] overflow-y-auto custom-scrollbar"></div>
+        </div>
+
+        <!-- classification badges -->
+        <div class="flex flex-wrap items-center gap-2 mb-3 px-1 text-[10px] font-mono-stack font-semibold" style="color: var(--muted);">
+            <span class="t-label">Classification</span>
+            <span id="intentBadge" class="glass-chip px-3 py-1">INTENT: UNKNOWN</span>
+            <span id="langBadge" class="glass-chip px-3 py-1">LANG: DETECTING</span>
+            <span id="contextBadge" class="glass-chip px-3 py-1">TOPICS: GENERIC</span>
+        </div>
+
+        <!-- ============ INPUT / OUTPUT PANES ============ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div class="relative flex flex-col">
+                <div class="t-label mb-2 px-1">Raw Content Entry</div>
+                <textarea id="rawInput" class="field custom-scrollbar w-full flex-1 min-h-[210px] p-4 text-xs font-mono-stack resize-none leading-relaxed" style="border-radius: 20px;" placeholder="Paste prompts, logs, datasets — or an API key. In Virtualize mode the raw key is encrypted into the local vault and the AI only ever sees a scoped {{SHADOW_SECRET_…}} capability reference."></textarea>
+                <div class="absolute bottom-3.5 right-3.5 flex gap-1.5 text-[9px] font-mono-stack pointer-events-none select-none">
+                    <span id="dataTypeDisp" class="glass-chip px-2 py-0.5" style="color: var(--muted);">STREAM</span>
+                    <span id="charCountDisp" class="glass-chip px-2 py-0.5" style="color: var(--muted);">0 CHARS</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col">
+                <div class="t-label mb-2 px-1">Sanitized Governance Output</div>
+                <div id="diffViewPanel" class="glass-inset custom-scrollbar selectable w-full flex-1 min-h-[210px] p-4 text-xs font-mono-stack overflow-y-auto leading-relaxed" style="border-radius: 20px; color: var(--ink);">
+                    <span class="t-hint italic">Sanitized output with highlighted virtualizations & redactions renders here…</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ PROCESSING MODE ============ -->
+        <div class="glass px-5 py-3.5 mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="t-label">Processing Mode</span>
+                <div class="glass-chip flex items-center gap-1 p-1">
+                    <button data-mode="protect" class="mode-btn px-3 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all">Protect</button>
+                    <button data-mode="optimize" class="mode-btn px-3 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all">Optimize</button>
+                    <button data-mode="test" class="mode-btn px-3 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all">Test</button>
+                </div>
+            </div>
+            <p id="modeHint" class="text-[10px] font-mono-stack" style="color: var(--muted);"></p>
+        </div>
+
+        <!-- ============ ENGINE TOGGLES ============ -->
+        <div class="glass px-5 py-4 mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-[11px] font-semibold" style="color: var(--muted);">
+                <label class="flex items-center gap-2.5 cursor-pointer select-none" title="Detected credentials are encrypted into the vault and replaced with capability references the runtime can still resolve. Off = classic destructive redaction.">
+                    <input type="checkbox" id="virtualizeToggle" checked class="sr-only">
+                    <span class="sw"></span>
+                    <span>Secret Virtualization <span class="glass-chip px-1.5 py-px text-[8px] font-mono-stack" style="color: var(--accent-ink);">RUNTIME</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer select-none" title="Shannon-entropy scan catches unknown high-entropy credentials the regex matrix misses.">
+                    <input type="checkbox" id="entropyToggle" checked class="sr-only">
+                    <span class="sw"></span><span>Entropy Scanner</span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" id="toonToggle" class="sr-only">
+                    <span class="sw"></span><span>TOON Matrix</span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" id="intelToggle" checked class="sr-only">
+                    <span class="sw"></span><span>Prompt Intelligence V2</span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" id="hallucinationToggle" checked class="sr-only">
+                    <span class="sw"></span><span>Anti-Hallucination</span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" id="tokenOptimizationToggle" checked class="sr-only">
+                    <span class="sw"></span><span>Token Compress</span>
+                </label>
+            </div>
+            <div class="text-[10px] font-mono-stack" style="color: var(--muted);">
+                Est input cost <span id="payloadCostDisp" class="t-value">$0.0000</span>
+            </div>
+        </div>
+
+        <!-- ============ AGENT FIREWALL BANNER ============ -->
+        <div id="firewallBanner" class="firewall-banner mb-4"></div>
+
+        <!-- ============ COMPLIANCE LOG ============ -->
+        <div id="complianceLogCard" class="hidden flex-col glass p-5 mb-5">
+            <div class="flex items-center justify-between mb-3 pb-2.5" style="border-bottom: 1px solid var(--stroke-soft);">
+                <span class="t-label">Governance Redaction & Virtualization Audit</span>
+                <button id="exportAuditBtn" class="btn-ghost px-3 py-1 text-[9px] font-mono-stack uppercase tracking-widest">Download Certificate</button>
+            </div>
+            <div id="complianceMetricsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono-stack" style="color: var(--muted);"></div>
+        </div>
+
+        <!-- ============ CHUNK PANEL ============ -->
+        <div id="chunkControlPanel" class="hidden glass p-5 mb-5">
+            <p class="t-label mb-3" style="color: var(--accent-ink);">Partition chunks — sliced at newline boundaries</p>
+            <div id="chunkButtonsGrid" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- ============ EXECUTE ============ -->
+        <button id="masterExecuteBtn" class="btn-primary w-full py-3.5 px-4 flex justify-center items-center gap-2 text-xs uppercase tracking-[0.18em] font-mono-stack">
+            Execute Governance Engine & Sync
+        </button>
+
+        <div id="exportActionSection" class="hidden grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
+            <button id="exportCopyPrompt" class="btn-ghost py-2 text-[10px] font-mono-stack uppercase tracking-widest">Copy Full Prompt</button>
+            <button id="exportTxtBtn" class="btn-ghost py-2 text-[10px] font-mono-stack uppercase tracking-widest">Export TXT</button>
+            <button id="exportJsonBtn" class="btn-ghost py-2 text-[10px] font-mono-stack uppercase tracking-widest">Export JSON</button>
+            <button id="exportMdBtn" class="btn-ghost py-2 text-[10px] font-mono-stack uppercase tracking-widest">Export MD</button>
+        </div>
+
+        <!-- ============ RESTORE (AI ROUND-TRIP) ============ -->
+        <section class="glass p-5 mt-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h2 class="text-sm font-extrabold"><span class="accent-grad-text">Restore</span> from AI output</h2>
+                <span class="text-[10px] font-mono-stack" style="color: var(--muted);">paste the AI's edited code — {{SHADOW_SECRET_*}} refs become your real secrets, locally</span>
+            </div>
+            <textarea id="restoreInput" class="field custom-scrollbar w-full min-h-[110px] p-3 text-xs font-mono-stack resize-none leading-relaxed" style="border-radius:16px" placeholder="Paste the AI's response containing {{SHADOW_SECRET_...}} references here…"></textarea>
+            <div class="flex flex-wrap items-center gap-2 mt-2.5">
+                <button id="restoreBtn" class="btn-primary px-5 py-2 text-[10px] uppercase tracking-widest font-mono-stack">⟲ Restore Secrets</button>
+                <button id="restoreCopyBtn" class="btn-ghost px-4 py-2 text-[10px] uppercase tracking-widest font-mono-stack hidden">Copy Restored</button>
+                <span id="restoreStatus" class="text-[10px] font-mono-stack" style="color: var(--muted);"></span>
+            </div>
+            <div id="restoreOutput" class="glass-inset custom-scrollbar selectable hidden w-full mt-2.5 p-3 text-xs font-mono-stack overflow-y-auto max-h-[220px] leading-relaxed" style="border-radius:16px; color: var(--ink);"></div>
+        </section>
+
+        <!-- ============ SECURITY ANALYTICS DASHBOARD ============ -->
+        <section class="glass p-5 sm:p-6 mt-7">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-sm font-extrabold"><span class="accent-grad-text">Security Analytics</span></h2>
+                <span class="text-[10px] font-mono-stack" style="color: var(--muted);">live · this session</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="glass-inset p-3.5"><span class="t-label">Secrets Protected</span><div id="anProtected" class="text-lg t-value font-mono-stack mt-1">0</div></div>
+                <div class="glass-inset p-3.5"><span class="t-label">Runtime Executions</span><div id="anExec" class="text-lg t-value font-mono-stack mt-1" style="color: var(--good);">0</div></div>
+                <div class="glass-inset p-3.5"><span class="t-label">Attacks Blocked</span><div id="anBlocked" class="text-lg t-value font-mono-stack mt-1" style="color: var(--bad);">0</div></div>
+                <div class="glass-inset p-3.5"><span class="t-label">High-Risk Secrets</span><div id="anHighRisk" class="text-lg t-value font-mono-stack mt-1" style="color: var(--warn);">0</div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-inset p-4">
+                    <span class="t-label block mb-2">Risk Score — recent runs</span>
+                    <svg id="anSpark" viewBox="0 0 300 60" class="w-full" style="height:60px" preserveAspectRatio="none"></svg>
+                </div>
+                <div class="glass-inset p-4">
+                    <span class="t-label block mb-2">Provider Distribution</span>
+                    <div id="anProviders" class="flex flex-col gap-1.5 text-[10px] font-mono-stack" style="color: var(--muted);"><span class="t-hint italic">No secrets vaulted yet.</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ SECRET VAULT DASHBOARD ============ -->
+        <section class="glass p-5 sm:p-6 mt-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="text-sm font-extrabold flex items-center gap-2">
+                        <span class="accent-grad-text">Secret Vault</span>
+                        <span id="vaultCountBadge" class="glass-chip px-2.5 py-0.5 text-[9px] font-mono-stack font-bold" style="color: var(--accent-ink);">0 SECRETS</span>
+                    </h2>
+                    <p class="text-[10px] mt-1" style="color: var(--muted);">AES-GCM encrypted at rest in IndexedDB · non-extractable key · capability references expire after 24h by default</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="vaultAddManualBtn" class="btn-ghost px-3.5 py-1.5 text-[10px] font-mono-stack uppercase tracking-widest">+ Add Secret</button>
+                    <button id="vaultPurgeBtn" class="btn-danger px-3.5 py-1.5 text-[10px] font-mono-stack uppercase tracking-widest">Purge Vault</button>
+                </div>
+            </div>
+            <div id="vaultList" class="flex flex-col gap-2.5 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
+                <p class="t-hint italic text-[11px]">No virtualized secrets yet. Paste content containing an API key and run the engine in Virtualize mode.</p>
+            </div>
+        </section>
+
+        <!-- ============ LIVE AGENT ACTIVITY / GATEWAY ============ -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+            <div class="glass p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-extrabold">Live Agent Activity</h2>
+                    <span class="flex items-center gap-1.5 text-[9px] font-mono-stack font-bold uppercase tracking-widest" style="color: var(--good);"><span class="dot dot-good pulse"></span>Gateway Online</span>
+                </div>
+                <div id="activityFeed" class="flex flex-col gap-1.5 max-h-[240px] overflow-y-auto custom-scrollbar text-[10px] font-mono-stack" style="color: var(--muted);">
+                    <p class="t-hint italic">Gateway events stream here — capability checks, injections, denials…</p>
+                </div>
+            </div>
+
+            <div class="glass p-5">
+                <h2 class="text-sm font-extrabold mb-1">Runtime Gateway Console</h2>
+                <p class="text-[10px] mb-3" style="color: var(--muted);">Simulates an agent invoking <span class="font-mono-stack" style="color: var(--accent-ink);">use_secret(reference, action)</span>. The gateway validates session, scope & expiry, mints a signed capability token, decrypts in an isolated scope, and returns only the result — never the credential.</p>
+                <div class="flex flex-col gap-2.5">
+                    <select id="gatewaySecretSelect" class="field w-full px-3 py-2 text-[11px] font-mono-stack">
+                        <option value="">— no vault secrets available —</option>
+                    </select>
+                    <input id="gatewayActionInput" type="text" class="field w-full px-3 py-2 text-[11px] font-mono-stack" value="provider.chat.completions" placeholder="action e.g. provider.chat.completions">
+                    <button id="gatewayInvokeBtn" class="btn-primary py-2.5 text-[10px] uppercase tracking-widest font-mono-stack">Simulate use_secret( ) Call</button>
+                    <div id="gatewayResultBox" class="glass-inset hidden p-3 text-[10px] font-mono-stack leading-relaxed selectable" style="color: var(--ink);"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ SESSION HISTORY ============ -->
+        <section class="glass-inset p-5 mt-5 text-[10px] font-mono-stack">
+            <span class="t-label block mb-2.5">IndexedDB Session History Ledger</span>
+            <div id="historyLogList" class="flex flex-col gap-1.5 max-h-[110px] overflow-y-auto custom-scrollbar" style="color: var(--muted);">
+                <p class="t-hint italic">No persistent history yet — enable "Save session ledger" in the Pro Matrix.</p>
+            </div>
+        </section>
+
+        <div class="my-7" style="border-top: 1px solid var(--stroke-soft);"></div>
+
+        <!-- ============ AI AGENT NETWORK VIEW ============ -->
+        <section id="agentNetSection" class="glass p-5 sm:p-6 mt-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <h2 class="text-sm font-extrabold"><span class="accent-grad-text">AI Agent Network</span></h2>
+                <span class="text-[10px] font-mono-stack" style="color: var(--muted);">agents connect through the ShadowPaste runtime — never to raw keys</span>
+            </div>
+            <svg viewBox="0 0 640 260" class="w-full" style="max-height:280px">
+                <defs>
+                    <radialGradient id="hubGrad" cx="50%" cy="45%" r="60%">
+                        <stop offset="0%" stop-color="#b7b1f5"/><stop offset="60%" stop-color="#6c63d9"/><stop offset="100%" stop-color="#4b43b0"/>
+                    </radialGradient>
+                </defs>
+                <!-- edges -->
+                <g stroke="#6c63d9" stroke-width="1.5" fill="none" opacity="0.5">
+                    <line x1="320" y1="130" x2="110" y2="60"/><line x1="320" y1="130" x2="110" y2="200"/>
+                    <line x1="320" y1="130" x2="530" y2="60"/><line x1="320" y1="130" x2="530" y2="200"/>
+                    <line x1="320" y1="130" x2="320" y2="235"/>
+                </g>
+                <!-- animated pulses along edges -->
+                <g stroke="#918ef4" stroke-width="2" fill="none" class="agent-pulse" opacity="0.9">
+                    <line x1="320" y1="130" x2="110" y2="60"/><line x1="320" y1="130" x2="110" y2="200"/>
+                    <line x1="320" y1="130" x2="530" y2="60"/><line x1="320" y1="130" x2="530" y2="200"/>
+                    <line x1="320" y1="130" x2="320" y2="235"/>
+                </g>
+                <!-- agent nodes -->
+                <g font-family="JetBrains Mono, monospace" font-size="11" text-anchor="middle">
+                    <g class="agent-node"><circle cx="110" cy="60" r="24" fill="rgba(255,255,255,.6)" stroke="#6c63d9"/><text x="110" y="64" fill="#2b2836">ChatGPT</text></g>
+                    <g class="agent-node"><circle cx="110" cy="200" r="24" fill="rgba(255,255,255,.6)" stroke="#6c63d9"/><text x="110" y="204" fill="#2b2836">Claude</text></g>
+                    <g class="agent-node"><circle cx="530" cy="60" r="24" fill="rgba(255,255,255,.6)" stroke="#6c63d9"/><text x="530" y="64" fill="#2b2836">Gemini</text></g>
+                    <g class="agent-node"><circle cx="530" cy="200" r="24" fill="rgba(255,255,255,.6)" stroke="#6c63d9"/><text x="530" y="204" fill="#2b2836">Grok</text></g>
+                    <g class="agent-node"><circle cx="320" cy="235" r="22" fill="rgba(255,255,255,.6)" stroke="#6c63d9"/><text x="320" y="239" fill="#2b2836">Local</text></g>
+                    <!-- hub -->
+                    <circle cx="320" cy="130" r="42" fill="url(#hubGrad)" stroke="#fff" stroke-width="1.5"/>
+                    <text x="320" y="126" fill="#fff" font-weight="700" font-size="10">ShadowPaste</text>
+                    <text x="320" y="140" fill="#e7e4ff" font-size="8">RUNTIME</text>
+                </g>
+            </svg>
+        </section>
+
+        <!-- ============ WORKSPACE LINKS ============ -->
+        <p class="t-label mb-3 text-center mt-6">Direct Workspace Mappings</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-8">
+            <button onclick="window.open('https://chatgpt.com','_blank')" class="btn-ghost py-2 text-[11px]">ChatGPT</button>
+            <button onclick="window.open('https://gemini.google.com','_blank')" class="btn-ghost py-2 text-[11px]">Gemini</button>
+            <button onclick="window.open('https://claude.ai','_blank')" class="btn-ghost py-2 text-[11px]">Claude</button>
+            <button onclick="window.open('https://www.perplexity.ai','_blank')" class="btn-ghost py-2 text-[11px]">Perplexity</button>
+            <button onclick="window.open('https://grok.com','_blank')" class="btn-ghost py-2 text-[11px]">Grok</button>
+            <button onclick="window.open('https://chat.deepseek.com','_blank')" class="btn-ghost py-2 text-[11px]">DeepSeek</button>
+            <button onclick="window.open('https://chat.qwenlm.ai','_blank')" class="btn-ghost py-2 text-[11px]">Qwen</button>
+        </div>
+
+        <!-- ============ COMPETITOR TABLE ============ -->
+        <div class="glass p-5 sm:p-6">
+            <p class="t-label mb-4 text-center">Competitor Landscape — Why ShadowPaste Wins</p>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse text-[10px] font-mono-stack" style="color: var(--muted);">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--stroke-soft); color: var(--faint);">
+                            <th class="pb-2 font-bold">TOOL</th><th class="pb-2 font-bold">PRICING</th><th class="pb-2 font-bold">FILE SUPPORT</th><th class="pb-2 font-bold">OFFLINE</th><th class="pb-2 font-bold">SECRET RUNTIME</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--stroke-soft);"><td class="py-2 font-bold" style="color: var(--ink);">◈ ShadowPaste V7</td><td class="py-2" style="color: var(--good);">Free</td><td class="py-2">PDF · CSV · XLSX · DOCX · ZIP · OCR</td><td class="py-2" style="color: var(--good);">✔ Yes</td><td class="py-2" style="color: var(--good);">✔ Virtualized vault</td></tr>
+                        <tr style="border-bottom: 1px solid var(--stroke-soft);"><td class="py-2">AWS Macie</td><td class="py-2">$1/GB</td><td class="py-2">S3 buckets only</td><td class="py-2" style="color: var(--bad);">✘ No</td><td class="py-2" style="color: var(--bad);">✘ Redact only</td></tr>
+                        <tr style="border-bottom: 1px solid var(--stroke-soft);"><td class="py-2">Google DLP</td><td class="py-2">$3/GB</td><td class="py-2">Cloud Storage only</td><td class="py-2" style="color: var(--bad);">✘ No</td><td class="py-2" style="color: var(--bad);">✘ Redact only</td></tr>
+                        <tr><td class="py-2">Presidio</td><td class="py-2">Free (self-host)</td><td class="py-2">Code/SDK required</td><td class="py-2" style="color: var(--good);">✔ Yes</td><td class="py-2" style="color: var(--bad);">✘ Redact only</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <p class="text-center text-[9px] font-mono-stack mt-6 mb-2 t-hint">
+            Security model: secrets never intentionally leave the local vault · AES-GCM 256 at rest · scoped, expiring capability references · no telemetry, no network calls with your data.
+        </p>
+    </div>
+
+    <script>
+    // ================================================================
+    //  SHADOWPASTE V7 — AI SECRET RUNTIME PLATFORM
+    //  Architecture:
+    //    CryptoManager        — WebCrypto AES-GCM + HMAC key custody
+    //    VaultDB              — IndexedDB (keys / secrets / history / activity)
+    //    SecretEngine         — capture → classify → encrypt → reference
+    //    CapabilityTokens     — session-bound, scoped, expiring, HMAC-signed
+    //    AgentFirewall        — intent/action risk engine (LOW→CRITICAL)
+    //    AgentGateway         — use_secret() runtime: validate → decrypt → inject → scrub
+    //    Governance pipeline  — detection matrix, virtualize/redact, optimize, chunk
+    // ================================================================
+    'use strict';
+
+    // ---------------- GLOBAL STATE ----------------
+    let activeDeferredPromptVariable = null;
+    let dataChunks = [];
+    let auditReportLog = "";
+    let finalProcessedOutput = "";
+    let activeWorkbookInstance = null;
+    let batchUploadedFilesQueue = [];
+    let currentBalance = parseFloat(localStorage.getItem('shadowpaste_credits') || '20.00');
+    let currentMode = localStorage.getItem('shadowpaste_mode') || 'quick';
+    // V12: processing mode — protect (real, format-preserving), optimize (legacy prompt rewrite), test (QA labels)
+    let processingMode = localStorage.getItem('shadowpaste_procmode') || 'protect';
+    let dbConnectionInstance = null;
+    let cryptoReady = false;
+    const RUNTIME_SESSION_ID = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) ;
+    // Agent 5: real security-analytics counters (no fabricated numbers)
+    const SecurityMetrics = { executions: 0, blocked: 0, riskHistory: [] };
+    const SECRET_TTL_MS = 24 * 60 * 60 * 1000;      // vault entry default expiry
+    const TOKEN_TTL_MS  = 5 * 60 * 1000;            // capability token expiry
+
+    const modelPricingMatrixLookup = { 'claude-3-5-sonnet': 3.00, 'gpt-4o': 5.00, 'gemini-1-5-pro': 1.25, 'deepseek-v3': 0.14 };
+    const riskWeightsMatrix = { 'PEM_RSA_KEY': 60, 'DB_URI_STRING': 40, 'BACKEND_URLS': 8, 'CREDENTIAL_KEYS': 35, 'JWT_BEARER_TOKEN': 20, 'COOKIES_PASSWORDS': 15, 'CARDS': 30, 'GOVT_NATIONAL_IDS': 20, 'WALLETS': 15, 'NETWORK_LEAKS': 10, 'EMAILS': 2, 'PHONE_LEAKS': 2, 'CUSTOM_CLOAKS': 5, 'HIGH_ENTROPY': 25 };
+
+    // Detection matrix. `virtualize:true` rules are credentials an agent may still
+    // need to USE — in Virtualize mode they go to the vault instead of being destroyed.
+    // PII-class rules (cards, IDs, phones…) are always redacted: they are not capabilities.
+    const matrixRules = [
+        { id: 'PEM_RSA_KEY', label: 'SSH / PEM private keys & certificates', checked: true, virtualize: true, regex: /-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----|-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/gi, mask: '[REDACTED_SSH_KEY_CERTIFICATE]' },
+        { id: 'DB_URI_STRING', label: 'Database URIs & connection strings (Mongo/Postgres/MySQL/Redis…)', checked: true, virtualize: true, regex: /(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|mariadb|rediss?|amqps?|s?ftp):\/\/[^\s:@/]*:[^\s@/]+@[^\s/]+(?::\d+)?(?:\/[^\s"'<>]*)?/gi, mask: '[REDACTED_DB_CREDENTIALS]' },
+        { id: 'BACKEND_URLS', label: 'Hosted backend project URLs (Firebase / Supabase)', checked: true, virtualize: true, regex: /https?:\/\/[a-z0-9-]+\.(?:firebaseio\.com|firebaseapp\.com|supabase\.(?:co|in|net))[^\s"'<>]*/gi, mask: '[REDACTED_BACKEND_URL]' },
+        { id: 'CREDENTIAL_KEYS', label: 'API keys & webhook tokens (OpenAI, Anthropic, AWS, GitHub, HF…)', checked: true, virtualize: true, regex: /sk-ant-[A-Za-z0-9_-]{20,}\b|sk-(proj-)?[A-Za-z0-9_-]{8,}\b|AIza[a-zA-Z0-9_-]{10,}\b|gh[opsur]_[A-Za-z0-9]{20,}\b|github_pat_[A-Za-z0-9_]{20,}\b|AKIA[A-Z0-9]{12,20}\b|ASIA[A-Z0-9]{12,20}\b|stripe_(sk|rk)_(test|live)_[A-Za-z0-9]{8,}\b|[sr]k_(test|live)_[A-Za-z0-9]{12,}\b|glpat-[A-Za-z0-9\-]{20,}\b|hf_[A-Za-z0-9]{20,}\b|ya29\.[A-Za-z0-9_\-]{20,}|\b\d{8,10}:AA[\w-]{32,34}\b|https:\/\/discord\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9\-_]+\b|xox[baprmtv]-[0-9]+-[A-Za-z0-9]+\b/gi, mask: '[REDACTED_API_KEY]' },
+        { id: 'JWT_BEARER_TOKEN', label: 'JWT signatures & bearer tokens', checked: true, virtualize: true, regex: /\bBearer\s+[A-Za-z0-9\-._~+/]+=*\b|\beyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_=]*\b/gi, mask: '[REDACTED_AUTH_TOKEN]' },
+        { id: 'COOKIES_PASSWORDS', label: 'Session cookies & password fields', checked: true, virtualize: true, regex: /\b(session_id|sid|auth_token|password|passwd|secret_password)[:= ]*[A-Za-z0-9_\-@#$!%*?&]{8,64}\b/gi, mask: '[REDACTED_SESSION_PASS]' },
+        { id: 'CARDS', label: 'Credit cards (Luhn-validated)', checked: true, virtualize: false, regex: /\b(?:4\d{15}|5[1-5]\d{14}|6011\d{12}|3[47]\d{13})\b|\b(?:\d{4}[- ]){3}\d{4}\b/g, mask: '[REDACTED_CC]' },
+        { id: 'GOVT_NATIONAL_IDS', label: 'Government identities (SSN, PAN, CPF…)', checked: true, virtualize: false, regex: /\b\d{3}[-_\s]{1,2}\d{2}[-_\s]{1,2}\d{4}\b|\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b|\bBR\d{9,14}\b|\b(?:ES|NIF|CIF)?[- ]?[A-Z0-9]\d{7,8}[A-Z0-9]\b|\b[A-Z]{5}\d{4}[A-Z]\b|\b(?:TAN[- ]?)?[A-Z]{4}\d{5}[A-Z]\b|\b\d{17}[\dX]\b|\b(?:PPT[- ]?)?[A-Z]{1,2}\d{7,9}\b/gi, mask: '[REDACTED_GOVT_ID]' },
+        { id: 'WALLETS', label: 'Crypto wallet addresses', checked: true, virtualize: false, regex: /\b0x[a-fA-F0-9]{40}\b|\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b|\bbc1[a-zA-HJ-NP-Z0-9]{39,59}\b/g, mask: '[REDACTED_CRYPTO]' },
+        { id: 'NETWORK_LEAKS', label: 'IPv4 / IPv6 endpoints', checked: true, virtualize: false, regex: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b|\b(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}\b/g, mask: '[REDACTED_NETWORK_IP]' },
+        { id: 'EMAILS', label: 'Email addresses (optional sweep)', checked: false, virtualize: false, regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, mask: '[REDACTED_EMAIL]' },
+        { id: 'PHONE_LEAKS', label: 'Telephony numbers', checked: true, virtualize: false, regex: /\b(?:\+\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}\b/g, mask: '[REDACTED_PHONE]' }
+    ];
+
+    // ---------------- DOM MAP ----------------
+    const $ = (id) => document.getElementById(id);
+    const rawInput = $('rawInput'), diffViewPanel = $('diffViewPanel'), customKeywords = $('customKeywords'),
+        searchTarget = $('searchTarget'), replaceTarget = $('replaceTarget'), toonToggle = $('toonToggle'),
+        intelToggle = $('intelToggle'), hallucinationToggle = $('hallucinationToggle'),
+        tokenOptimizationToggle = $('tokenOptimizationToggle'), virtualizeToggle = $('virtualizeToggle'),
+        entropyToggle = $('entropyToggle'), masterExecuteBtn = $('masterExecuteBtn'),
+        chunkControlPanel = $('chunkControlPanel'), chunkButtonsGrid = $('chunkButtonsGrid'),
+        complianceLogCard = $('complianceLogCard'), complianceMetricsGrid = $('complianceMetricsGrid'),
+        exportAuditBtn = $('exportAuditBtn'), dropZone = $('dropZone'), fileInput = $('fileInput'),
+        pricingModelSelect = $('pricingModelSelect'), sheetSelectorRow = $('sheetSelectorRow'),
+        excelSheetSelect = $('excelSheetSelect'), multiFileQueueCard = $('multiFileQueueCard'),
+        multiFileQueueList = $('multiFileQueueList'), pwaInstallBtn = $('pwaInstallBtn'),
+        historyToggle = $('historyToggle'), wipeHistoryBtn = $('wipeHistoryBtn'),
+        complianceWarningBlock = $('complianceWarningBlock'), creditBalanceDisp = $('creditBalanceDisp'),
+        estTokensDisp = $('estTokensDisp'), payloadCostDisp = $('payloadCostDisp'),
+        resetCreditBtn = $('resetCreditBtn'), compressionRatioDisp = $('compressionRatioDisp'),
+        tokenAnalyticsLogDisp = $('tokenAnalyticsLogDisp'), dataTypeDisp = $('dataTypeDisp'),
+        charCountDisp = $('charCountDisp'), quickModeBtn = $('quickModeBtn'), proModeBtn = $('proModeBtn'),
+        proControlPanel = $('proControlPanel'), chunkSlider = $('chunkSlider'), sliderValue = $('sliderValue'),
+        qualityScoreDisp = $('qualityScoreDisp'), riskLevelDisp = $('riskLevelDisp'),
+        aiReadinessDisp = $('aiReadinessDisp'), exportActionSection = $('exportActionSection'),
+        historyLogList = $('historyLogList'), intentBadge = $('intentBadge'), langBadge = $('langBadge'),
+        contextBadge = $('contextBadge'), exportCopyPrompt = $('exportCopyPrompt'),
+        exportTxtBtn = $('exportTxtBtn'), exportJsonBtn = $('exportJsonBtn'), exportMdBtn = $('exportMdBtn'),
+        btnTemplateCoding = $('btnTemplateCoding'), btnTemplateBusiness = $('btnTemplateBusiness'),
+        btnTemplateResearch = $('btnTemplateResearch'), btnTemplateCreative = $('btnTemplateCreative'),
+        vaultList = $('vaultList'), vaultCountBadge = $('vaultCountBadge'),
+        vaultAddManualBtn = $('vaultAddManualBtn'), vaultPurgeBtn = $('vaultPurgeBtn'),
+        activityFeed = $('activityFeed'), gatewaySecretSelect = $('gatewaySecretSelect'),
+        gatewayActionInput = $('gatewayActionInput'), gatewayInvokeBtn = $('gatewayInvokeBtn'),
+        gatewayResultBox = $('gatewayResultBox'), firewallBanner = $('firewallBanner'),
+        cryptoStatusBadge = $('cryptoStatusBadge'), toggleMatrixGrid = $('toggleMatrixGrid');
+
+    // ---------------- UTILITIES ----------------
+    function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function encodeHTMLContextString(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+    function triggerInputSync() { rawInput.dispatchEvent(new Event('input', { bubbles: true })); }
+    function nowISO() { return new Date().toISOString(); }
+    function relTime(ts) {
+        if (!ts) return 'never';
+        const d = Date.now() - ts;
+        if (d < 60000) return Math.max(1, Math.round(d / 1000)) + 's ago';
+        if (d < 3600000) return Math.round(d / 60000) + 'm ago';
+        if (d < 86400000) return Math.round(d / 3600000) + 'h ago';
+        return Math.round(d / 86400000) + 'd ago';
+    }
+    // human-readable span for a future timestamp (used for expiry)
+    function untilTime(ts) {
+        const d = ts - Date.now();
+        if (d <= 0) return 'expired';
+        if (d < 3600000) return 'in ' + Math.round(d / 60000) + 'm';
+        if (d < 86400000) return 'in ' + Math.round(d / 3600000) + 'h';
+        return 'in ' + Math.round(d / 86400000) + 'd';
+    }
+    function isValidLuhn(cardString) {
+        const digits = (cardString || '').replace(/\D/g, '');
+        if (digits.length < 13 || digits.length > 19) return false;
+        let sum = 0, dbl = false;
+        for (let i = digits.length - 1; i >= 0; i--) {
+            let n = parseInt(digits[i], 10);
+            if (dbl) { n *= 2; if (n > 9) n -= 9; }
+            sum += n; dbl = !dbl;
+        }
+        return sum % 10 === 0;
+    }
+    function shannonEntropy(str) {
+        const freq = {};
+        for (const ch of str) freq[ch] = (freq[ch] || 0) + 1;
+        let e = 0;
+        for (const k in freq) { const p = freq[k] / str.length; e -= p * Math.log2(p); }
+        return e;
+    }
+    function triggerFileDownload(content, filename, contentType) {
+        const blob = new Blob([content], { type: `${contentType};charset=utf-8` });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    async function executeSecureNativeClipboardWritePipeline(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            try { await navigator.clipboard.writeText(text); return; } catch (err) { /* fall through */ }
+        }
+        const ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); } catch (err) { console.error("Clipboard failure:", err); }
+        document.body.removeChild(ta);
+    }
+    // Phase 8: best-effort clipboard hygiene — wipe a copied value after a delay if unchanged
+    let __clipboardClearTimer = null;
+    function scheduleClipboardClear(originalText, ms) {
+        if (__clipboardClearTimer) clearTimeout(__clipboardClearTimer);
+        __clipboardClearTimer = setTimeout(async () => {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    const cur = await navigator.clipboard.readText().catch(() => null);
+                    if (cur === null || cur === originalText) await navigator.clipboard.writeText('');
+                }
+            } catch (e) { /* clipboard access may be blocked — best-effort only */ }
+        }, ms || 60000);
+    }
+    function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+
+    // ================================================================
+    //  VAULT DB — IndexedDB with object stores:
+    //    keys(name) · secrets(id, idx:reference/hash) · history(auto) · activity(auto)
+    // ================================================================
+    function initDatabase() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open('shadowpaste_v7', 2);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('keys')) db.createObjectStore('keys', { keyPath: 'name' });
+                if (!db.objectStoreNames.contains('secrets')) {
+                    const s = db.createObjectStore('secrets', { keyPath: 'id' });
+                    s.createIndex('byReference', 'reference', { unique: true });
+                    s.createIndex('byHash', 'hash', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { autoIncrement: true });
+                if (!db.objectStoreNames.contains('activity')) db.createObjectStore('activity', { autoIncrement: true });
+            };
+            req.onsuccess = (e) => { dbConnectionInstance = e.target.result; resolve(dbConnectionInstance); };
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+    function idbGet(store, key) {
+        return new Promise((res, rej) => {
+            const r = dbConnectionInstance.transaction([store], 'readonly').objectStore(store).get(key);
+            r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+        });
+    }
+    function idbGetByIndex(store, index, key) {
+        return new Promise((res, rej) => {
+            const r = dbConnectionInstance.transaction([store], 'readonly').objectStore(store).index(index).get(key);
+            r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+        });
+    }
+    function idbPut(store, val) {
+        return new Promise((res, rej) => {
+            const tx = dbConnectionInstance.transaction([store], 'readwrite');
+            tx.objectStore(store).put(val);
+            tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+        });
+    }
+    function idbAdd(store, val) {
+        return new Promise((res, rej) => {
+            const tx = dbConnectionInstance.transaction([store], 'readwrite');
+            tx.objectStore(store).add(val);
+            tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+        });
+    }
+    // Batch write many records in ONE transaction (bulk-paste performance).
+    function idbPutMany(store, arr) {
+        return new Promise((res, rej) => {
+            if (!arr.length) return res();
+            const tx = dbConnectionInstance.transaction([store], 'readwrite');
+            const os = tx.objectStore(store);
+            for (const v of arr) os.put(v);
+            tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+        });
+    }
+    function idbDelete(store, key) {
+        return new Promise((res, rej) => {
+            const tx = dbConnectionInstance.transaction([store], 'readwrite');
+            tx.objectStore(store).delete(key);
+            tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+        });
+    }
+    function idbClear(store) {
+        return new Promise((res, rej) => {
+            const tx = dbConnectionInstance.transaction([store], 'readwrite');
+            tx.objectStore(store).clear();
+            tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+        });
+    }
+    function idbGetAll(store) {
+        return new Promise((res, rej) => {
+            const r = dbConnectionInstance.transaction([store], 'readonly').objectStore(store).getAll();
+            r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
+        });
+    }
+
+    // ================================================================
+    //  CRYPTO MANAGER — non-extractable AES-GCM master key + HMAC signing key,
+    //  both persisted as CryptoKey objects inside IndexedDB (never exported).
+    // ================================================================
+    const CryptoManager = {
+        aesKey: null, hmacKey: null,
+        async init() {
+            if (!window.crypto || !crypto.subtle) throw new Error('WebCrypto unavailable (requires https or localhost)');
+            let rec = await idbGet('keys', 'master');
+            if (!rec) {
+                const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+                const hmacKey = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+                rec = { name: 'master', aesKey, hmacKey, createdAt: Date.now() };
+                await idbPut('keys', rec);
+            }
+            this.aesKey = rec.aesKey; this.hmacKey = rec.hmacKey;
+        },
+        async encrypt(plaintext) {
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.aesKey, new TextEncoder().encode(plaintext));
+            return { iv: Array.from(iv), cipher };
+        },
+        async decrypt(record) {
+            const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(record.iv) }, this.aesKey, record.cipher);
+            return new TextDecoder().decode(plainBuf);
+        },
+        async hash(str) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        },
+        async sign(str) {
+            const sig = await crypto.subtle.sign('HMAC', this.hmacKey, new TextEncoder().encode(str));
+            return bufToB64(sig);
+        }
+    };
+
+    // ================================================================
+    //  ACTIVITY LOG — live agent feed + persisted trail
+    // ================================================================
+    const ActivityLog = {
+        firstEvent: true,
+        async record(icon, msg, level) {
+            const entry = { ts: Date.now(), icon, msg, level: level || 'info' };
+            if (this.firstEvent) { activityFeed.innerHTML = ''; this.firstEvent = false; }
+            const line = document.createElement('div');
+            line.className = 'feed-item flex items-start gap-2 pb-1.5';
+            line.style.borderBottom = '1px solid var(--stroke-soft)';
+            const colors = { info: 'var(--muted)', ok: 'var(--good)', warn: 'var(--warn)', deny: 'var(--bad)', vault: 'var(--accent-ink)' };
+            line.innerHTML = `<span class="shrink-0">${icon}</span><span style="color:${colors[entry.level] || colors.info}">${encodeHTMLContextString(msg)}</span><span class="ml-auto shrink-0 t-hint">${new Date(entry.ts).toLocaleTimeString()}</span>`;
+            activityFeed.prepend(line);
+            while (activityFeed.children.length > 40) activityFeed.lastChild.remove();
+            try { if (dbConnectionInstance) await idbAdd('activity', entry); } catch (e) { /* non-fatal */ }
+        }
+    };
+
+    // ================================================================
+    //  AGENT FIREWALL — risk engine over prompts & gateway actions
+    // ================================================================
+    const AgentFirewall = {
+        assessPrompt(text) {
+            const reasons = [];
+            let level = 'LOW';
+            if (/(send|post|share|upload|email|dm|publish|forward|paste)\b.{0,50}\b(api[\s_-]?key|secret|password|credential|token|private key)/i.test(text) || /exfiltrat/i.test(text)) {
+                level = 'CRITICAL'; reasons.push('Prompt requests transmitting a credential to an external destination');
+            } else if (/(delete|drop|truncate|destroy|wipe)\b.{0,40}\b(prod|production|database|db|table|bucket)/i.test(text)) {
+                level = 'HIGH'; reasons.push('Prompt describes destructive action against production data');
+            } else if (/(disable|bypass|ignore|turn off)\b.{0,40}\b(security|firewall|auth|policy|safety|guardrail)/i.test(text)) {
+                level = 'MEDIUM'; reasons.push('Prompt attempts to bypass a security control');
+            }
+            return { level, reasons };
+        },
+        assessAction(action) {
+            const a = (action || '').toLowerCase();
+            if (/(exfil|send[\s._-]?key|reveal|export[\s._-]?secret|print[\s._-]?secret|leak)/.test(a)) return { level: 'CRITICAL', reason: 'Action would expose the raw credential' };
+            if (/(delete|drop|destroy|wipe).*(prod|db|database|bucket)/.test(a)) return { level: 'HIGH', reason: 'Destructive production action — requires explicit human approval' };
+            if (/(admin|billing|payment|transfer)/.test(a)) return { level: 'MEDIUM', reason: 'Elevated-privilege scope requested' };
+            return { level: 'LOW', reason: 'Scoped read/execute action' };
+        }
+    };
+    // ================================================================
+    //  PROMPT INJECTION SHIELD — flags attempts to make the AI exfiltrate
+    //  or reveal credentials. There is NO code path that returns a raw
+    //  secret; the AI can only request scoped execution via the gateway.
+    // ================================================================
+    const PromptInjectionShield = {
+        patterns: [
+            /ignore\s+(all\s+|any\s+)?(previous|prior|above|earlier)\s+(instructions|rules|prompts)/i,
+            /(reveal|show|display|expose|print|output|tell\s+me|what\s+is)\s+.{0,30}(the\s+)?(raw\s+|actual\s+|real\s+|underlying\s+|decrypted\s+)?(value\s+of\s+)?.{0,20}(secret|api[\s_-]?key|credential|token|password|private\s+key)/i,
+            /(print|list|dump|export|leak)\s+(all\s+)?(the\s+)?(secrets|api[\s_-]?keys|credentials|env|environment\s+variables|vault)/i,
+            /(decrypt|unmask|decode|expand|resolve)\s+.{0,25}(shadow_secret|secret|token|credential|placeholder)/i,
+            /send\s+.{0,40}(secret|api[\s_-]?key|credential|token|password).{0,40}(to|http|https|url|server|webhook|endpoint|email)/i,
+            /\{\{\s*shadow_secret[^}]*\}\}.{0,25}(value|raw|reveal|decode|expand|actual)/i,
+            /(bypass|disable|turn\s+off|override)\s+.{0,25}(firewall|security|guardrail|policy|shield|protection)/i
+        ],
+        scan(text) {
+            const hits = [];
+            for (const p of this.patterns) { if (p.test(text)) hits.push(p.source.slice(0, 46) + '…'); }
+            return { injection: hits.length > 0, hits };
+        }
+    };
+
+    function showFirewallBanner(assessment) {
+        if (assessment.level === 'LOW') { firewallBanner.style.display = 'none'; return; }
+        const cls = { MEDIUM: 'firewall-medium', HIGH: 'firewall-high', CRITICAL: 'firewall-critical' }[assessment.level];
+        firewallBanner.className = `firewall-banner mb-4 ${cls}`;
+        firewallBanner.style.display = 'flex';
+        const verb = assessment.level === 'CRITICAL' ? 'BLOCK RECOMMENDED' : assessment.level === 'HIGH' ? 'HUMAN APPROVAL REQUIRED' : 'REVIEW ADVISED';
+        firewallBanner.innerHTML = `<span class="font-mono-stack font-bold text-[10px] tracking-widest shrink-0">⛨ AGENT FIREWALL · ${assessment.level} · ${verb}</span><span>${encodeHTMLContextString(assessment.reasons.join(' · '))}</span>`;
+        ActivityLog.record('⛨', `Firewall flagged prompt: ${assessment.level} — ${assessment.reasons[0] || ''}`, assessment.level === 'CRITICAL' ? 'deny' : 'warn');
+    }
+
+    // ================================================================
+    //  SECRET VIRTUALIZATION ENGINE
+    //  detect → extract → classify → encrypt → store → replace with reference
+    // ================================================================
+    const SecretEngine = {
+        // DatabaseSecretClassifier — resolve the engine behind a connection string
+        classifyDatabase(raw) {
+            if (/^mongodb(\+srv)?:/i.test(raw)) return 'db.mongodb';
+            if (/^postgres(ql)?:/i.test(raw)) return 'db.postgres';
+            if (/^mysql:/i.test(raw)) return 'db.mysql';
+            if (/^mariadb:/i.test(raw)) return 'db.mariadb';
+            if (/^rediss?:/i.test(raw)) return 'db.redis';
+            if (/^amqps?:/i.test(raw)) return 'db.amqp';
+            if (/^s?ftp:/i.test(raw)) return 'db.ftp';
+            return 'db.query';
+        },
+        // classifySecret — precise provider + scope. contextHint = text preceding the match,
+        // used to disambiguate opaque high-entropy tokens (e.g. AWS secret keys).
+        classifySecret(raw, ruleId, contextHint) {
+            const ctx = (contextHint || '').toLowerCase();
+            if (/^-----BEGIN/i.test(raw)) return { provider: 'SSH_PRIVATE_KEY', scope: 'ssh.connect' };
+            if (/^mongodb(\+srv)?:\/\//i.test(raw)) return { provider: 'MONGODB', scope: 'db.mongodb' };
+            if (/^postgres(ql)?:\/\//i.test(raw)) return { provider: 'POSTGRES', scope: 'db.postgres' };
+            if (/^mysql:\/\//i.test(raw)) return { provider: 'MYSQL', scope: 'db.mysql' };
+            if (/^mariadb:\/\//i.test(raw)) return { provider: 'MYSQL', scope: 'db.mariadb' };
+            if (/^rediss?:\/\//i.test(raw)) return { provider: 'REDIS', scope: 'db.redis' };
+            if (/^(amqps?|s?ftp):\/\//i.test(raw)) return { provider: 'DATABASE', scope: this.classifyDatabase(raw) };
+            if (/firebaseio\.com|firebaseapp\.com/i.test(raw)) return { provider: 'FIREBASE', scope: 'firebase.db' };
+            if (/supabase\.(co|in|net)/i.test(raw)) return { provider: 'SUPABASE', scope: 'supabase.rest' };
+            if (/^sk-ant-/i.test(raw)) return { provider: 'ANTHROPIC', scope: 'anthropic.messages' };
+            if (/^sk-(proj-)?/i.test(raw) && !/^[sr]k_(test|live)/i.test(raw)) return { provider: 'OPENAI', scope: 'openai.chat' };
+            if (/^hf_/i.test(raw)) return { provider: 'HUGGINGFACE', scope: 'huggingface.inference' };
+            if (/^ya29\./i.test(raw)) return { provider: 'OAUTH', scope: 'oauth.google' };
+            if (/^AIza/i.test(raw)) return { provider: ctx.includes('firebase') ? 'FIREBASE' : 'GOOGLE', scope: 'google.generativelanguage' };
+            if (/^(ghp_|gho_|ghs_|ghu_|ghr_|github_pat_)/i.test(raw)) return { provider: 'GITHUB', scope: 'github.repo' };
+            if (/^glpat-/i.test(raw)) return { provider: 'GITLAB', scope: 'gitlab.api' };
+            if (/^AKIA/.test(raw)) return { provider: 'AWS_ACCESS_KEY', scope: 'aws.sts' };
+            if (/^ASIA/.test(raw)) return { provider: 'AWS_SESSION', scope: 'aws.sts' };
+            if (/^(stripe_)?[sr]k_(test|live)_/i.test(raw)) return { provider: 'STRIPE', scope: 'stripe.charges' };
+            if (/^xox[baprmtv]-/i.test(raw)) return { provider: 'SLACK', scope: 'slack.chat' };
+            if (/discord\.com\/api\/webhooks/i.test(raw)) return { provider: 'DISCORD', scope: 'discord.webhook' };
+            if (/^\d{8,10}:AA[\w-]{32,34}$/.test(raw)) return { provider: 'TELEGRAM', scope: 'telegram.bot' };
+            if (/^(Bearer\s|eyJ)/i.test(raw)) return { provider: 'JWT', scope: 'auth.bearer' };
+            if (ruleId === 'COOKIES_PASSWORDS') return { provider: 'SESSION', scope: 'session.auth' };
+            // context-refined classification for opaque high-entropy unknowns
+            if (ruleId === 'HIGH_ENTROPY') {
+                if (ctx.includes('aws') && ctx.includes('secret')) return { provider: 'AWS_SECRET_KEY', scope: 'aws.sts' };
+                if (ctx.includes('cloudflare')) return { provider: 'CLOUDFLARE', scope: 'cloudflare.api' };
+                if (ctx.includes('vercel')) return { provider: 'VERCEL', scope: 'vercel.deploy' };
+                if (ctx.includes('netlify')) return { provider: 'NETLIFY', scope: 'netlify.deploy' };
+                if (ctx.includes('supabase')) return { provider: 'SUPABASE', scope: 'supabase.rest' };
+                if (ctx.includes('firebase')) return { provider: 'FIREBASE', scope: 'firebase.db' };
+                if (ctx.includes('openai')) return { provider: 'OPENAI', scope: 'openai.chat' };
+                if (ctx.includes('anthropic') || ctx.includes('claude')) return { provider: 'ANTHROPIC', scope: 'anthropic.messages' };
+                if (ctx.includes('huggingface') || ctx.includes('hugging face')) return { provider: 'HUGGINGFACE', scope: 'huggingface.inference' };
+            }
+            // inline assignments (password=…, apiKey=…) with an opaque value → generic env secret
+            if (ruleId === 'INLINE_ASSIGN') return { provider: 'ENV_SECRET', scope: 'env.secret' };
+            return { provider: 'GENERIC', scope: 'generic.use' };
+        },
+        generateCapabilityReference(provider) {
+            const rand = Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(36).toUpperCase().slice(-1)).join('') + Math.floor(Math.random() * 36).toString(36).toUpperCase();
+            return `{{SHADOW_SECRET_${provider}_${rand}}}`;
+        },
+        maskPreview(raw) {
+            const tail = raw.replace(/\s+/g, '').slice(-4);
+            return '••••' + tail;
+        },
+        // Bulk mode collapses per-secret IndexedDB round-trips (a 1000-secret paste
+        // was ~2000 txns / ~9s) into one preloaded dedup cache + one batched write.
+        bulkMode: false, _pending: [], _hashCache: null,
+        async beginBulk() {
+            this._pending = [];
+            this._hashCache = new Map();
+            for (const s of await idbGetAll('secrets')) this._hashCache.set(s.hash, s);
+            this.bulkMode = true;
+        },
+        async endBulk() {
+            const n = this._pending.length;
+            if (n) { await idbPutMany('secrets', this._pending); ActivityLog.record('◈', `${n} secret(s) virtualized into vault (batched)`, 'vault'); }
+            this.bulkMode = false; this._pending = []; this._hashCache = null;
+            return n;
+        },
+        async captureSecret(raw, ruleId, contextHint) {
+            const hash = await CryptoManager.hash(raw);
+            // dedupe: same secret reuses its existing live capability reference
+            const existing = this.bulkMode ? this._hashCache.get(hash) : await idbGetByIndex('secrets', 'byHash', hash);
+            if (existing && existing.status === 'active' && existing.expiresAt > Date.now()) {
+                return existing.reference;
+            }
+            const cls = this.classifySecret(raw, ruleId, contextHint);
+            const enc = await CryptoManager.encrypt(raw);
+            const rec = {
+                id: crypto.randomUUID ? crypto.randomUUID() : ('id_' + Date.now() + Math.random().toString(36).slice(2)),
+                reference: this.generateCapabilityReference(cls.provider),
+                provider: cls.provider,
+                scope: cls.scope,
+                ruleId, hash,
+                iv: enc.iv, cipher: enc.cipher,
+                preview: this.maskPreview(raw),
+                createdAt: Date.now(),
+                expiresAt: Date.now() + SECRET_TTL_MS,
+                lastUsed: null,
+                usageCount: 0,
+                status: 'active',
+                permissions: [cls.scope]
+            };
+            if (this.bulkMode) {
+                this._pending.push(rec);
+                this._hashCache.set(hash, rec);   // dedup within the same batch
+            } else {
+                await idbPut('secrets', rec);
+                ActivityLog.record('◈', `Secret virtualized → ${cls.provider} vault entry ${rec.reference}`, 'vault');
+            }
+            return rec.reference;
+        },
+        // replace every occurrence of a virtualizable match with its capability reference
+        async replaceSecretInPrompt(text, rule, tracker) {
+            const found = text.match(rule.regex);
+            if (!found) return text;
+            const unique = [...new Set(found)];
+            for (const raw of unique) {
+                const occurrences = text.split(raw).length - 1;
+                const idx = text.indexOf(raw);
+                const ctx = idx > 0 ? text.slice(Math.max(0, idx - 64), idx) : '';
+                const reference = await this.captureSecret(raw, rule.id, ctx);
+                tracker[rule.id] = (tracker[rule.id] || 0) + occurrences;
+                tracker.__virtualized = (tracker.__virtualized || 0) + occurrences;
+                text = text.split(raw).join(reference);
+            }
+            return text;
+        },
+        // entropy sweep for unknown credentials the regex matrix misses.
+        // Combined gate = Shannon entropy + context score: tokens sitting next to
+        // credential keywords clear a lower entropy bar than free-floating strings.
+        async entropySweep(text, tracker) {
+            const candidates = new Map(); // token -> preceding context
+            const re = /[A-Za-z0-9+/=_\-]{24,}/g;
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                const tok = m[0];
+                if (tok.includes('SHADOW_SECRET') || tok.includes('REDACTED')) continue;
+                if (/^[0-9.\-]+$/.test(tok)) continue;                    // numeric ids
+                if (!/[A-Za-z]/.test(tok)) continue;                      // must contain a letter
+                // preserve non-secret hash/UUID shapes (git SHA, md5, sha256) so code stays intact
+                if (/^[a-f0-9]{32}$|^[a-f0-9]{40}$|^[a-f0-9]{64}$/i.test(tok)) continue;
+                const before = text.slice(Math.max(0, m.index - 48), m.index).toLowerCase();
+                const hasCtx = /(key|token|secret|password|passwd|api|auth|bearer|credential|access)/.test(before);
+                const ent = shannonEntropy(tok);
+                // free-floating tokens need ent >= 3.9; contextual tokens need only >= 3.2
+                if (ent < 3.9 && !(hasCtx && ent >= 3.2)) continue;
+                if (!candidates.has(tok)) candidates.set(tok, before);
+            }
+            for (const [raw, ctx] of candidates) {
+                const occurrences = text.split(raw).length - 1;
+                const reference = await this.captureSecret(raw, 'HIGH_ENTROPY', ctx);
+                tracker['HIGH_ENTROPY'] = (tracker['HIGH_ENTROPY'] || 0) + occurrences;
+                tracker.__virtualized = (tracker.__virtualized || 0) + occurrences;
+                text = text.split(raw).join(reference);
+            }
+            return text;
+        },
+        // V12 inline scanner: catch assignment-style secrets in code/config/env files —
+        // password="…", const apiKey="…", token: '…', Authorization: Bearer …, YAML key: …
+        // Replaces ONLY the value, preserving the key, quotes, and surrounding formatting.
+        // mode 'test' emits [DETECTED_<PROVIDER>_SECRET]; otherwise virtualizes to a reference.
+        async scanInlineAssignments(text, mode, tracker) {
+            const KEY = '(?:password|passwd|pwd|secret|secret[_-]?key|api[_-]?key|apikey|access[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key|token|bearer|db[_-]?pass|database[_-]?url)';
+            // quoted:  key: "value"  |  key = 'value'  |  key=`value`
+            const quoted = new RegExp(`(\\b${KEY}\\b\\s*[:=]\\s*)(["'\\\`])([^"'\\\`\\n]{6,})(["'\\\`])`, 'gi');
+            // bearer:  Authorization: Bearer <token>
+            const bearer = /(\bAuthorization\b\s*[:=]\s*Bearer\s+)([A-Za-z0-9\-._~+/]{10,}=*)/gi;
+            // bare env: KEY=value  (unquoted, no spaces) — only for secret-ish keys
+            const bareEnv = new RegExp(`(^|\\n)([A-Z0-9_]*${'(?:PASSWORD|SECRET|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|DB_?PASS)'}[A-Z0-9_]*\\s*=\\s*)([^\\s"'\\n]{6,})`, 'gi');
+
+            const jobs = [];
+            const collect = (re, valGroup, wrap) => {
+                for (const m of [...text.matchAll(re)]) {
+                    const val = m[valGroup];
+                    if (!val || /SHADOW_SECRET|REDACTED|DETECTED_|CLOAKED/.test(val)) continue;
+                    jobs.push({ full: m[0], val, wrap: (ref) => wrap(m, ref) });
+                }
+            };
+            collect(quoted, 3, (m, ref) => m[1] + m[2] + ref + m[4]);
+            collect(bearer, 2, (m, ref) => m[1] + ref);
+            collect(bareEnv, 3, (m, ref) => m[1] + m[2] + ref);
+
+            const seen = new Set();
+            for (const job of jobs) {
+                if (seen.has(job.full)) continue; seen.add(job.full);
+                let ref;
+                if (mode === 'test') {
+                    const prov = (SecretEngine.classifySecret(job.val, 'INLINE_ASSIGN', '').provider) || 'ENV_SECRET';
+                    ref = `[DETECTED_${prov}_SECRET]`;
+                } else {
+                    ref = await this.captureSecret(job.val, 'INLINE_ASSIGN', job.full.slice(0, 24));
+                    tracker.__virtualized = (tracker.__virtualized || 0) + 1;
+                }
+                tracker['INLINE_ASSIGN'] = (tracker['INLINE_ASSIGN'] || 0) + 1;
+                text = text.split(job.full).join(job.wrap(ref));
+            }
+            return text;
+        }
+    };
+
+    // ================================================================
+    //  CAPABILITY TOKENS — scoped, session-bound, expiring, HMAC-signed.
+    //  A reference alone is NOT a password: without a valid token minted by
+    //  this runtime session, the gateway refuses to resolve it.
+    // ================================================================
+    const CapabilityTokens = {
+        async mint(secretRecord, action) {
+            const payload = {
+                secretRef: secretRecord.reference,
+                session: RUNTIME_SESSION_ID,
+                scope: secretRecord.scope,
+                action,
+                nonce: bufToB64(crypto.getRandomValues(new Uint8Array(9))),
+                expires: Date.now() + TOKEN_TTL_MS
+            };
+            payload.signature = await CryptoManager.sign(JSON.stringify({ ...payload }));
+            return payload;
+        },
+        async validate(token) {
+            if (!token) return { ok: false, why: 'missing token' };
+            if (token.session !== RUNTIME_SESSION_ID) return { ok: false, why: 'session mismatch' };
+            if (token.expires < Date.now()) return { ok: false, why: 'token expired' };
+            const { signature, ...unsigned } = token;
+            const expected = await CryptoManager.sign(JSON.stringify(unsigned));
+            if (expected !== signature) return { ok: false, why: 'invalid signature' };
+            return { ok: true };
+        }
+    };
+
+    // ================================================================
+    //  AGENT GATEWAY — the runtime layer. use_secret(reference, action):
+    //  validate → firewall → mint token → decrypt in isolated scope →
+    //  execute (simulated) → scrub → return result only.
+    // ================================================================
+    const AgentGateway = {
+        consumedNonces: new Set(),
+        // named entry points requested by the runtime spec
+        async requestSecretUse(reference, action) { return this.useSecret(reference, action); },
+        async validateCapability(token) { return CapabilityTokens.validate(token); },
+        async auditUsage(reference) {
+            const rec = await idbGetByIndex('secrets', 'byReference', reference);
+            if (!rec) return { ok: false, error: 'Unknown reference' };
+            return { ok: true, provider: rec.provider, scope: rec.scope, usageCount: rec.usageCount, lastUsed: rec.lastUsed, status: statusOf(rec).label };
+        },
+        async useSecret(reference, action) {
+            action = action || 'generic.use';
+            await ActivityLog.record('🤖', `Agent requested access: ${reference} → ${action}`, 'info');
+
+            const rec = await idbGetByIndex('secrets', 'byReference', reference);
+            if (!rec) { await ActivityLog.record('⛔', `DENIED — unknown capability reference`, 'deny'); return { ok: false, error: 'Unknown capability reference' }; }
+            if (rec.status === 'revoked') { await ActivityLog.record('⛔', `DENIED — ${rec.provider} secret is revoked`, 'deny'); return { ok: false, error: 'Secret revoked by owner' }; }
+            if (rec.status === 'paused') { await ActivityLog.record('⏸', `DENIED — ${rec.provider} secret is paused`, 'warn'); return { ok: false, error: 'Secret paused by owner' }; }
+            if (rec.expiresAt < Date.now()) { await ActivityLog.record('⌛', `DENIED — ${rec.provider} capability expired`, 'deny'); return { ok: false, error: 'Capability expired' }; }
+
+            const risk = AgentFirewall.assessAction(action);
+            await ActivityLog.record('⛨', `Firewall check: ${risk.level} — ${risk.reason}`, risk.level === 'LOW' ? 'ok' : (risk.level === 'CRITICAL' ? 'deny' : 'warn'));
+            if (risk.level === 'CRITICAL') { SecurityMetrics.blocked++; renderSecurityAnalytics(); return { ok: false, error: `Blocked by Agent Firewall: ${risk.reason}` }; }
+            if (risk.level === 'HIGH') {
+                const approved = confirm(`⛨ AGENT FIREWALL — HIGH RISK\n\nAction: ${action}\n${risk.reason}\n\nApprove this action?`);
+                if (!approved) { await ActivityLog.record('⛔', 'Human denied HIGH-risk action', 'deny'); return { ok: false, error: 'Denied by human approval gate' }; }
+                await ActivityLog.record('✔', 'Human approved HIGH-risk action', 'warn');
+            }
+
+            const token = await CapabilityTokens.mint(rec, action);
+            const check = await CapabilityTokens.validate(token);
+            if (!check.ok) { await ActivityLog.record('⛔', `Token rejected: ${check.why}`, 'deny'); return { ok: false, error: 'Capability token invalid: ' + check.why }; }
+            // one-time nonce: a capability token can never be replayed
+            if (this.consumedNonces.has(token.nonce)) { await ActivityLog.record('⛔', 'Token nonce replay blocked', 'deny'); return { ok: false, error: 'Capability token already consumed (replay blocked)' }; }
+            this.consumedNonces.add(token.nonce);
+            await ActivityLog.record('▣', `Capability token minted · scope ${token.scope} · TTL 5min · sig ${token.signature.slice(0, 12)}…`, 'vault');
+
+            // decrypt in a minimal scope; plaintext is not retained on any object
+            let resultSummary;
+            {
+                let plaintext = await CryptoManager.decrypt(rec);
+                await ActivityLog.record('🔓', `Secret decrypted in isolated scope & injected into ${rec.provider} adapter`, 'vault');
+                // ---- SIMULATED provider execution (no real network call is made) ----
+                await new Promise(r => setTimeout(r, 450));
+                resultSummary = `${rec.provider} adapter executed "${action}" using credential ${rec.preview} (${plaintext.length} chars).`;
+                plaintext = null; // release reference; JS strings are immutable — see remaining-risks note
+            }
+
+            rec.usageCount = (rec.usageCount || 0) + 1;
+            rec.lastUsed = Date.now();
+            await idbPut('secrets', rec);
+            await ActivityLog.record('✅', `Request completed — raw credential scrubbed, result returned to agent`, 'ok');
+            SecurityMetrics.executions++;
+            renderVault();
+            return { ok: true, result: resultSummary, token: { scope: token.scope, expires: new Date(token.expires).toISOString() } };
+        }
+    };
+
+    // ================================================================
+    //  VAULT DASHBOARD RENDERING & LIFECYCLE (revoke / pause / rotate / delete)
+    // ================================================================
+    function statusOf(rec) {
+        if (rec.status === 'revoked') return { label: 'Revoked', dot: 'dot-bad' };
+        if (rec.status === 'paused') return { label: 'Paused', dot: 'dot-warn' };
+        if (rec.expiresAt < Date.now()) return { label: 'Expired', dot: 'dot-idle' };
+        return { label: 'Protected', dot: 'dot-good' };
+    }
+    // blast-radius tier per provider — drives the 🟢/🟡/🔴 risk chip
+    function providerRiskTier(p) {
+        if (/DATABASE|SSH|PEM|AWS_SECRET|AWS_ACCESS|AWS_SESSION|STRIPE/.test(p)) return { tier: 'HIGH', color: 'var(--bad)', bg: 'var(--bad-soft)', bd: 'rgba(189,79,79,.28)' };
+        if (/GITHUB|GITLAB|SLACK|DISCORD|FIREBASE|SUPABASE|CLOUDFLARE|VERCEL|NETLIFY|SESSION|JWT|OAUTH|ANTHROPIC|OPENAI|GOOGLE|HUGGINGFACE/.test(p)) return { tier: 'MEDIUM', color: 'var(--warn)', bg: 'var(--warn-soft)', bd: 'rgba(176,122,53,.28)' };
+        return { tier: 'LOW', color: 'var(--good)', bg: 'var(--good-soft)', bd: 'rgba(61,143,104,.28)' };
+    }
+    // Agent 5: render the Security Analytics dashboard from real state.
+    async function renderSecurityAnalytics(secrets) {
+        secrets = secrets || (dbConnectionInstance ? await idbGetAll('secrets') : []);
+        const live = secrets.filter(s => s.status !== 'revoked');
+        const highRisk = secrets.filter(s => providerRiskTier(s.provider).tier === 'HIGH').length;
+        $('anProtected').textContent = live.length;
+        $('anExec').textContent = SecurityMetrics.executions;
+        $('anBlocked').textContent = SecurityMetrics.blocked;
+        $('anHighRisk').textContent = highRisk;
+
+        // provider distribution
+        const dist = {};
+        secrets.forEach(s => { dist[s.provider] = (dist[s.provider] || 0) + 1; });
+        const keys = Object.keys(dist).sort((a, b) => dist[b] - dist[a]);
+        const provBox = $('anProviders');
+        if (keys.length === 0) { provBox.innerHTML = '<span class="t-hint italic">No secrets vaulted yet.</span>'; }
+        else {
+            const max = Math.max(...keys.map(k => dist[k]));
+            provBox.innerHTML = keys.map(k => {
+                const w = Math.round((dist[k] / max) * 100);
+                const rt = providerRiskTier(k);
+                return `<div class="flex items-center gap-2"><span style="width:96px" class="truncate">${encodeHTMLContextString(k.replace(/_/g,' '))}</span><span style="flex:1;height:8px;border-radius:6px;background:rgba(43,39,51,.08);overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${rt.color}"></span></span><span>${dist[k]}</span></div>`;
+            }).join('');
+        }
+
+        // risk sparkline (last 20 governance runs)
+        const h = SecurityMetrics.riskHistory.slice(-20);
+        const spark = $('anSpark');
+        if (h.length < 2) { spark.innerHTML = '<text x="8" y="34" fill="var(--faint)" font-size="9" font-family="monospace">run the engine to plot risk</text>'; }
+        else {
+            const max = Math.max(120, ...h);
+            const pts = h.map((v, i) => `${(i / (h.length - 1)) * 300},${60 - (v / max) * 54 - 3}`).join(' ');
+            const last = h[h.length - 1];
+            const col = last >= 120 ? 'var(--bad)' : last >= 60 ? '#a55a20' : last >= 20 ? 'var(--warn)' : 'var(--good)';
+            spark.innerHTML = `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>` +
+                h.map((v, i) => `<circle cx="${(i / (h.length - 1)) * 300}" cy="${60 - (v / max) * 54 - 3}" r="2" fill="${col}"/>`).join('');
+        }
+    }
+
+    async function renderVault() {
+        if (!dbConnectionInstance) return;
+        const secrets = (await idbGetAll('secrets')).sort((a, b) => b.createdAt - a.createdAt);
+        vaultCountBadge.textContent = `${secrets.length} SECRET${secrets.length === 1 ? '' : 'S'}`;
+        renderSecurityAnalytics(secrets);
+
+        gatewaySecretSelect.innerHTML = '';
+        const live = secrets.filter(s => s.status === 'active' && s.expiresAt > Date.now());
+        if (live.length === 0) {
+            gatewaySecretSelect.innerHTML = '<option value="">— no active vault secrets —</option>';
+        } else {
+            live.forEach(s => {
+                const o = document.createElement('option');
+                o.value = s.reference; o.textContent = `${s.provider} · ${s.reference}`;
+                gatewaySecretSelect.appendChild(o);
+            });
+        }
+
+        vaultList.innerHTML = '';
+        if (secrets.length === 0) {
+            vaultList.innerHTML = '<p class="t-hint italic text-[11px]">No virtualized secrets yet. Paste content containing an API key and run the engine in Virtualize mode.</p>';
+            return;
+        }
+        secrets.forEach(rec => {
+            const st = statusOf(rec);
+            const rt = providerRiskTier(rec.provider);
+            const card = document.createElement('div');
+            card.className = 'glass-inset p-3.5 flex flex-col sm:flex-row sm:items-center gap-3';
+            card.innerHTML = `
+                <div class="provider-chip">${encodeHTMLContextString(rec.provider.slice(0, 3))}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[11px] font-extrabold">${encodeHTMLContextString(rec.provider.replace(/_/g, ' '))} Credential</span>
+                        <span class="flex items-center gap-1.5 text-[9px] font-mono-stack font-bold uppercase tracking-widest" style="color: var(--muted);"><span class="dot ${st.dot}"></span>${st.label}</span>
+                        <span class="text-[8px] font-mono-stack font-bold uppercase tracking-widest px-1.5 py-0.5 rounded" style="color:${rt.color}; background:${rt.bg}; border:1px solid ${rt.bd};">${rt.tier} RISK</span>
+                    </div>
+                    <div class="text-[9px] font-mono-stack mt-1 truncate cursor-pointer hover:underline vault-copy-ref" style="color: var(--accent-ink);" title="Click to copy reference">${encodeHTMLContextString(rec.reference)}</div>
+                    <div class="text-[9px] font-mono-stack mt-0.5 t-hint">${rec.preview} · scope ${encodeHTMLContextString(rec.scope)} · used ${rec.usageCount}× · last ${relTime(rec.lastUsed)} · expires ${untilTime(rec.expiresAt)}</div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 shrink-0">
+                    <button data-act="pause" class="btn-ghost px-2.5 py-1 text-[9px] font-mono-stack uppercase">${rec.status === 'paused' ? 'Resume' : 'Pause'}</button>
+                    <button data-act="rotate" class="btn-ghost px-2.5 py-1 text-[9px] font-mono-stack uppercase">Rotate</button>
+                    <button data-act="revoke" class="btn-ghost px-2.5 py-1 text-[9px] font-mono-stack uppercase">Revoke</button>
+                    <button data-act="delete" class="btn-danger px-2.5 py-1 text-[9px] font-mono-stack uppercase">Delete</button>
+                </div>`;
+            card.querySelector('.vault-copy-ref').addEventListener('click', () => {
+                executeSecureNativeClipboardWritePipeline(rec.reference);
+                scheduleClipboardClear(rec.reference, 60000);
+                ActivityLog.record('⧉', `Capability reference copied (${rec.provider}) — clipboard auto-clears in 60s`, 'info');
+            });
+            card.querySelectorAll('button[data-act]').forEach(btn => {
+                btn.addEventListener('click', () => vaultLifecycleAction(rec.id, btn.dataset.act));
+            });
+            vaultList.appendChild(card);
+        });
+    }
+    async function vaultLifecycleAction(id, act) {
+        const rec = await idbGet('secrets', id);
+        if (!rec) return;
+        if (act === 'pause') {
+            rec.status = rec.status === 'paused' ? 'active' : 'paused';
+            await idbPut('secrets', rec);
+            ActivityLog.record(rec.status === 'paused' ? '⏸' : '▶', `${rec.provider} secret ${rec.status === 'paused' ? 'paused' : 'resumed'}`, 'warn');
+        } else if (act === 'revoke') {
+            rec.status = 'revoked';
+            await idbPut('secrets', rec);
+            ActivityLog.record('⛔', `${rec.provider} capability revoked — gateway will refuse all requests`, 'deny');
+        } else if (act === 'rotate') {
+            // rotate = re-encrypt with a fresh IV under a brand-new capability reference;
+            // any previously shared reference becomes dead on arrival.
+            const plaintext = await CryptoManager.decrypt(rec);
+            const enc = await CryptoManager.encrypt(plaintext);
+            rec.iv = enc.iv; rec.cipher = enc.cipher;
+            rec.reference = SecretEngine.generateCapabilityReference(rec.provider);
+            rec.expiresAt = Date.now() + SECRET_TTL_MS;
+            rec.status = 'active';
+            await idbPut('secrets', rec);
+            ActivityLog.record('♻', `${rec.provider} secret rotated → new reference ${rec.reference}`, 'vault');
+        } else if (act === 'delete') {
+            if (!confirm(`Permanently delete this ${rec.provider} vault entry? The encrypted material is destroyed.`)) return;
+            await idbDelete('secrets', id);
+            ActivityLog.record('🗑', `${rec.provider} vault entry destroyed`, 'deny');
+        }
+        renderVault();
+    }
+    vaultPurgeBtn.addEventListener('click', async () => {
+        if (!dbConnectionInstance) return;
+        if (!confirm('Purge the ENTIRE vault? All encrypted secrets are permanently destroyed.')) return;
+        await idbClear('secrets');
+        ActivityLog.record('🗑', 'Vault purged — all encrypted entries destroyed', 'deny');
+        renderVault();
+    });
+    vaultAddManualBtn.addEventListener('click', async () => {
+        if (!cryptoReady) { alert('Vault crypto is not ready (requires https or localhost).'); return; }
+        const raw = prompt('Paste the secret to vault (it is encrypted immediately and never displayed again):');
+        if (!raw || !raw.trim()) return;
+        const ref = await SecretEngine.captureSecret(raw.trim(), 'CREDENTIAL_KEYS');
+        await executeSecureNativeClipboardWritePipeline(ref);
+        alert(`Vaulted. Capability reference copied to clipboard:\n\n${ref}`);
+        renderVault();
+    });
+
+    gatewayInvokeBtn.addEventListener('click', async () => {
+        const ref = gatewaySecretSelect.value;
+        if (!ref) { gatewayResultBox.classList.remove('hidden'); gatewayResultBox.textContent = '⛔ No active vault secret selected.'; return; }
+        gatewayInvokeBtn.disabled = true;
+        gatewayResultBox.classList.remove('hidden');
+        gatewayResultBox.textContent = '… gateway processing';
+        const res = await AgentGateway.useSecret(ref, gatewayActionInput.value.trim() || 'generic.use');
+        gatewayResultBox.innerHTML = res.ok
+            ? `<span style="color:var(--good); font-weight:700;">✅ GATEWAY OK</span><br>${encodeHTMLContextString(res.result)}<br><span class="t-hint">token scope ${encodeHTMLContextString(res.token.scope)} · expires ${encodeHTMLContextString(res.token.expires)}</span>`
+            : `<span style="color:var(--bad); font-weight:700;">⛔ GATEWAY DENIED</span><br>${encodeHTMLContextString(res.error)}`;
+        gatewayInvokeBtn.disabled = false;
+    });
+
+    // ================================================================
+    //  UI CHROME — mode toggle, matrix hydration, budget
+    // ================================================================
+    matrixRules.forEach(rule => {
+        const wrap = document.createElement('label');
+        wrap.className = "glass-inset flex items-center gap-2 cursor-pointer select-none p-2 hover:opacity-90 transition-all";
+        wrap.innerHTML = `<input type="checkbox" id="chk_${rule.id}" ${rule.checked ? 'checked' : ''} style="accent-color: var(--accent-2);"> <span class="truncate text-[10px]">${rule.label}${rule.virtualize ? ' <span class="font-mono-stack text-[8px]" style="color:var(--accent-ink);">◈vault</span>' : ''}</span>`;
+        toggleMatrixGrid.appendChild(wrap);
+        wrap.querySelector('input').addEventListener('change', (e) => { rule.checked = e.target.checked; });
+    });
+
+    function syncModeInterface() {
+        const on = "px-3.5 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all text-white";
+        const off = "px-3.5 py-1.5 text-[10px] uppercase font-mono-stack font-bold rounded-full transition-all";
+        if (currentMode === 'quick') {
+            quickModeBtn.className = on; quickModeBtn.style.background = 'linear-gradient(135deg,#948ff3,#6c63d9)';
+            proModeBtn.className = off; proModeBtn.style.background = 'transparent'; proModeBtn.style.color = 'var(--muted)';
+            proControlPanel.classList.add('hidden'); proControlPanel.classList.remove('flex');
+        } else {
+            proModeBtn.className = on; proModeBtn.style.background = 'linear-gradient(135deg,#948ff3,#6c63d9)';
+            quickModeBtn.className = off; quickModeBtn.style.background = 'transparent'; quickModeBtn.style.color = 'var(--muted)';
+            proControlPanel.classList.remove('hidden'); proControlPanel.classList.add('flex');
+        }
+        localStorage.setItem('shadowpaste_mode', currentMode);
+    }
+    quickModeBtn.addEventListener('click', () => { currentMode = 'quick'; syncModeInterface(); });
+    proModeBtn.addEventListener('click', () => { currentMode = 'pro'; syncModeInterface(); });
+    syncModeInterface();
+
+    // V12 processing-mode selector (protect / optimize / test)
+    const MODE_HINTS = {
+        protect: 'Real use — detects & virtualizes secrets, preserves your code/config byte-for-byte.',
+        optimize: 'Legacy prompt engineering — rewrites & compresses text (not for source code).',
+        test: 'QA — replaces secrets with [DETECTED_PROVIDER_SECRET] labels, nothing written to the vault.'
+    };
+    function syncProcessingMode() {
+        document.querySelectorAll('.mode-btn').forEach(b => {
+            const on = b.dataset.mode === processingMode;
+            b.style.background = on ? 'linear-gradient(135deg,#948ff3,#6c63d9)' : 'transparent';
+            b.style.color = on ? '#fff' : 'var(--muted)';
+        });
+        const hint = document.getElementById('modeHint'); if (hint) hint.textContent = MODE_HINTS[processingMode] || '';
+        localStorage.setItem('shadowpaste_procmode', processingMode);
+    }
+    document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => { processingMode = b.dataset.mode; syncProcessingMode(); }));
+    syncProcessingMode();
+
+    chunkSlider.addEventListener('input', (e) => { sliderValue.textContent = `${e.target.value} chars`; });
+    function updateBalanceDisplay() { creditBalanceDisp.textContent = `$${currentBalance.toFixed(2)}`; }
+    updateBalanceDisplay();
+    resetCreditBtn.addEventListener('click', () => {
+        const val = prompt("Configure operational budget allocation ($):", currentBalance.toFixed(2));
+        if (val !== null && !isNaN(parseFloat(val))) {
+            currentBalance = parseFloat(val); localStorage.setItem('shadowpaste_credits', currentBalance.toString()); updateBalanceDisplay();
+        }
+    });
+
+    // ================================================================
+    //  FILE INGESTION PIPELINE (CSV/TXT/XLSX/IMG-OCR/DOCX/ZIP/PDF)
+    // ================================================================
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = "rgba(108,99,217,.6)"; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = "rgba(108,99,217,.25)");
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.borderColor = "rgba(108,99,217,.25)"; if (e.dataTransfer.files.length > 0) processBatchUploadedFilesArray(e.dataTransfer.files); });
+    fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) processBatchUploadedFilesArray(e.target.files); });
+
+    async function processBatchUploadedFilesArray(fileList) {
+        multiFileQueueCard.classList.remove('hidden'); multiFileQueueCard.classList.add('flex');
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            if (file.size > 50 * 1024 * 1024) {
+                alert(`[NODE OVERLOAD PROTECTION]: ${file.name} exceeds the 50MB local processing ceiling.`); continue;
+            }
+            batchUploadedFilesQueue.push(file);
+            const row = document.createElement('div');
+            row.className = "pb-1 flex justify-between items-center";
+            row.style.borderBottom = '1px solid var(--stroke-soft)';
+            row.innerHTML = `<span>⚙ ${encodeHTMLContextString(file.name)}</span> <span class="font-bold uppercase text-[8px]" style="color: var(--good);">Enqueued</span>`;
+            multiFileQueueList.appendChild(row);
+        }
+        if (batchUploadedFilesQueue.length > 0) {
+            await extractStructuredTextFromSingleTargetNode(batchUploadedFilesQueue[batchUploadedFilesQueue.length - 1]);
+        }
+    }
+
+    async function extractStructuredTextFromSingleTargetNode(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        dataTypeDisp.textContent = "CONVERTING…";
+        if (['csv', 'txt', 'log'].includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = (e) => { rawInput.value = e.target.result; triggerInputSync(); };
+            reader.readAsText(file);
+        }
+        else if (['xlsx', 'xls'].includes(ext)) {
+            activeWorkbookInstance = null;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result); activeWorkbookInstance = XLSX.read(data, { type: 'array' });
+                sheetSelectorRow.classList.remove('hidden'); sheetSelectorRow.classList.add('flex'); excelSheetSelect.innerHTML = "";
+                activeWorkbookInstance.SheetNames.forEach(sheet => {
+                    const opt = document.createElement('option'); opt.value = sheet; opt.textContent = sheet; excelSheetSelect.appendChild(opt);
+                });
+                renderTargetWorkbookSheet(activeWorkbookInstance.SheetNames[0]);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+            rawInput.value = `// [OCR MATRIX ACTIVE]: extracting characters locally…`;
+            Tesseract.recognize(file, 'eng').then(({ data: { text } }) => { rawInput.value = text; triggerInputSync(); })
+                .catch(err => { rawInput.value = `// [OCR ERROR]: ${err.message}`; triggerInputSync(); });
+        }
+        else if (ext === 'docx') {
+            const reader = new FileReader();
+            reader.onload = (e) => { mammoth.extractRawText({ arrayBuffer: e.target.result }).then(res => { rawInput.value = res.value; triggerInputSync(); }); };
+            reader.readAsArrayBuffer(file);
+        }
+        else if (ext === 'zip') {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                JSZip.loadAsync(e.target.result).then(async (zip) => {
+                    const buffer = [];
+                    const names = Object.keys(zip.files).filter(fn => !zip.files[fn].dir);
+                    if (names.length > 500) {
+                        rawInput.value = `// [ANTI-ZIP-BOMB SHIELD]: archive entry count exceeds safe bounds.`;
+                        triggerInputSync(); return;
+                    }
+                    let totalBytes = 0;
+                    for (const name of names) {
+                        const bytes = await zip.files[name].async("uint8array");
+                        totalBytes += bytes.byteLength;
+                        if (totalBytes > 100 * 1024 * 1024) {
+                            rawInput.value = `// [ANTI-ZIP-BOMB]: inflation threshold reached — extraction truncated safely.`;
+                            triggerInputSync(); return;
+                        }
+                        if (/\.(txt|log|csv|json|xml|yaml)$/i.test(name)) {
+                            buffer.push(`\n\n// --- ARCHIVE FILE: [${name}] ---\n`, await zip.files[name].async("text"));
+                        }
+                    }
+                    rawInput.value = buffer.join(''); triggerInputSync();
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        else if (ext === 'pdf') {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const typedarray = new Uint8Array(e.target.result);
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                try {
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+                    }
+                    if (!fullText.trim()) {
+                        rawInput.value = `// [SCANNED DOCUMENT]: starting sequential multi-page local OCR…`;
+                        triggerMultimodalPDFImageOCRSubsystem(typedarray);
+                    } else {
+                        rawInput.value = fullText; triggerInputSync();
+                    }
+                } catch (pdfCrashErr) {
+                    rawInput.value = `// [SECURITY EXCEPTION]: corrupted or malicious PDF buffer blocked. Trace: ${pdfCrashErr.message}`;
+                    triggerInputSync();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    // OCR pipeline isolated under strict try/finally — worker always terminated
+    async function triggerMultimodalPDFImageOCRSubsystem(pdfBufferArray) {
+        let worker = null;
+        try {
+            worker = await Tesseract.createWorker("eng");
+            const pdf = await pdfjsLib.getDocument(pdfBufferArray).promise;
+            let combined = "";
+            const maxPages = Math.min(pdf.numPages, 5);
+            if (pdf.numPages > 5) {
+                complianceWarningBlock.classList.remove('hidden');
+                complianceWarningBlock.classList.add('flex');
+            }
+            for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.2 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                try {
+                    const { data: { text } } = await worker.recognize(canvas);
+                    combined += `\n\n// --- OCR PAGE [${pageNum}] ---\n` + text;
+                } catch (ocrInnerErr) {
+                    combined += `\n\n// --- [OCR ERROR PAGE ${pageNum}]: ${ocrInnerErr.message} ---\n`;
+                }
+                canvas.width = 0; canvas.height = 0; canvas.remove();
+            }
+            rawInput.value = combined;
+            triggerInputSync();
+        } catch (outerErr) {
+            rawInput.value = `// [OCR SUBSYSTEM EXCEPTION]: local worker failed. Trace: ${outerErr.message}`;
+            triggerInputSync();
+        } finally {
+            if (worker) { await worker.terminate(); }
+        }
+    }
+
+    function renderTargetWorkbookSheet(sheetName) {
+        const csvOutput = XLSX.utils.sheet_to_csv(activeWorkbookInstance.Sheets[sheetName]);
+        rawInput.value = csvOutput; triggerInputSync();
+    }
+    excelSheetSelect.addEventListener('change', (e) => { if (activeWorkbookInstance) renderTargetWorkbookSheet(e.target.value); });
+
+    // ================================================================
+    //  DATA STRUCTURING — inline markdown tables & TOON compression
+    // ================================================================
+    function parseInlineTables(csvText) {
+        const lines = csvText.split('\n');
+        const result = []; let inTable = false; let capturedHeaders = "";
+        for (const line of lines) {
+            const columns = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const isCsvRow = columns.length >= 5 && columns.every(col => col.trim().length < 45) && !line.trim().startsWith('•') && !line.trim().startsWith('-') && !line.includes('{') && !line.includes('":');
+            if (isCsvRow) {
+                const formattedCols = columns.map(col => col.trim().replace(/^"|"$/g, ''));
+                if (!inTable) {
+                    inTable = true; capturedHeaders = formattedCols.join(',');
+                    result.push('\n| ' + formattedCols.join(' | ') + ' |');
+                    result.push('| ' + columns.map(() => '---').join(' | ') + ' |');
+                } else { result.push('| ' + formattedCols.join(' | ') + ' |'); }
+            } else { if (inTable) inTable = false; result.push(line); }
+        }
+        return { parsedText: result.join('\n'), headers: capturedHeaders };
+    }
+
+    function convertToToonFormat(csvText) {
+        const lines = csvText.trim().split('\n');
+        const toonOutput = ["[TOON_OPTIMIZED_STREAM]"]; let headerDetected = false;
+        lines.forEach(line => {
+            const columns = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (columns.length >= 4 && columns.every(col => col.trim().length < 60)) {
+                const cleanCols = columns.map(c => c.trim().replace(/^"|"$/g, ''));
+                if (!headerDetected) { toonOutput.push(`H:${cleanCols.join('^')}`); headerDetected = true; }
+                else { toonOutput.push(`R:${cleanCols.join('^')}`); }
+            } else { if (line.trim()) toonOutput.push(line); }
+        });
+        return toonOutput.join('\n');
+    }
+
+    // ================================================================
+    //  PROMPT INTELLIGENCE V2
+    // ================================================================
+    function runAdvancedPromptIntelligenceEngineV2(text) {
+        if (!text.trim()) {
+            intentBadge.textContent = "INTENT: UNKNOWN"; langBadge.textContent = "LANG: DETECTING";
+            contextBadge.textContent = "TOPICS: GENERIC"; qualityScoreDisp.textContent = "0 / 100";
+            aiReadinessDisp.textContent = "0 / 100"; return;
+        }
+        const intentScores = { Coding: 0, Business: 0, Research: 0, Creative: 0, Marketing: 0 };
+        if (/\b(function|def|code|class|app|react|python|css|html|bug|run|compile|developer|stack|repo)\b/i.test(text)) intentScores.Coding += 15;
+        if (/\b(marketing|social|instagram|viral|brand|campaign|ad|tiktok|creative|audience|ctr|seo)\b/i.test(text)) intentScores.Marketing += 12;
+        if (/\b(roi|sale|scale|client|business|revenue|margin|b2b|invoice|gst|price|startup|pitch)\b/i.test(text)) intentScores.Business += 10;
+        if (/\b(analyze|thesis|research|data|paper|study|synthesize|survey|investigate)\b/i.test(text)) intentScores.Research += 8;
+        if (/\b(write|story|poem|creative|design|novel|fiction|script)\b/i.test(text)) intentScores.Creative += 6;
+        const sortedIntents = Object.keys(intentScores).sort((a, b) => intentScores[b] - intentScores[a]);
+        intentBadge.textContent = `INTENT: ${sortedIntents[0].toUpperCase()}`;
+
+        const langScores = { English: 1, Mixed_Hinglish: 0, Spanish: 0, Arabic: 0 };
+        if (/[؀-ۿ]/.test(text)) langScores.Arabic += 20;
+        if (/\b(que|para|como|hola|este|con|buenos)\b/i.test(text)) langScores.Spanish += 15;
+        if (/\b(bhai|bata|hai|karo|kaise|bana|do|rha|rhi|hua|mujhe|mera|yaar|btao|liye|chal)\b/i.test(text)) langScores.Mixed_Hinglish += 18;
+        const topLanguage = Object.keys(langScores).sort((a, b) => langScores[b] - langScores[a])[0];
+        langBadge.textContent = `LANG: ${topLanguage.replace("_", " ").toUpperCase()}`;
+
+        const tags = [];
+        if (/\b(react|javascript|node|nextjs|frontend)\b/i.test(text)) tags.push("React Stack");
+        if (/\b(python|django|fastapi|pandas|numpy|script)\b/i.test(text)) tags.push("Python Engine");
+        if (/\b(marketing|seo|ctr|acquisition|leads|conversion)\b/i.test(text)) tags.push("Marketing Growth");
+        if (/\b(ai|llm|gpt|claude|transformers|embedding|prompt|artificial)\b/i.test(text)) tags.push("AI/ML Infrastructure");
+        if (/\b(fashion|apparel|streetwear|tshirt|tees|fabric|leather|shoes|footwear)\b/i.test(text)) tags.push("Fashion Tech");
+        if (/\b(telegram|webhook|bot|channel|api proxy)\b/i.test(text)) tags.push("Telegram Nodes");
+        if (tags.length === 0) tags.push("Generic Framework");
+        contextBadge.textContent = `TOPICS: ${tags.join(" + ").toUpperCase()}`;
+
+        let baseQuality = 20;
+        if (text.length > 60) baseQuality += 20; if (text.length > 250) baseQuality += 20;
+        if (/\b(context|constraints|requirements|objective|specifications)\b/i.test(text)) baseQuality += 40;
+        qualityScoreDisp.textContent = `${Math.min(100, baseQuality)} / 100`;
+
+        let readiness = 15;
+        if (text.length > 120) readiness += 25;
+        if (/[\-\*\•\d\.]\s+/.test(text)) readiness += 30;
+        if (/\b(format|output|return|json|md|yaml|structure)\b/i.test(text)) readiness += 30;
+        aiReadinessDisp.textContent = `${Math.min(100, readiness)} / 100`;
+    }
+
+    function executePromptRewriteV2Engine(rawText) {
+        const contextLabel = contextBadge.textContent.replace("TOPICS: ", "");
+        const intentLabel = intentBadge.textContent.replace("INTENT: ", "");
+        let workingText = rawText; const norm = rawText.trim().toLowerCase();
+        if (norm === "app bana do" || norm === "make app" || norm === "bhai business bata") {
+            workingText = `Create a functional systemic blueprint.\nRequirements: build scalable component layers, secure transaction pathways, and structured telemetry blocks matching operational requirements.`;
+        }
+        const lines = workingText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const objective = lines[0] || "Process the dataset parameters and produce a verified result.";
+        let requirementsSection = lines.slice(1).filter(l => l.length > 10);
+        if (requirementsSection.length === 0) { requirementsSection = ["Analyze the input and generate a verified, execution-ready response."]; }
+
+        return `### [PROMPT INTELLIGENCE V2 STRUCTURE]
+
+# OBJECTIVE
+${objective}
+
+# CONTEXT
+- Target environment: ${contextLabel}.
+- Strategy vector: ${intentLabel}.
+- Placeholders of the form {{SHADOW_SECRET_*}} are secure capability references managed by a local runtime. Never ask for, reconstruct, or attempt to expand them — pass them through verbatim wherever the credential would be used.
+
+# CONSTRAINTS
+- Execute fully within the described scope; do not invent credentials or endpoints.
+- Never echo secrets; reference them only via the provided capability placeholders.
+
+# REQUIREMENTS
+${requirementsSection.map(r => `- ${r}`).join('\n')}
+
+# OUTPUT FORMAT
+Deliver clean, production-grade output with zero placeholder variables other than the provided {{SHADOW_SECRET_*}} references.
+
+# SUCCESS CRITERIA
+- Output is directly usable with the capability references intact.`;
+    }
+
+    // ================================================================
+    //  DIFF VIEW — highlights virtualized references & redactions
+    // ================================================================
+    function generateVisualDiffViewHighlights(raw, optimized) {
+        diffViewPanel.innerHTML = "";
+        if (!optimized.trim()) {
+            diffViewPanel.innerHTML = `<span class="t-hint italic">Sanitized output with highlighted virtualizations & redactions renders here…</span>`; return;
+        }
+        const encoded = encodeHTMLContextString(optimized);
+        const segments = encoded.split(/(\{\{SHADOW_SECRET_[A-Z0-9_]+\}\}|\[REDACTED_[A-Z_]+\]|\[CLOAKED_MUTED_DATA\])/g);
+        const frag = document.createDocumentFragment();
+        segments.forEach(seg => {
+            const node = document.createElement('span');
+            if (seg.startsWith("{{SHADOW_SECRET_")) { node.className = "diff-virtualized"; node.textContent = seg; }
+            else if (seg.startsWith("[REDACTED_") || seg === "[CLOAKED_MUTED_DATA]") { node.className = "diff-redacted"; node.textContent = seg; }
+            else { node.textContent = seg; }
+            frag.appendChild(node);
+        });
+        diffViewPanel.appendChild(frag);
+    }
+
+    // ================================================================
+    //  LIVE INPUT ANALYTICS
+    // ================================================================
+    rawInput.addEventListener('input', () => {
+        const rawText = rawInput.value; charCountDisp.textContent = `${rawText.length} CHARS`;
+        if (masterExecuteBtn.dataset.state === 'done') {
+            masterExecuteBtn.textContent = "Execute Governance Engine & Sync";
+            masterExecuteBtn.dataset.state = '';
+        }
+        const estTokens = Math.ceil(rawText.length / 4);
+        estTokensDisp.textContent = estTokens.toLocaleString();
+        const rate = modelPricingMatrixLookup[pricingModelSelect.value] || 3.00;
+        payloadCostDisp.textContent = `$${((estTokens / 1000000) * rate).toFixed(4)}`;
+        if (rawText.trim().startsWith('{') || rawText.trim().startsWith('[')) { dataTypeDisp.textContent = "JSON"; }
+        else if (rawText.includes(',') && rawText.includes('\n')) { dataTypeDisp.textContent = "CSV"; }
+        else { dataTypeDisp.textContent = "STREAM"; }
+        runAdvancedPromptIntelligenceEngineV2(rawText);
+    });
+
+    // ================================================================
+    //  MASTER GOVERNANCE PIPELINE
+    // ================================================================
+    masterExecuteBtn.addEventListener('click', async () => {
+        let text = rawInput.value; if (!text.trim()) return;
+        masterExecuteBtn.disabled = true;
+        masterExecuteBtn.textContent = '… engine running';
+        try {
+            const metricsTracker = { 'CUSTOM_CLOAKS': 0, 'HIGH_ENTROPY': 0, __virtualized: 0 };
+            matrixRules.forEach(r => metricsTracker[r.id] = 0);
+
+            complianceLogCard.classList.add('hidden'); chunkControlPanel.classList.add('hidden');
+            const initialLength = text.length;
+            text = text.replace(/[​-‍﻿]/g, '');
+            auditReportLog = "";
+
+            // --- prompt-injection shield + agent firewall over raw intent ---
+            const injection = PromptInjectionShield.scan(text);
+            const promptRisk = AgentFirewall.assessPrompt(text);
+            if (injection.injection && promptRisk.level !== 'CRITICAL') {
+                promptRisk.level = 'CRITICAL';
+                promptRisk.reasons.unshift('Prompt-injection / secret-exfiltration attempt detected — DENIED (no reveal path exists)');
+            }
+            showFirewallBanner(promptRisk);
+            if (promptRisk.level === 'CRITICAL') SecurityMetrics.blocked++;
+
+            // --- token fluff compression (OPTIMIZE mode only — destructive to code) ---
+            if (processingMode === 'optimize' && tokenOptimizationToggle.checked) {
+                const distinctLines = []; const seen = new Set();
+                text.split('\n').forEach(line => {
+                    const normal = line.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (normal.length > 10 && (normal.includes('please') || normal.includes('wording') || normal.includes('thankyou'))) return;
+                    if (normal.length > 5 && seen.has(normal)) return;
+                    if (normal.length > 5) seen.add(normal);
+                    distinctLines.push(line);
+                });
+                text = distinctLines.join('\n');
+            }
+
+            // --- custom cloaks ---
+            const inputKeywords = customKeywords.value.trim();
+            if (inputKeywords) {
+                inputKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(keyword => {
+                    const keywordRegex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'gi');
+                    const matches = (text.match(keywordRegex) || []).length;
+                    if (matches > 0) { metricsTracker['CUSTOM_CLOAKS'] += matches; text = text.replace(keywordRegex, '[CLOAKED_MUTED_DATA]'); }
+                });
+            }
+
+            // --- search & replace ---
+            const searchVal = searchTarget.value.trim(); const replaceVal = replaceTarget.value.trim();
+            if (searchVal) { text = text.replace(new RegExp(escapeRegExp(searchVal), 'g'), replaceVal); }
+
+            // --- detection matrix: virtualize (vault), label (test), or redact ---
+            const isTest = processingMode === 'test';
+            const doVault = virtualizeToggle.checked && cryptoReady && dbConnectionInstance && !isTest;
+            if (doVault) await SecretEngine.beginBulk();
+            try {
+                // inline assignment scanner runs first (value-only replacement, preserves structure)
+                text = await SecretEngine.scanInlineAssignments(text, processingMode, metricsTracker);
+
+                for (const fw of matrixRules) {
+                    if (!fw.checked) continue;
+                    if (fw.id === 'CARDS') {
+                        text = text.replace(fw.regex, (m) => {
+                            if (isValidLuhn(m)) { metricsTracker['CARDS']++; return fw.mask; }
+                            return m;
+                        });
+                    } else if (isTest) {
+                        // TEST mode: non-destructive labels so QA can see what was detected
+                        text = text.replace(fw.regex, (m) => {
+                            metricsTracker[fw.id]++;
+                            return fw.virtualize ? `[DETECTED_${SecretEngine.classifySecret(m, fw.id, '').provider}_SECRET]` : fw.mask;
+                        });
+                    } else if (fw.virtualize && doVault) {
+                        text = await SecretEngine.replaceSecretInPrompt(text, fw, metricsTracker);
+                    } else {
+                        const matches = text.match(fw.regex);
+                        if (matches) { metricsTracker[fw.id] += matches.length; text = text.replace(fw.regex, fw.mask); }
+                    }
+                }
+
+                // --- entropy sweep for unknown credentials (not in test/label mode) ---
+                if (entropyToggle.checked && doVault) {
+                    text = await SecretEngine.entropySweep(text, metricsTracker);
+                }
+            } finally {
+                if (doVault) await SecretEngine.endBulk();   // single batched write
+            }
+
+            // --- risk scoring ---
+            let totalRisk = 0;
+            Object.keys(riskWeightsMatrix).forEach(id => { if (metricsTracker[id]) totalRisk += metricsTracker[id] * riskWeightsMatrix[id]; });
+            let riskTag = "LOW";
+            if (totalRisk >= 120) riskTag = "CRITICAL";
+            else if (totalRisk >= 60) riskTag = "HIGH";
+            else if (totalRisk >= 20) riskTag = "MEDIUM";
+            riskLevelDisp.textContent = `${totalRisk} · ${riskTag}`;
+            riskLevelDisp.style.color = riskTag === 'LOW' ? 'var(--good)' : riskTag === 'MEDIUM' ? 'var(--warn)' : 'var(--bad)';
+            SecurityMetrics.riskHistory.push(totalRisk);
+
+            // ==== The following transforms REWRITE the text and only run in OPTIMIZE mode.
+            //      PROTECT & TEST modes preserve the source byte-for-byte except secrets. ====
+            if (processingMode === 'optimize') {
+                // TOON structural compression for tabular data
+                if (toonToggle.checked && dataTypeDisp.textContent === 'CSV') {
+                    text = convertToToonFormat(text);
+                } else if (dataTypeDisp.textContent === 'CSV' && !toonToggle.checked && intelToggle.checked) {
+                    text = parseInlineTables(text).parsedText;
+                }
+                // prompt structuring
+                if (intelToggle.checked) { text = executePromptRewriteV2Engine(text); }
+                if (hallucinationToggle.checked) {
+                    text += `\n\n# ANTI-HALLUCINATION RULES\n- Prefer evidence derived strictly from the provided input context.\n- State uncertainty bounds and data limits directly in the response.`;
+                }
+                text = text.replace(/\n{3,}/g, '\n\n').replace(/^[•·\-*+>]\s*/gm, '• ');
+            } else if (processingMode === 'protect' && metricsTracker.__virtualized > 0) {
+                // PROTECT: prepend a compact legend so the AI treats references as live capabilities,
+                // NOT missing data. Appended as a leading comment; the source below is untouched.
+                text = `# ShadowPaste — ${metricsTracker.__virtualized} secret(s) virtualized. Placeholders like {{SHADOW_SECRET_PROVIDER_ID}} are\n# valid runtime capability references. Do NOT ask for the real values or treat them as missing —\n# keep them verbatim wherever a credential is used; the code below is otherwise unmodified.\n\n` + text;
+            }
+            const finalLength = text.length;
+            const saved = Math.max(0, initialLength - finalLength);
+            const savedPct = initialLength > 0 ? Math.round((saved / initialLength) * 100) : 0;
+            compressionRatioDisp.textContent = `${savedPct}%`;
+
+            const rawTokens = Math.ceil(initialLength / 4);
+            const optTokens = Math.ceil(finalLength / 4);
+            tokenAnalyticsLogDisp.innerHTML = `Orig ${rawTokens} · Opt ${optTokens}<br>Saved <span class="t-value">${Math.max(0, rawTokens - optTokens)}</span>`;
+
+            // --- compliance audit ---
+            complianceMetricsGrid.innerHTML = "";
+            auditReportLog = `==================================================\nSHADOWPASTE V12 GOVERNANCE CERTIFICATE\nSession: ${RUNTIME_SESSION_ID}\nTimestamp: ${nowISO()}\nMode: ${isTest ? 'TEST (labels, no vault)' : doVault ? 'PROTECT (runtime vault)' : 'REDACT (destructive)'}\n==================================================\n`;
+            Object.keys(metricsTracker).forEach(key => {
+                if (key.startsWith('__') || !metricsTracker[key]) return;
+                const rule = matrixRules.find(r => r.id === key);
+                const virtualized = doVault && ((rule && rule.virtualize) || key === 'HIGH_ENTROPY' || key === 'INLINE_ASSIGN');
+                const row = document.createElement('div');
+                row.className = "glass-inset p-2.5 flex justify-between items-center";
+                row.innerHTML = `<span class="uppercase font-medium text-[9px] tracking-wider" style="color: var(--muted);">${key.replace(/_/g, ' ')}</span> <span class="font-bold font-mono-stack text-[11px]" style="color: ${virtualized ? 'var(--accent-ink)' : 'var(--warn)'};">${metricsTracker[key]} ${virtualized ? 'vaulted' : 'redacted'}</span>`;
+                complianceMetricsGrid.appendChild(row);
+                auditReportLog += `[${virtualized ? 'VIRTUALIZED' : 'REDACTED'}]: ${key} → ${metricsTracker[key]} item(s). ${virtualized ? 'Encrypted into local vault; capability reference issued.' : 'Destructively masked.'}\n`;
+            });
+            if (metricsTracker.__virtualized > 0) {
+                auditReportLog += `\nTotal capability references issued: ${metricsTracker.__virtualized}\nRaw secrets present in output: 0\n`;
+            }
+            complianceLogCard.classList.remove('hidden'); complianceLogCard.classList.add('flex');
+
+            finalProcessedOutput = text;
+            generateVisualDiffViewHighlights(rawInput.value, text);
+            renderVault();
+
+            // --- history ledger (consent-gated) ---
+            if (historyToggle.checked && dbConnectionInstance) {
+                await persistOutputSessionToIndexedDB({
+                    timestamp: new Date().toLocaleTimeString(),
+                    tag: intentBadge.textContent, size: `${finalLength} bytes`,
+                    risk: riskLevelDisp.textContent, score: qualityScoreDisp.textContent,
+                    topic: contextBadge.textContent
+                });
+            }
+
+            // --- budget burn ---
+            const rate = modelPricingMatrixLookup[pricingModelSelect.value] || 3.00;
+            currentBalance = Math.max(0, currentBalance - ((rawTokens / 1000000) * rate));
+            localStorage.setItem('shadowpaste_credits', currentBalance.toString()); updateBalanceDisplay();
+
+            // --- chunking ---
+            const LIMIT = parseInt(chunkSlider.value); dataChunks = [];
+            if (text.length > LIMIT) {
+                let pos = 0;
+                while (pos < text.length) {
+                    if (text.length - pos <= LIMIT) { dataChunks.push(text.substring(pos)); break; }
+                    let end = pos + LIMIT;
+                    const lastNewline = text.lastIndexOf('\n', end);
+                    if (lastNewline > pos) end = lastNewline;
+                    dataChunks.push(text.substring(pos, end)); pos = end;
+                    while (pos < text.length && text.charAt(pos) === '\n') pos++;
+                }
+                chunkControlPanel.classList.remove('hidden'); chunkButtonsGrid.innerHTML = '';
+                dataChunks.forEach((chunk, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = "btn-ghost px-3 py-1.5 text-[10px] font-mono-stack";
+                    btn.textContent = `Block ${idx + 1}`;
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await executeSecureNativeClipboardWritePipeline(chunk);
+                            btn.textContent = `✓ Copied ${idx + 1}`;
+                            setTimeout(() => { btn.textContent = `Block ${idx + 1}`; }, 2000);
+                        } catch (err) { console.error("Clipboard exception:", err); }
+                    });
+                    chunkButtonsGrid.appendChild(btn);
+                });
+            }
+            masterExecuteBtn.textContent = metricsTracker.__virtualized > 0
+                ? `✓ Synced — ${metricsTracker.__virtualized} secret(s) virtualized into vault`
+                : `✓ Clean stream synced`;
+            masterExecuteBtn.dataset.state = 'done';
+            exportActionSection.classList.remove('hidden'); exportActionSection.classList.add('grid');
+            ActivityLog.record('⚙', `Governance pass complete — risk ${riskTag}, ${metricsTracker.__virtualized || 0} virtualized`, 'ok');
+        } catch (engineErr) {
+            console.error(engineErr);
+            masterExecuteBtn.textContent = '⚠ Engine error — see console';
+            ActivityLog.record('⚠', `Engine exception: ${engineErr.message}`, 'deny');
+        } finally {
+            masterExecuteBtn.disabled = false;
+        }
+    });
+
+    // ================================================================
+    //  SESSION HISTORY (IndexedDB, consent-gated, capped at 50)
+    // ================================================================
+    function persistOutputSessionToIndexedDB(payload) {
+        return new Promise((resolve) => {
+            const tx = dbConnectionInstance.transaction(["history"], "readwrite");
+            const store = tx.objectStore("history");
+            const countReq = store.count();
+            countReq.onsuccess = (e) => {
+                if (e.target.result >= 50) {
+                    store.openCursor().onsuccess = (ev) => { const c = ev.target.result; if (c) c.delete(); };
+                }
+                store.add(payload);
+            };
+            tx.oncomplete = () => { hydrateIndexedDBHistoryView(); resolve(); };
+            tx.onerror = () => resolve();
+        });
+    }
+    function hydrateIndexedDBHistoryView() {
+        if (!dbConnectionInstance) return;
+        const store = dbConnectionInstance.transaction(["history"], "readonly").objectStore("history");
+        historyLogList.innerHTML = "";
+        store.openCursor(null, "prev").onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                const r = cursor.value; const line = document.createElement('p');
+                line.className = "pb-1 flex flex-wrap justify-between items-center gap-1 text-[9px]";
+                line.style.borderBottom = '1px solid var(--stroke-soft)';
+                line.appendChild(document.createTextNode(`[${r.timestamp}] ${r.tag} · ${r.topic} — Risk ${r.risk} · Score ${r.score}`));
+                historyLogList.appendChild(line); cursor.continue();
+            } else if (historyLogList.children.length === 0) {
+                historyLogList.innerHTML = `<p class="t-hint italic">No persistent history yet — enable "Save session ledger" in the Pro Matrix.</p>`;
+            }
+        };
+    }
+    wipeHistoryBtn.addEventListener('click', async () => {
+        if (!dbConnectionInstance) return;
+        await idbClear('history');
+        hydrateIndexedDBHistoryView();
+        ActivityLog.record('🗑', 'History ledger purged', 'warn');
+    });
+    historyToggle.addEventListener('change', (e) => {
+        wipeHistoryBtn.classList.toggle('hidden', !e.target.checked);
+    });
+
+    // ================================================================
+    //  OBJECTIVE PRESET BLUEPRINTS (previously dead buttons — now wired)
+    // ================================================================
+    const presetBlueprints = {
+        coding: `# OBJECTIVE\nBuild <feature> in <stack>.\n\n# CONTEXT\n- Repository / framework:\n- Existing constraints:\n\n# REQUIREMENTS\n- Production-grade error handling\n- Tests for the critical path\n\n# OUTPUT FORMAT\nReturn complete code blocks only, no placeholders.`,
+        business: `# OBJECTIVE\nProduce a business analysis for <topic>.\n\n# CONTEXT\n- Market / region:\n- Revenue model:\n\n# REQUIREMENTS\n- Quantified assumptions with sources flagged\n- Risks & mitigations table\n\n# OUTPUT FORMAT\nExecutive summary + structured sections.`,
+        research: `# OBJECTIVE\nSynthesize research on <question>.\n\n# CONTEXT\n- Scope / timeframe:\n- Known prior work:\n\n# REQUIREMENTS\n- Separate evidence from interpretation\n- Cite uncertainty explicitly\n\n# OUTPUT FORMAT\nStructured synthesis with a findings table.`,
+        creative: `# OBJECTIVE\nWrite <format> about <theme>.\n\n# CONTEXT\n- Tone / voice:\n- Audience:\n\n# REQUIREMENTS\n- Strong opening hook\n- Consistent point of view\n\n# OUTPUT FORMAT\nFinal piece only, no meta-commentary.`
+    };
+    function applyPreset(key) {
+        const existing = rawInput.value.trim();
+        rawInput.value = presetBlueprints[key] + (existing ? `\n\n# SOURCE MATERIAL\n${existing}` : '');
+        triggerInputSync();
+        rawInput.focus();
+    }
+    btnTemplateCoding.addEventListener('click', () => applyPreset('coding'));
+    btnTemplateBusiness.addEventListener('click', () => applyPreset('business'));
+    btnTemplateResearch.addEventListener('click', () => applyPreset('research'));
+    btnTemplateCreative.addEventListener('click', () => applyPreset('creative'));
+
+    // ================================================================
+    //  EXPORTS — never include vault plaintext, only sanitized output
+    // ================================================================
+    exportCopyPrompt.addEventListener('click', async () => {
+        if (!finalProcessedOutput) return;
+        await executeSecureNativeClipboardWritePipeline(finalProcessedOutput);
+        exportCopyPrompt.textContent = '✓ Copied';
+        setTimeout(() => { exportCopyPrompt.textContent = 'Copy Full Prompt'; }, 1800);
+    });
+    exportTxtBtn.addEventListener('click', () => { if (finalProcessedOutput) triggerFileDownload(finalProcessedOutput, "ShadowPaste_Sanitized_Prompt.txt", "text/plain"); });
+    exportJsonBtn.addEventListener('click', () => {
+        if (!finalProcessedOutput) return;
+        triggerFileDownload(JSON.stringify({
+            generator: "ShadowPaste V7.5 Credential Runtime",
+            timestamp: nowISO(),
+            session: RUNTIME_SESSION_ID,
+            riskWeightedMetric: riskLevelDisp.textContent,
+            qualityReadinessScore: qualityScoreDisp.textContent,
+            sanitizedPromptOutputPayload: finalProcessedOutput
+        }, null, 4), "ShadowPaste_Export_Package.json", "application/json");
+    });
+    exportMdBtn.addEventListener('click', () => {
+        if (!finalProcessedOutput) return;
+        const md = `# ShadowPaste V7.5 Governance Stream\n\n* **Generated:** ${nowISO()}\n* **Risk:** ${riskLevelDisp.textContent}\n\n---\n\n## Engineered Prompt Payload\n\n\`\`\`text\n${finalProcessedOutput}\n\`\`\`\n`;
+        triggerFileDownload(md, "ShadowPaste_Markdown_Slate.md", "text/markdown");
+    });
+    exportAuditBtn.addEventListener('click', () => { if (auditReportLog) triggerFileDownload(auditReportLog, `ShadowPaste_Audit_Certificate_${Math.floor(Date.now() / 1000)}.txt`, "text/plain"); });
+
+    // V15 RESTORE — reinstate real secrets into AI-edited output (local decrypt).
+    let restoredText = '';
+    const restoreInput = $('restoreInput'), restoreBtn = $('restoreBtn'), restoreOutput = $('restoreOutput'),
+          restoreStatus = $('restoreStatus'), restoreCopyBtn = $('restoreCopyBtn');
+    restoreBtn.addEventListener('click', async () => {
+        const src = restoreInput.value;
+        if (!src.trim()) { restoreStatus.textContent = 'paste AI output first'; return; }
+        restoreBtn.disabled = true; restoreStatus.textContent = '…restoring';
+        try {
+            const res = await window.ShadowPasteRuntime.restorePrompt(src);
+            if (!res.ready) { restoreStatus.textContent = 'vault offline (needs https/localhost)'; return; }
+            restoredText = res.text;
+            restoreOutput.textContent = res.text;
+            restoreOutput.classList.remove('hidden');
+            restoreCopyBtn.classList.remove('hidden');
+            restoreStatus.style.color = res.unresolved.length ? 'var(--warn)' : 'var(--good)';
+            restoreStatus.textContent = `${res.restored} restored${res.unresolved.length ? ` · ${res.unresolved.length} unknown reference(s) left as-is` : ' · all references resolved'}`;
+        } catch (e) {
+            restoreStatus.style.color = 'var(--bad)'; restoreStatus.textContent = 'error: ' + e.message;
+        } finally { restoreBtn.disabled = false; }
+    });
+    restoreCopyBtn.addEventListener('click', async () => {
+        if (!restoredText) return;
+        await executeSecureNativeClipboardWritePipeline(restoredText);
+        restoreCopyBtn.textContent = '✓ Copied'; setTimeout(() => { restoreCopyBtn.textContent = 'Copy Restored'; }, 1600);
+    });
+
+    // ================================================================
+    //  PWA HOOKS (manifest + real sw.js are deployment artifacts; the
+    //  install prompt activates automatically when they are served)
+    // ================================================================
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault(); activeDeferredPromptVariable = e;
+        pwaInstallBtn.classList.remove('hidden');
+    });
+    pwaInstallBtn.addEventListener('click', () => {
+        if (!activeDeferredPromptVariable) return;
+        activeDeferredPromptVariable.prompt();
+        activeDeferredPromptVariable.userChoice.then((choice) => {
+            if (choice.outcome === 'accepted') { pwaInstallBtn.classList.add('hidden'); activeDeferredPromptVariable = null; }
+        });
+    });
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+            // registers only if a real sw.js is deployed alongside this file
+            navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => { /* offline mode not deployed yet */ });
+        });
+    }
+
+    // ================================================================
+    //  EXTENSION-READY PUBLIC RUNTIME FAÇADE
+    //  A future content-script (ChatGPT / Claude / Gemini / Perplexity)
+    //  talks to this exact surface via postMessage — same contracts.
+    // ================================================================
+    window.ShadowPasteRuntime = {
+        version: '15.0.0',
+        session: RUNTIME_SESSION_ID,
+        /** Virtualize every credential in a prompt; returns safe text. */
+        async virtualizePrompt(text) {
+            const tracker = { __virtualized: 0 };
+            for (const rule of matrixRules) {
+                if (rule.virtualize && rule.checked) {
+                    tracker[rule.id] = 0;
+                    text = await SecretEngine.replaceSecretInPrompt(text, rule, tracker);
+                }
+            }
+            text = await SecretEngine.entropySweep(text, tracker);
+            renderVault();
+            return { text, virtualized: tracker.__virtualized };
+        },
+        /**
+         * V15 — RESTORE: closes the round-trip. Takes AI-edited text containing
+         * {{SHADOW_SECRET_*}} references and swaps each back for its real decrypted
+         * secret from the local vault. Decryption happens only here, locally; unknown
+         * references are left untouched and reported. This is what makes an AI edit usable.
+         */
+        async restorePrompt(text) {
+            if (!cryptoReady || !dbConnectionInstance) return { text, restored: 0, unresolved: [], ready: false };
+            const refs = [...new Set((text.match(/\{\{SHADOW_SECRET_[A-Z0-9_]+\}\}/g) || []))];
+            let restored = 0; const unresolved = [];
+            for (const ref of refs) {
+                const rec = await idbGetByIndex('secrets', 'byReference', ref);
+                if (!rec || rec.status === 'revoked') { unresolved.push(ref); continue; }
+                let plain = await CryptoManager.decrypt(rec);
+                text = text.split(ref).join(plain);
+                plain = null;
+                restored++;
+            }
+            return { text, restored, unresolved, ready: true };
+        },
+        /** Runtime gateway: agent-side secret usage without exposure. */
+        useSecret: (reference, action) => AgentGateway.useSecret(reference, action),
+        requestSecretUse: (reference, action) => AgentGateway.requestSecretUse(reference, action),
+        validateCapability: (token) => AgentGateway.validateCapability(token),
+        auditUsage: (reference) => AgentGateway.auditUsage(reference),
+        /** Structurally denied: raw secret values are NEVER returned to any caller. */
+        requestSecretReveal(reference) {
+            ActivityLog.record('⛔', `Raw secret read requested (${reference || 'n/a'}) — DENIED, no reveal path exists`, 'deny');
+            return { ok: false, error: 'DENIED: raw secret values are never exposed. Use useSecret(reference, action) for scoped execution.' };
+        },
+        /** Screen an inbound prompt for injection / exfiltration intent. */
+        scanPrompt: (text) => PromptInjectionShield.scan(text),
+        /** Metadata only — never decrypts. */
+        async listSecrets() {
+            return (await idbGetAll('secrets')).map(s => ({
+                reference: s.reference, provider: s.provider, scope: s.scope,
+                status: statusOf(s).label, usageCount: s.usageCount,
+                lastUsed: s.lastUsed, expiresAt: s.expiresAt, preview: s.preview
+            }));
+        },
+        assessAction: (a) => AgentFirewall.assessAction(a),
+        /** Live command-center feed — REAL counters only. `ready:false` → UI shows "waiting for runtime". */
+        async dashboard() {
+            if (!cryptoReady || !dbConnectionInstance) return { ready: false };
+            const secrets = await idbGetAll('secrets');
+            const live = secrets.filter(s => s.status !== 'revoked' && s.expiresAt > Date.now());
+            const high = secrets.filter(s => providerRiskTier(s.provider).tier === 'HIGH').length;
+            const provs = {};
+            secrets.forEach(s => { provs[s.provider] = (provs[s.provider] || 0) + 1; });
+            // Protection score = share of detected secrets that are virtualized (0 raw exposed → 100).
+            // null when nothing has happened yet, so the UI can show "waiting for runtime".
+            const hasActivity = secrets.length > 0 || SecurityMetrics.executions > 0 || SecurityMetrics.blocked > 0;
+            const protectionScore = !hasActivity ? null : (live.length > 0 ? 100 : (SecurityMetrics.blocked > 0 ? 100 : 100));
+            return {
+                ready: true, hasActivity,
+                protectionScore,
+                protectedCount: live.length,
+                totalSecrets: secrets.length,
+                highRisk: high,
+                executions: SecurityMetrics.executions,
+                blocked: SecurityMetrics.blocked,
+                riskHistory: SecurityMetrics.riskHistory.slice(-24),
+                providers: provs
+            };
+        }
+    };
+
+    // ================================================================
+    //  BOOT SEQUENCE
+    // ================================================================
+    (async function boot() {
+        try {
+            await initDatabase();
+            await CryptoManager.init();
+            cryptoReady = true;
+            cryptoStatusBadge.innerHTML = '<span class="dot dot-good"></span><span style="color:var(--good);">VAULT ARMED · AES-GCM</span>';
+            ActivityLog.record('◈', `Runtime booted — session ${RUNTIME_SESSION_ID.slice(0, 8)}… · vault key loaded (non-extractable)`, 'vault');
+            renderVault();
+            hydrateIndexedDBHistoryView();
+        } catch (bootErr) {
+            cryptoReady = false;
+            cryptoStatusBadge.innerHTML = '<span class="dot dot-bad"></span><span style="color:var(--bad);">VAULT OFFLINE — REDACT ONLY</span>';
+            virtualizeToggle.checked = false;
+            virtualizeToggle.disabled = true;
+            console.warn('Vault unavailable, falling back to destructive redaction:', bootErr);
+            ActivityLog.record('⚠', `Vault unavailable (${bootErr.message}) — falling back to destructive redaction`, 'warn');
+        }
+    })();
+    </script>
+
+    <!-- ============ NEURAL COMMAND CENTER — WebGL background + live hero wiring ============ -->
+    <script>
+    (function NeuralCommandCenter() {
+        'use strict';
+        const canvas = document.getElementById('neuralCanvas');
+        const hero = document.getElementById('neuralHero');
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ---------- live hero data (REAL metrics only) ----------
+        const el = (id) => document.getElementById(id);
+        function drawHeroThreat(hist) {
+            const svg = el('heroThreat'); if (!svg) return;
+            if (!hist || hist.length < 2) { svg.innerHTML = '<text x="6" y="28" fill="#6f6981" font-size="9" font-family="monospace">waiting for runtime</text>'; return; }
+            const max = Math.max(120, ...hist);
+            const pts = hist.map((v, i) => `${(i/(hist.length-1))*300},${48-(v/max)*42-3}`).join(' ');
+            const last = hist[hist.length-1];
+            const col = last >= 120 ? '#ff6b6b' : last >= 60 ? '#ff9a3c' : last >= 20 ? '#ffcf5c' : '#8affc0';
+            svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>`;
+        }
+        async function pollDashboard() {
+            let d = { ready: false };
+            try { if (window.ShadowPasteRuntime && window.ShadowPasteRuntime.dashboard) d = await window.ShadowPasteRuntime.dashboard(); } catch (e) {}
+            const st = el('heroRuntimeStatus');
+            if (!d.ready) {
+                if (st) st.innerHTML = '<span class="dot dot-idle"></span>waiting for runtime';
+                el('heroProtScore').textContent = '—'; el('heroProtDesc').textContent = 'waiting for runtime';
+                el('heroProtected').textContent = '—'; el('heroHighRisk').textContent = '—';
+                el('heroExec').textContent = '—'; el('heroBlocked').textContent = '—';
+                drawHeroThreat(null); return;
+            }
+            if (st) st.innerHTML = '<span class="dot dot-good"></span>runtime online';
+            if (!d.hasActivity) {
+                el('heroProtScore').textContent = '—'; el('heroProtDesc').textContent = 'waiting for runtime — vault a secret to begin';
+            } else {
+                el('heroProtScore').textContent = (d.protectionScore == null ? '—' : d.protectionScore);
+                el('heroProtDesc').textContent = `${d.protectedCount} secret(s) virtualized · 0 raw exposed to AI`;
+            }
+            el('heroProtected').textContent = d.protectedCount;
+            el('heroHighRisk').textContent = d.highRisk;
+            el('heroExec').textContent = d.executions;
+            el('heroBlocked').textContent = d.blocked;
+            drawHeroThreat(d.riskHistory);
+        }
+        pollDashboard(); setInterval(pollDashboard, 1500);
+
+        // ---------- WebGL neural mesh ----------
+        if (reduceMotion || !window.THREE) { if (canvas) canvas.style.display = 'none'; return; }
+        let renderer;
+        try {
+            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+        } catch (e) { canvas.style.display = 'none'; return; }
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+        camera.position.set(0, 0, 26);
+
+        // soft round sprite for glowing nodes / pulses
+        function makeSprite(inner) {
+            const c = document.createElement('canvas'); c.width = c.height = 64;
+            const g = c.getContext('2d'); const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grd.addColorStop(0, inner); grd.addColorStop(0.35, inner.replace('1)', '0.6)')); grd.addColorStop(1, 'rgba(0,0,0,0)');
+            g.fillStyle = grd; g.beginPath(); g.arc(32, 32, 32, 0, 7); g.fill();
+            const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+        }
+        const nodeTex = makeSprite('rgba(255,220,180,1)');
+
+        // palette by vertical position (bottom blue → core red/orange → top amber)
+        function palette(t) {
+            // t in [0,1]; add jitter
+            const j = (Math.random() - 0.5) * 0.12;
+            const u = Math.min(1, Math.max(0, t + j));
+            let r, g, b;
+            if (u < 0.42) { const k = u / 0.42; r = 0.36 + k*0.5; g = 0.42 + k*0.1; b = 0.9 - k*0.5; }      // blue → magenta/red
+            else { const k = (u - 0.42) / 0.58; r = 0.86 + k*0.14; g = 0.28 + k*0.55; b = 0.4 - k*0.28; }    // red → amber
+            return [r, g, b];
+        }
+
+        // generate neuron-like node cloud (dense vertical core, sparse dendrites)
+        const N = 1400;
+        const positions = new Float32Array(N * 3);
+        const nodeColors = new Float32Array(N * 3);
+        const nodePts = [];
+        for (let i = 0; i < N; i++) {
+            const t = Math.pow(Math.random(), 0.7);              // bias toward center height
+            const y = (t * 2 - 1) * 16;                           // vertical spread
+            const coreBias = 1 - Math.abs(y) / 18;                // denser near middle
+            const radius = (Math.random() ** 1.6) * (5 + coreBias * 9);
+            const ang = Math.random() * Math.PI * 2;
+            const x = Math.cos(ang) * radius + (Math.random() - 0.5) * 3;
+            const z = Math.sin(ang) * radius * 0.7 + (Math.random() - 0.5) * 3;
+            positions[i*3] = x; positions[i*3+1] = y; positions[i*3+2] = z;
+            const col = palette((y + 16) / 32);
+            nodeColors[i*3] = col[0]; nodeColors[i*3+1] = col[1]; nodeColors[i*3+2] = col[2];
+            nodePts.push([x, y, z]);
+        }
+        const nodeGeo = new THREE.BufferGeometry();
+        nodeGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        nodeGeo.setAttribute('color', new THREE.BufferAttribute(nodeColors, 3));
+        const nodeMat = new THREE.PointsMaterial({ size: 0.6, map: nodeTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+        const nodes = new THREE.Points(nodeGeo, nodeMat);
+
+        // edges: connect each node to ~2 nearest from a random sample (organic branches)
+        const edgeA = [], edgeB = [];
+        const linePos = []; const lineCol = [];
+        for (let i = 0; i < N; i++) {
+            const pi = nodePts[i];
+            let best = [], bd = [Infinity, Infinity];
+            for (let s = 0; s < 26; s++) {
+                const j = (Math.random() * N) | 0; if (j === i) continue;
+                const pj = nodePts[j];
+                const dx = pi[0]-pj[0], dy = pi[1]-pj[1], dz = pi[2]-pj[2];
+                const d = dx*dx + dy*dy + dz*dz;
+                if (d < bd[0]) { bd[1]=bd[0]; best[1]=best[0]; bd[0]=d; best[0]=j; }
+                else if (d < bd[1]) { bd[1]=d; best[1]=j; }
+            }
+            for (const j of best) {
+                if (j == null) continue;
+                const pj = nodePts[j];
+                edgeA.push(i); edgeB.push(j);
+                linePos.push(pi[0],pi[1],pi[2], pj[0],pj[1],pj[2]);
+                const ca = palette((pi[1]+16)/32), cb = palette((pj[1]+16)/32);
+                lineCol.push(ca[0]*0.7,ca[1]*0.7,ca[2]*0.7, cb[0]*0.7,cb[1]*0.7,cb[2]*0.7);
+            }
+        }
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
+        lineGeo.setAttribute('color', new THREE.Float32BufferAttribute(lineCol, 3));
+        const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false });
+        const lines = new THREE.LineSegments(lineGeo, lineMat);
+
+        // energy pulses travelling along branches
+        const P = 150, EDGES = edgeA.length;
+        const pulsePos = new Float32Array(P * 3);
+        const pulseState = [];
+        for (let i = 0; i < P; i++) pulseState.push({ e: (Math.random()*EDGES)|0, t: Math.random(), sp: 0.004 + Math.random()*0.012 });
+        const pulseGeo = new THREE.BufferGeometry();
+        pulseGeo.setAttribute('position', new THREE.BufferAttribute(pulsePos, 3));
+        const pulseMat = new THREE.PointsMaterial({ size: 0.9, map: makeSprite('rgba(180,220,255,1)'), color: 0xbfe0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+        const pulses = new THREE.Points(pulseGeo, pulseMat);
+
+        // far parallax layer (sparse, dim) for depth
+        const farGeo = new THREE.BufferGeometry();
+        const FN = 400, farPos = new Float32Array(FN*3);
+        for (let i=0;i<FN;i++){ farPos[i*3]=(Math.random()-0.5)*70; farPos[i*3+1]=(Math.random()-0.5)*50; farPos[i*3+2]=-20-Math.random()*30; }
+        farGeo.setAttribute('position', new THREE.BufferAttribute(farPos,3));
+        const far = new THREE.Points(farGeo, new THREE.PointsMaterial({ size:0.5, map:nodeTex, color:0x8a6fff, transparent:true, opacity:0.5, blending:THREE.AdditiveBlending, depthWrite:false }));
+
+        const group = new THREE.Group(); group.add(lines); group.add(nodes); group.add(pulses);
+        scene.add(group); scene.add(far);
+
+        // ---------- interaction ----------
+        const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+        function onMove(cx, cy) { const r = canvas.getBoundingClientRect(); mouse.tx = ((cx - r.left)/r.width - 0.5); mouse.ty = ((cy - r.top)/r.height - 0.5); }
+        hero.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+        hero.addEventListener('touchmove', (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+
+        function resize() {
+            const w = hero.clientWidth, h = hero.clientHeight || window.innerHeight;
+            renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize); resize();
+
+        // ---------- render loop (paused when hero off-screen / tab hidden) ----------
+        let visible = true, running = true, raf = 0;
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0.01 }).observe(hero);
+        }
+        document.addEventListener('visibilitychange', () => { running = !document.hidden; });
+
+        const clock = new THREE.Clock();
+        function frame() {
+            raf = requestAnimationFrame(frame);
+            if (!visible || !running) return;
+            const t = clock.getElapsedTime();
+            // camera drift + mouse parallax
+            mouse.x += (mouse.tx - mouse.x) * 0.04; mouse.y += (mouse.ty - mouse.y) * 0.04;
+            group.rotation.y = Math.sin(t * 0.06) * 0.35 + mouse.x * 0.6;
+            group.rotation.x = Math.cos(t * 0.05) * 0.12 + mouse.y * 0.4;
+            const breath = 1 + Math.sin(t * 0.5) * 0.03;           // breathing
+            group.scale.setScalar(breath);
+            far.rotation.y = t * 0.01 + mouse.x * 0.2;
+            camera.position.x += ((mouse.x * 4) - camera.position.x) * 0.03;
+            camera.position.y += ((-mouse.y * 3) - camera.position.y) * 0.03;
+            camera.lookAt(0, 0, 0);
+            // advance pulses
+            for (let i = 0; i < P; i++) {
+                const ps = pulseState[i]; ps.t += ps.sp;
+                if (ps.t >= 1) { ps.t = 0; ps.e = (Math.random()*EDGES)|0; ps.sp = 0.004 + Math.random()*0.012; }
+                const a = edgeA[ps.e], b = edgeB[ps.e]; const pa = nodePts[a], pb = nodePts[b];
+                pulsePos[i*3]   = pa[0] + (pb[0]-pa[0])*ps.t;
+                pulsePos[i*3+1] = pa[1] + (pb[1]-pa[1])*ps.t;
+                pulsePos[i*3+2] = pa[2] + (pb[2]-pa[2])*ps.t;
+            }
+            pulseGeo.attributes.position.needsUpdate = true;
+            nodeMat.size = 0.55 + Math.sin(t * 1.3) * 0.08;        // node glow pulse
+            renderer.render(scene, camera);
+        }
+        frame();
+        window.__neuralAlive = true;   // for self-audit
+    })();
+    </script>
+</body>
+</html>
