@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-07-07T19:41:40.107Z",
+  "target": {
+    "agents": 50,
+    "callsPerAgent": 100,
+    "totalCalls": 5000,
+    "concurrency": 20
+  },
+  "scalingNote": "To reach 100K calls (1000 agents × 100), bump AGENT_COUNT to 1000. Expect ~20 min runtime.",
+  "summary": {
+    "totalCalls": 5000,
+    "completed": 5000,
+    "httpErrors": 0,
+    "errors": 0,
+    "executed": 423,
+    "allowCount": 3697,
+    "denyCount": 385,
+    "askCount": 918,
+    "sandboxCount": 0,
+    "allowRate": 73.94,
+    "denyRate": 7.7,
+    "askRate": 18.36,
+    "sandboxRate": 0,
+    "errorRate": 0,
+    "executedRate": 8.46
+  },
+  "performance": {
+    "totalDurationMs": 57448,
+    "totalDurationSec": 57.448,
+    "throughputCallsPerSec": 87.04,
+    "latencyMs": {
+      "min": 82.12,
+      "mean": 202.49,
+      "p50": 181.41,
+      "p95": 281.43,
+      "p99": 1299.74,
+      "max": 2000.85
+    }
+  },
+  "decisions": {
+    "ask": 918,
+    "allow_once": 3600,
+    "deny": 385,
+    "allow_always": 97
+  },
+  "adapters": {
+    "filesystem": 2875,
+    "github": 449,
+    "database": 373
+  }
+}

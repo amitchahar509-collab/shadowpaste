@@ -64,22 +64,40 @@ export function scoreToLevel(score: number): RiskLevel {
 }
 
 // Analyze input for dangerous patterns (prompt injection, destructive verbs)
+// V19: expanded based on war-test findings (plurals, compound IDs, missing
+// keywords "credential"/"vault", tool-abuse patterns "bypass/disable/override").
 const DESTRUCTIVE_PATTERNS = [
+  // Destructive verbs
   { re: /drop\s+(table|database|schema)/i, weight: 40, name: "DROP statement" },
   { re: /delete\s+from/i, weight: 30, name: "DELETE statement" },
   { re: /rm\s+-rf/i, weight: 45, name: "rm -rf" },
-  { re: /format|mkfs/i, weight: 50, name: "format command" },
+  { re: /\b(format|mkfs)\b/i, weight: 50, name: "format command" },
   { re: /:\(\)\s*\{.*\};:/i, weight: 50, name: "fork bomb" },
   { re: /curl.*\|\s*(bash|sh)/i, weight: 50, name: "curl pipe shell" },
   { re: /wget.*\|\s*(bash|sh)/i, weight: 50, name: "wget pipe shell" },
-  { re: /ignore.{0,10}(previous|above|prior).{0,10}(instruction|rule|policy)/i, weight: 35, name: "prompt injection: ignore instructions" },
-  { re: /disregard.{0,10}(all|any|previous).{0,10}(instruction|rule)/i, weight: 35, name: "prompt injection: disregard" },
+  // Prompt injection — jailbreaks
+  { re: /ignore.{0,15}(previous|above|prior|earlier|all|any).{0,15}(instruction|rule|policy|prompt)/i, weight: 35, name: "prompt injection: ignore instructions" },
+  { re: /disregard.{0,15}(all|any|previous|prior).{0,15}(instruction|rule|prompt|policy)/i, weight: 35, name: "prompt injection: disregard" },
   { re: /you\s+are\s+(now|actually)\s+/i, weight: 20, name: "prompt injection: identity override" },
+  { re: /pretend.{0,15}(there\s+are\s+)?no\s+(rules|restrictions|guardrails)/i, weight: 35, name: "prompt injection: pretend no rules" },
+  { re: /\bjailbroken\b|\bunrestricted\b/i, weight: 25, name: "prompt injection: jailbreak keyword" },
+  // Prompt injection — secret extraction / exfiltration
   { re: /system\s*prompt/i, weight: 25, name: "system prompt exfil attempt" },
-  { re: /\bsecret\b.*/i, weight: 15, name: "secret reference" },
-  { re: /\bapi[_-]?key\b/i, weight: 20, name: "API key reference" },
-  { re: /\bpassword\b/i, weight: 20, name: "password reference" },
-  { re: /\btoken\b/i, weight: 12, name: "token reference" },
+  { re: /(reveal|show|display|expose|print|output|tell\s+me|dump|export|leak).{0,30}(secret|api[_-]?key|credential|token|password|private\s*key|vault)/i, weight: 30, name: "prompt injection: secret extraction" },
+  { re: /(send|post|upload|forward|transmit).{0,30}(secret|api[_-]?key|credential|token|password).{0,30}(to|http|url|webhook|endpoint|email)/i, weight: 40, name: "prompt injection: exfiltration" },
+  // Tool abuse
+  { re: /(bypass|disable|turn\s+off|override).{0,25}(firewall|security|guardrail|policy|shield|protection|sandbox)/i, weight: 35, name: "prompt injection: tool abuse / control bypass" },
+  { re: /\b(sudo|admin|root)\s+(access|privilege|mode)/i, weight: 25, name: "prompt injection: privilege escalation" },
+  // Social engineering
+  { re: /(i\s+am|this\s+is)\s+(the\s+)?(owner|admin|developer|ceo).{0,30}(give|show|send|reveal)/i, weight: 30, name: "prompt injection: social engineering" },
+  // Secret references (plurals + compound IDs like auth_token, secret_password)
+  { re: /\bsecrets?\b/i, weight: 15, name: "secret reference" },
+  { re: /\bapi[_-]?keys?\b/i, weight: 20, name: "API key reference" },
+  { re: /\bpasswords?\b/i, weight: 20, name: "password reference" },
+  { re: /\btokens?\b/i, weight: 12, name: "token reference" },
+  { re: /\bcredentials?\b/i, weight: 18, name: "credential reference" },
+  { re: /\b(?:auth[_-]?token|secret[_-]?key|secret[_-]?password|github[_-]?token|access[_-]?token|private[_-]?key)\b/i, weight: 22, name: "compound credential reference" },
+  { re: /\bvault\b/i, weight: 10, name: "vault reference" },
 ]
 
 export interface RiskAssessment {
