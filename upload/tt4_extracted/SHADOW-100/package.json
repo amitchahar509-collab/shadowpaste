@@ -1,0 +1,15 @@
+{
+  "name": "shadowpaste",
+  "version": "15.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ShadowPaste — local encrypted credential runtime that keeps secrets out of AI context (protect → AI → restore).",
+  "engines": { "node": ">=20" },
+  "workspaces": ["server"],
+  "scripts": {
+    "test": "node --test tests",
+    "check": "node --check server/server.mjs && node --check packages/engine/index.mjs && node --check packages/crypto/index.mjs && node --check packages/gateway/index.mjs && node --check packages/capability/index.mjs && node --check packages/security/index.mjs && node --check packages/providers/index.mjs && node --check packages/auth/index.mjs && node --check packages/rbac/index.mjs && node --check packages/sync/index.mjs && node --check packages/ai/index.mjs && node --check packages/runtime/index.mjs",
+    "start": "node server/server.mjs",
+    "dev": "node --watch server/server.mjs"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "ShadowPaste — AI Credential Runtime",
+  "version": "8.0.0",
+  "description": "Virtualizes API keys & secrets before they reach ChatGPT, Claude, Gemini, or Grok. Raw secrets stay in a local encrypted vault.",
+  "permissions": ["storage", "clipboardRead"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://grok.com/*",
+    "https://x.com/i/grok*",
+    "https://www.perplexity.ai/*",
+    "https://perplexity.ai/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://grok.com/*",
+        "https://x.com/i/grok*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_title": "ShadowPaste", "default_popup": "popup.html" },
+  "icons": { "128": "icon128.png" }
+}
