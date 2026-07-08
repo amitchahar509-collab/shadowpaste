@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Shield, LayoutDashboard, Network, Bot, KeyRound, Radio, Boxes, Github,
-  Gauge, Store, Globe, Bug, Database, Menu, X, Zap, Activity, Cpu,
+  Gauge, Store, Globe, Bug, Database, Menu, X, Zap, Activity, Cpu, Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,16 +20,18 @@ import { TrustScore } from "@/components/shadowpaste/trust-score"
 import { Marketplace } from "@/components/shadowpaste/marketplace"
 import { PublicScanner } from "@/components/shadowpaste/public-scanner"
 import { Attacks } from "@/components/shadowpaste/attacks"
+import { Vault } from "@/components/shadowpaste/vault"
 
 type ModuleId =
   | "dashboard" | "gateway" | "agents" | "permissions" | "recorder"
-  | "sandbox" | "github" | "trust" | "marketplace" | "public" | "attacks"
+  | "sandbox" | "github" | "trust" | "marketplace" | "public" | "attacks" | "vault"
 
 const NAV: Array<{ id: ModuleId; label: string; icon: typeof Shield; phase: string; group: string }> = [
   { id: "dashboard", label: "Command Center", icon: LayoutDashboard, phase: "OVERVIEW", group: "Monitor" },
   { id: "gateway", label: "MCP Gateway", icon: Network, phase: "P1", group: "Control" },
   { id: "agents", label: "Agent Identities", icon: Bot, phase: "P2", group: "Control" },
   { id: "permissions", label: "Permission Center", icon: KeyRound, phase: "P3", group: "Control" },
+  { id: "vault", label: "Secret Vault", icon: Lock, phase: "P4", group: "Control" },
   { id: "recorder", label: "Flight Recorder", icon: Radio, phase: "P4", group: "Monitor" },
   { id: "sandbox", label: "Shadow Sandbox", icon: Boxes, phase: "P5", group: "Build" },
   { id: "github", label: "AI Safe GitHub", icon: Github, phase: "P6", group: "Build" },
@@ -44,7 +46,7 @@ export default function Home() {
   const [mobileNav, setMobileNav] = useState(false)
   const [seeded, setSeeded] = useState(false)
   const [seeding, setSeeding] = useState(false)
-  const [stats, setStats] = useState<{ agents: number; toolCalls: number; attacks: number } | null>(null)
+  const [stats, setStats] = useState<{ agents: number; toolCalls: number; attacks: number; vaultEntries?: number } | null>(null)
 
   useEffect(() => {
     // Auto-seed on first load
@@ -53,8 +55,8 @@ export default function Home() {
         setSeeding(true)
         await api("/api/seed", { method: "POST" })
         setSeeded(true)
-        const d = await api<{ counts: { agents: number; toolCalls: number; attacks: number } }>("/api/dashboard")
-        setStats({ agents: d.counts.agents, toolCalls: d.counts.toolCalls, attacks: d.counts.attacks })
+        const d = await api<{ counts: { agents: number; toolCalls: number; attacks: number; vaultEntries: number } }>("/api/dashboard")
+        setStats({ agents: d.counts.agents, toolCalls: d.counts.toolCalls, attacks: d.counts.attacks, vaultEntries: d.counts.vaultEntries })
       } catch {
         // ignore — dashboard will still load
       } finally {
@@ -93,7 +95,7 @@ export default function Home() {
               </div>
               <div>
                 <div className="font-mono text-sm font-bold tracking-tight text-white">SHADOWPASTE</div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400/80">AI Security OS · v18</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400/80">AI Security OS · v19</div>
               </div>
             </div>
 
@@ -140,7 +142,7 @@ export default function Home() {
                 <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">ONLINE</Badge>
               </div>
               {stats && (
-                <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                <div className="mt-2 grid grid-cols-2 gap-1.5 text-center">
                   <div className="rounded bg-white/[0.02] py-1.5">
                     <div className="font-mono text-xs font-bold text-white">{stats.agents}</div>
                     <div className="text-[9px] uppercase text-zinc-500">Agents</div>
@@ -148,6 +150,10 @@ export default function Home() {
                   <div className="rounded bg-white/[0.02] py-1.5">
                     <div className="font-mono text-xs font-bold text-white">{stats.toolCalls}</div>
                     <div className="text-[9px] uppercase text-zinc-500">Calls</div>
+                  </div>
+                  <div className="rounded bg-white/[0.02] py-1.5">
+                    <div className="font-mono text-xs font-bold text-emerald-400">{stats.vaultEntries ?? 0}</div>
+                    <div className="text-[9px] uppercase text-zinc-500">Vaulted</div>
                   </div>
                   <div className="rounded bg-white/[0.02] py-1.5">
                     <div className="font-mono text-xs font-bold text-white">{stats.attacks}</div>
@@ -213,6 +219,7 @@ export default function Home() {
                 {active === "marketplace" && <Marketplace />}
                 {active === "public" && <PublicScanner />}
                 {active === "attacks" && <Attacks />}
+                {active === "vault" && <Vault />}
               </motion.div>
             </AnimatePresence>
           </main>
