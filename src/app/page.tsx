@@ -22,6 +22,10 @@ import { PublicScanner } from "@/components/shadowpaste/public-scanner"
 import { Attacks } from "@/components/shadowpaste/attacks"
 import { Vault } from "@/components/shadowpaste/vault"
 import { AuditTrail } from "@/components/shadowpaste/audit-trail"
+import dynamic from "next/dynamic"
+
+// 3D neural background — loaded dynamically (client-only, no SSR)
+const NeuralBackground3D = dynamic(() => import("@/components/shadowpaste/neural-background"), { ssr: false })
 
 type ModuleId =
   | "dashboard" | "gateway" | "agents" | "permissions" | "recorder"
@@ -73,14 +77,12 @@ export default function Home() {
   const activeItem = NAV.find((n) => n.id === active)!
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0e14] text-zinc-200 selection:bg-emerald-500/30">
-      {/* Ambient background grid */}
-      <div className="pointer-events-none fixed inset-0 opacity-[0.04]" style={{
-        backgroundImage: "linear-gradient(rgba(16,185,129,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.6) 1px, transparent 1px)",
-        backgroundSize: "48px 48px",
-      }} />
-      <div className="pointer-events-none fixed inset-0 opacity-60" style={{
-        background: "radial-gradient(60% 50% at 20% 0%, rgba(16,185,129,0.08), transparent 70%), radial-gradient(50% 50% at 100% 100%, rgba(139,92,246,0.06), transparent 70%)",
+    <div className="min-h-screen flex flex-col bg-[#070a0f] text-zinc-200 selection:bg-emerald-500/30">
+      {/* Live 3D neural universe background */}
+      <NeuralBackground3D />
+      {/* Subtle vignette for readability */}
+      <div className="pointer-events-none fixed inset-0 z-[1]" style={{
+        background: "radial-gradient(80% 80% at 50% 50%, transparent 30%, rgba(7,10,15,0.7) 100%)",
       }} />
 
       <div className="relative flex flex-1">

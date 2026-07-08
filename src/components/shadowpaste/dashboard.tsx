@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -8,6 +9,9 @@ import {
   Bot, Network, ShieldCheck, ShieldAlert, Bug, Activity, TrendingUp, ArrowRight,
   Cpu, Lock, Zap, Radio, Boxes, Github, Store, Globe, Gauge, Database, KeyRound, Server,
 } from "lucide-react"
+
+// 3D agent map — loaded dynamically (client-only)
+const AgentMap3D = dynamic(() => import("./agent-map"), { ssr: false })
 
 interface DashboardData {
   counts: { agents: number; tools: number; packages: number; projects: number; toolCalls: number; attacks: number; publicScans: number; sandboxChanges: number; vaultEntries: number; toolExecutions: number }
@@ -66,6 +70,25 @@ export function Dashboard({ onNavigate }: { onNavigate: (id: string) => void }) 
               <div className="mt-1 text-[11px] text-emerald-400">{data.agents.active} active · {data.agents.quarantined} quarantined</div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Agent Map — 3D network visualization */}
+      <Card className="relative overflow-hidden border-white/5 bg-[#0d1218]/80 backdrop-blur p-0">
+        <div className="absolute left-4 top-4 z-10">
+          <div className="flex items-center gap-2">
+            <Network className="h-4 w-4 text-emerald-400" />
+            <h3 className="font-mono text-sm font-semibold text-white">Agent Network Map</h3>
+          </div>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Live AI agent ↔ ShadowPaste ↔ tool connections</p>
+        </div>
+        <div className="absolute right-4 top-4 z-10 flex gap-1.5">
+          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[9px] text-emerald-400"><span className="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />allowed</Badge>
+          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-[9px] text-amber-400"><span className="mr-1 h-1.5 w-1.5 rounded-full bg-amber-400" />ask</Badge>
+          <Badge variant="outline" className="border-red-500/30 bg-red-500/10 text-[9px] text-red-400"><span className="mr-1 h-1.5 w-1.5 rounded-full bg-red-400" />blocked</Badge>
+        </div>
+        <div className="h-[340px] w-full">
+          <AgentMap3D />
         </div>
       </Card>
 
