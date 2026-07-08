@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-07-07T19:41:41.569Z",
+  "timestamp": "2026-07-08T13:33:42.920Z",
   "users": {
     "A": {
-      "email": "userA-mrb21qb6@tenant1.test",
-      "orgId": "cmrb21qe60sntsvyz40nb2gz0",
-      "orgSlug": "user-a-b1118c",
-      "agentId": "cmrb21qgx0so5svyzh3tk0f74"
+      "email": "userA-mrc4ccmr@tenant1.test",
+      "orgId": "cmrc4ccwl0019wbzxbwgn39cr",
+      "orgSlug": "user-a-fd6a95",
+      "agentId": "cmrc4cd0s001lwbzxu9o917z6"
     },
     "B": {
-      "email": "userB-mrb21qb6@tenant2.test",
-      "orgId": "cmrb21qgd0snzsvyzs8i0kusq",
-      "orgSlug": "user-b-660329",
-      "agentId": "cmrb21qmc0sodsvyzotj6z4ki"
+      "email": "userB-mrc4ccmr@tenant2.test",
+      "orgId": "cmrc4cczu001fwbzxwxki7ct6",
+      "orgSlug": "user-b-aedfef",
+      "agentId": "cmrc4cd9i001twbzxiwm0h27y"
     }
   },
   "orgsAreDistinct": true,
@@ -20,7 +20,7 @@
       "id": "T1",
       "description": "userA can create agent",
       "passed": true,
-      "detail": "agentAId=cmrb21qgx0so5svyzh3tk0f74"
+      "detail": "agentAId=cmrc4cd0s001lwbzxu9o917z6"
     },
     {
       "id": "T2",
@@ -50,7 +50,7 @@
       "id": "T6",
       "description": "userB can create agent in their own org",
       "passed": true,
-      "detail": "agentBId=cmrb21qmc0sodsvyzotj6z4ki"
+      "detail": "agentBId=cmrc4cd9i001twbzxiwm0h27y"
     },
     {
       "id": "T7",

@@ -83,7 +83,7 @@ const DESTRUCTIVE_PATTERNS = [
   { re: /\bjailbroken\b|\bunrestricted\b/i, weight: 25, name: "prompt injection: jailbreak keyword" },
   // Prompt injection — secret extraction / exfiltration
   { re: /system\s*prompt/i, weight: 25, name: "system prompt exfil attempt" },
-  { re: /(reveal|show|display|expose|print|output|tell\s+me|dump|export|leak).{0,30}(secret|api[_-]?key|credential|token|password|private\s*key|vault)/i, weight: 30, name: "prompt injection: secret extraction" },
+  { re: /(reveal|show|display|expose|print|output|tell\s+me|dump|export|leak).{0,30}(secret|api[_-]?key|credential|token|password|private\s*key|vault|system\s*prompt|instructions)/i, weight: 30, name: "prompt injection: secret extraction" },
   { re: /(send|post|upload|forward|transmit).{0,30}(secret|api[_-]?key|credential|token|password).{0,30}(to|http|url|webhook|endpoint|email)/i, weight: 40, name: "prompt injection: exfiltration" },
   // Tool abuse
   { re: /(bypass|disable|turn\s+off|override).{0,25}(firewall|security|guardrail|policy|shield|protection|sandbox)/i, weight: 35, name: "prompt injection: tool abuse / control bypass" },

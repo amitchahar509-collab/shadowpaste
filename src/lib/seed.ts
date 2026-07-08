@@ -15,15 +15,18 @@ export async function ensureDefaultOrg() {
   let org = await db.organization.findUnique({ where: { id: DEFAULT_ORG_ID } })
   if (!org) {
     org = await db.organization.create({ data: { id: DEFAULT_ORG_ID, name: "ShadowPaste Demo", slug: "demo", plan: "enterprise" } })
+  } else if (org.plan !== "enterprise") {
+    // Ensure the demo org is always on ENTERPRISE plan (unlimited) so the public demo + war tests work
+    org = await db.organization.update({ where: { id: DEFAULT_ORG_ID }, data: { plan: "enterprise" } })
   }
   return org
 }
 
 export async function seedDatabase() {
   const agentCount = await db.agent.count()
-  if (agentCount > 0) return { seeded: false, reason: "already populated" }
-
+  // Always ensure the default org exists + is on ENTERPRISE plan (fixes stale plan from prior seeds)
   await ensureDefaultOrg()
+  if (agentCount > 0) return { seeded: false, reason: "already populated" }
 
   // 1. Agents (all under default org)
   const agents = await db.$transaction([
