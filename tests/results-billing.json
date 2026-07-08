@@ -1,23 +1,23 @@
 {
-  "timestamp": "2026-07-08T12:05:26.079Z",
-  "runTag": "mrc16toe",
+  "timestamp": "2026-07-08T13:23:35.299Z",
+  "runTag": "mrc3zc5k",
   "user": {
-    "email": "billing-mrc16toe@bypasstest.test",
-    "userId": "cmrc16ttd0000wb1tffe6p2o1",
-    "orgId": "cmrc16ttg0001wb1t2cat2vsk",
-    "orgSlug": "billing-tester-290ac4"
+    "email": "billing-mrc3zc5k@bypasstest.test",
+    "userId": "cmrc3zc7a00qiwbra79n3w1sj",
+    "orgId": "cmrc3zc7c00qjwbra78d4n5bc",
+    "orgSlug": "billing-tester-b05775"
   },
   "createdAgentIds": [
-    "cmrc16u340007wb1tpf429v0z",
-    "cmrc16u65000bwb1thzzwq4wu",
-    "cmrc16u8c000fwb1tpwxcm2p4"
+    "cmrc3zcev00qpwbraqah9p9nc",
+    "cmrc3zcfm00qtwbrabrg77n25",
+    "cmrc3zcgs00qxwbra0a4b219k"
   ],
   "billingBypass": {
     "attempted": true,
-    "blocked": false,
-    "fourthAgentId": "cmrc16u92000jwb1t22kx2l60",
-    "fourthAgentStatus": 200,
-    "fourthAgentError": null
+    "blocked": true,
+    "fourthAgentId": null,
+    "fourthAgentStatus": 402,
+    "fourthAgentError": "agents limit (3) reached for FREE plan. Upgrade to continue."
   },
   "usageBefore": {
     "plan": {
@@ -73,7 +73,7 @@
     },
     "usage": {
       "agents": {
-        "current": 4,
+        "current": 3,
         "limit": 3,
         "ok": false
       },
@@ -110,40 +110,40 @@
       "id": "T2",
       "description": "Agent #1 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrc16u340007wb1tpf429v0z, error=none"
+      "detail": "status=200, agentId=cmrc3zcev00qpwbraqah9p9nc, error=none"
     },
     {
       "id": "T3",
       "description": "Agent #2 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrc16u65000bwb1thzzwq4wu, error=none"
+      "detail": "status=200, agentId=cmrc3zcfm00qtwbrabrg77n25, error=none"
     },
     {
       "id": "T4",
       "description": "Agent #3 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrc16u8c000fwb1tpwxcm2p4, error=none"
+      "detail": "status=200, agentId=cmrc3zcgs00qxwbra0a4b219k, error=none"
     },
     {
       "id": "T5",
       "description": "4th agent creation is BLOCKED by billing limit (EXPECTED TO FAIL — known gap)",
-      "passed": false,
-      "detail": "status=200, agentId=cmrc16u92000jwb1t22kx2l60, error=none. BYPASSED — agent created past FREE limit; /api/agents POST route does NOT enforce plan limits."
+      "passed": true,
+      "detail": "status=402, agentId=null, error=agents limit (3) reached for FREE plan. Upgrade to continue.. BLOCKED (good)"
     },
     {
       "id": "T6",
       "description": "Billing usage endpoint accurately reports current agent count after bypass attempt",
       "passed": true,
-      "detail": "agents.current=4, agents.limit=3, agents.ok=false. Bypass OCCURRED. Usage accurately reported."
+      "detail": "agents.current=3, agents.limit=3, agents.ok=false. Bypass BLOCKED. Usage accurately reported."
     }
   ],
   "summary": {
     "total": 6,
-    "passed": 5,
-    "failed": 1,
-    "passRate": 0.8333,
+    "passed": 6,
+    "failed": 0,
+    "passRate": 1,
     "overallPass": true,
     "hardFailCount": 0,
-    "expectedGap": "T5 (billing bypass not enforced) — documented gap"
+    "expectedGap": null
   }
 }

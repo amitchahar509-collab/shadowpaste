@@ -48,7 +48,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
 }
 
 export function getPlan(orgPlan: string): PlanConfig {
-  return PLANS[orgPlan as Plan] || PLANS.FREE
+  return PLANS[(orgPlan || "FREE").toUpperCase() as Plan] || PLANS.FREE
 }
 
 // Check whether an org can perform an action based on its plan limits.
