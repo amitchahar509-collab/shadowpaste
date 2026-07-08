@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { DEMO_REPO_FILES, runScan } from "@/lib/scanner"
+import { scanGitHubRepo } from "@/lib/github-scanner"
 import { randomBytes } from "crypto"
 
 // GET /api/public-scan?shareId=... — fetch a shared scan result (no login)
@@ -16,17 +16,20 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ scans: recent })
 }
 
-// POST /api/public-scan — public no-login scan: { repoUrl }
+// POST /api/public-scan — public no-login scan: { repo }
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const repoUrl = body.repoUrl || "https://github.com/acme/platform"
-  const repoName = body.repoName || repoUrl.replace(/^https?:\/\//, "").replace(/\.git$/, "")
-  const fullContent = DEMO_REPO_FILES.map((f) => `# FILE: ${f.path}\n${f.content}`).join("\n\n")
-  const result = runScan(fullContent, repoName)
+  const repoInput = body.repo || (body.repoUrl ? body.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : "")
+  if (!repoInput) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 })
+
+  const result = await scanGitHubRepo(repoInput)
+  if (!result.ok) return NextResponse.json({ error: result.error || "scan failed" }, { status: 502 })
+
   const shareId = `share-${randomBytes(4).toString("hex")}`
   const scan = await db.publicScan.create({ data: {
-    repoUrl, repoName, score: result.score, secrets: result.secretsCount,
-    permissions: result.permissionsCount, configs: result.configsCount, findings: JSON.stringify(result.findings), shareId,
+    repoUrl: result.repo.url, repoName: repoInput,
+    score: result.score, secrets: result.secretsCount, permissions: 0, configs: result.configsCount,
+    findings: JSON.stringify(result.findings), shareId,
   }})
   return NextResponse.json({ ok: true, scan, ...result })
 }

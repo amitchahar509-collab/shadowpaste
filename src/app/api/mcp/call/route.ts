@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { invokeTool } from "@/lib/gateway"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 // POST /api/mcp/call — invoke a tool through the zero-trust gateway (REAL execution)
 export async function POST(req: NextRequest) {
+  // Rate limit: 60 MCP calls per minute per IP
+  const rl = checkRateLimit(req, "mcp")
+  if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } })
+
   const ctx = await getContext(req) || anonymousContext()
   const body = await req.json()
   const { agentId, sessionId, toolName, input, _tokenOverride } = body

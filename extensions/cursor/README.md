@@ -45,7 +45,7 @@ under `configs.claude-desktop` and `configs.cursor`. This command shows
 ```bash
 cd extensions/cursor
 npm install            # @types/vscode, @types/node, typescript
-npm run compile        # tsc -p . → out/extension.js
+npm run compile        # tsc -p . → out/cursor/src/extension.js (re-exports out/vscode/src/extension.js)
 ```
 
 Then package with `vsce package` and install the `.vsix` into Cursor via

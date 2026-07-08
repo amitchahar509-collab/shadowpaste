@@ -3,10 +3,15 @@
 A VS Code extension that connects your editor to the ShadowPaste backend
 (`http://localhost:3000` by default). Three commands:
 
-1. **ShadowPaste: Scan Workspace for Secrets** — concatenates every open
-   workspace text document, `POST`s it to `/api/scan` as
-   `{ repoUrl: "vscode-workspace" }`, and renders the findings in a Webview
-   panel with the trust score, grade, and a per-finding table.
+1. **ShadowPaste: Scan Workspace for Secrets** — scans every open workspace
+   text document **locally** using the same detector as the backend
+   (`src/detector.ts` is a byte-for-byte port of
+   `src/lib/security/detector.ts`), applies the same trust-score + grade
+   formula (`src/lib/scanner.ts::computeTrustScore` + `scoreToGrade`), and
+   renders the findings in a Webview panel. The V20 backend's `/api/scan`
+   is GitHub-specific (`scanGitHubRepo` calls `api.github.com/repos/${owner}/${name}`),
+   so the extension scans the workspace locally rather than posting a
+   non-existent `vscode-workspace` repo to GitHub.
 2. **ShadowPaste: Protect Secrets in Active Document** — runs the **same**
    detector regex as the backend (`src/detector.ts` is a byte-for-byte port
    of `src/lib/security/detector.ts`), replaces each secret with a
@@ -37,9 +42,11 @@ Open **Settings → Extensions → ShadowPaste** or edit `.vscode/settings.json`
 }
 ```
 
-All API calls use **relative paths** (`/api/scan`, `/api/vault`,
-`/api/mcp-config`) under the configured `serverUrl`. The default matches
-the local dev server (`bun run dev`).
+The extension makes outbound HTTP calls to the configured `serverUrl`
+under the relative paths `/api/vault` (POST) and `/api/mcp-config` (GET).
+Workspace scanning is performed locally with the detector port — no
+`/api/scan` round-trip. The default `serverUrl` matches the local dev
+server (`bun run dev`).
 
 ## Build (scaffold only — do NOT npm install in this repo)
 

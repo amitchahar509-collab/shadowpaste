@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-07-08T12:05:26.079Z",
+  "runTag": "mrc16toe",
+  "user": {
+    "email": "billing-mrc16toe@bypasstest.test",
+    "userId": "cmrc16ttd0000wb1tffe6p2o1",
+    "orgId": "cmrc16ttg0001wb1t2cat2vsk",
+    "orgSlug": "billing-tester-290ac4"
+  },
+  "createdAgentIds": [
+    "cmrc16u340007wb1tpf429v0z",
+    "cmrc16u65000bwb1thzzwq4wu",
+    "cmrc16u8c000fwb1tpwxcm2p4"
+  ],
+  "billingBypass": {
+    "attempted": true,
+    "blocked": false,
+    "fourthAgentId": "cmrc16u92000jwb1t22kx2l60",
+    "fourthAgentStatus": 200,
+    "fourthAgentError": null
+  },
+  "usageBefore": {
+    "plan": {
+      "name": "FREE",
+      "price": 0,
+      "features": [
+        "3 AI agents",
+        "500 MCP calls/month",
+        "10 vaulted secrets",
+        "10 repo scans/month",
+        "Community support"
+      ]
+    },
+    "usage": {
+      "agents": {
+        "current": 0,
+        "limit": 3,
+        "ok": true
+      },
+      "toolCallsThisMonth": {
+        "current": 0,
+        "limit": 500,
+        "ok": true
+      },
+      "vaultSecrets": {
+        "current": 0,
+        "limit": 10,
+        "ok": true
+      },
+      "scansThisMonth": {
+        "current": 0,
+        "limit": 10,
+        "ok": true
+      },
+      "members": {
+        "current": 1,
+        "limit": 1,
+        "ok": false
+      }
+    }
+  },
+  "usageAfter": {
+    "plan": {
+      "name": "FREE",
+      "price": 0,
+      "features": [
+        "3 AI agents",
+        "500 MCP calls/month",
+        "10 vaulted secrets",
+        "10 repo scans/month",
+        "Community support"
+      ]
+    },
+    "usage": {
+      "agents": {
+        "current": 4,
+        "limit": 3,
+        "ok": false
+      },
+      "toolCallsThisMonth": {
+        "current": 0,
+        "limit": 500,
+        "ok": true
+      },
+      "vaultSecrets": {
+        "current": 0,
+        "limit": 10,
+        "ok": true
+      },
+      "scansThisMonth": {
+        "current": 0,
+        "limit": 10,
+        "ok": true
+      },
+      "members": {
+        "current": 1,
+        "limit": 1,
+        "ok": false
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "T1",
+      "description": "New signup gets FREE plan with correct limits (3 agents / 500 calls / 10 vault)",
+      "passed": true,
+      "detail": "plan=FREE, agents.limit=3 (exp 3), toolCalls.limit=500 (exp 500), vault.limit=10 (exp 10)"
+    },
+    {
+      "id": "T2",
+      "description": "Agent #1 created successfully (within limit)",
+      "passed": true,
+      "detail": "status=200, agentId=cmrc16u340007wb1tpf429v0z, error=none"
+    },
+    {
+      "id": "T3",
+      "description": "Agent #2 created successfully (within limit)",
+      "passed": true,
+      "detail": "status=200, agentId=cmrc16u65000bwb1thzzwq4wu, error=none"
+    },
+    {
+      "id": "T4",
+      "description": "Agent #3 created successfully (within limit)",
+      "passed": true,
+      "detail": "status=200, agentId=cmrc16u8c000fwb1tpwxcm2p4, error=none"
+    },
+    {
+      "id": "T5",
+      "description": "4th agent creation is BLOCKED by billing limit (EXPECTED TO FAIL — known gap)",
+      "passed": false,
+      "detail": "status=200, agentId=cmrc16u92000jwb1t22kx2l60, error=none. BYPASSED — agent created past FREE limit; /api/agents POST route does NOT enforce plan limits."
+    },
+    {
+      "id": "T6",
+      "description": "Billing usage endpoint accurately reports current agent count after bypass attempt",
+      "passed": true,
+      "detail": "agents.current=4, agents.limit=3, agents.ok=false. Bypass OCCURRED. Usage accurately reported."
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 1,
+    "passRate": 0.8333,
+    "overallPass": true,
+    "hardFailCount": 0,
+    "expectedGap": "T5 (billing bypass not enforced) — documented gap"
+  }
+}

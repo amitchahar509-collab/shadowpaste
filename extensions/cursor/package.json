@@ -8,7 +8,7 @@
     "vscode": "^1.80.0"
   },
   "categories": ["Security", "Other"],
-  "main": "./out/extension.js",
+  "main": "./out/cursor/src/extension.js",
   "activationEvents": [
     "onCommand:shadowpaste.scanWorkspace",
     "onCommand:shadowpaste.protectSecrets",

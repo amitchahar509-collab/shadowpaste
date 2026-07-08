@@ -135,6 +135,25 @@ export async function githubCreatePR(input: { repo: string; title: string; head:
   }
 }
 
+// ---- GITHUB: commit a file to a branch ----
+export async function githubCommit(input: { repo: string; branch: string; path: string; message: string; content: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
+    if (!cred) throw new Error("No GitHub credential in vault. Store a GitHub token first.");
+    // Get the current file SHA (if it exists) for update vs create
+    const existing = await githubRequest("GET", `/repos/${input.repo}/contents/${input.path}?ref=${input.branch}`, cred.raw);
+    const sha = existing.status === 200 ? (existing.data as { sha?: string }).sha : undefined;
+    const body: Record<string, unknown> = { message: input.message, content: Buffer.from(input.content).toString("base64"), branch: input.branch };
+    if (sha) body.sha = sha;
+    const { status, data } = await githubRequest("PUT", `/repos/${input.repo}/contents/${input.path}`, cred.raw, body);
+    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    return { ok: status < 400, output: { repo: input.repo, branch: input.branch, path: input.path, status, commit: (data as { commit?: { sha?: string } })?.commit?.sha }, redactedOutput: JSON.stringify({ repo: input.repo, branch: input.branch, path: input.path, status }), adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "github", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
 // ---- DATABASE (real SQLite query; SELECT-only, destructive blocked) ----
 const FORBIDDEN_DB = /\b(drop|truncate)\b/i;
 const FORBIDDEN_DELETE = /delete\s+from\s+\w+\s*$/i;
@@ -170,6 +189,33 @@ export async function stripeRead(input: { resource: string; id?: string }, opts:
   }
 }
 
+// ---- STRIPE: subscription status ----
+export async function stripeSubscription(input: { subscriptionId: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const cred = await injectCredential({ sessionId: opts.sessionId, scope: "stripe.charges", orgId: opts.orgId });
+    if (!cred) throw new Error("No Stripe credential in vault. Store a stripe test key first.");
+    const res = await fetch(`https://api.stripe.com/v1/subscriptions/${input.subscriptionId}`, { headers: { Authorization: `Bearer ${cred.raw}` } });
+    const data = await res.json().catch(() => null);
+    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    const redacted = redactSecrets(JSON.stringify(data), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
+    return { ok: res.ok, output: { subscriptionId: input.subscriptionId, status: res.status, data }, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "stripe", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
+// ---- DATABASE: schema inspect (read-only table list) ----
+export async function dbSchemaInspect(_input: Record<string, unknown>): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const rows = await (db as unknown as { $queryRawUnsafe: (sql: string) => Promise<Array<{ name: string; type?: string } & Record<string, unknown>>> }).$queryRawUnsafe("SELECT name, type FROM sqlite_master WHERE type IN ('table','index','view') ORDER BY type, name");
+    return { ok: true, output: { tables: rows, count: rows.length }, redactedOutput: JSON.stringify({ count: rows.length, tables: rows.slice(0, 50) }), adapter: "database", durationMs: Date.now() - start };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "database", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
 // ---- Dispatcher ----
 export async function executeTool(toolName: string, input: Record<string, unknown>, opts: { sessionId: string; orgId?: string; _tokenOverride?: string }): Promise<ExecResult> {
   switch (toolName) {
@@ -178,9 +224,12 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "fs.list": return fsList(input as { path?: string });
     case "github.read": return githubRead(input as { repo: string; path?: string }, opts);
     case "github.branch.create": return githubCreateBranch(input as { repo: string; branch: string; from?: string }, opts);
+    case "github.commit": return githubCommit(input as { repo: string; branch: string; path: string; message: string; content: string }, opts);
     case "github.pr.create": return githubCreatePR(input as { repo: string; title: string; head: string; base?: string; body?: string }, opts);
     case "db.read": return dbQuery(input as { query: string });
+    case "db.schema.inspect": return dbSchemaInspect(input);
     case "stripe.read": return stripeRead(input as { resource: string; id?: string }, opts);
+    case "stripe.subscription": return stripeSubscription(input as { subscriptionId: string }, opts);
     default: return { ok: false, output: { error: `No real adapter for ${toolName}` }, redactedOutput: JSON.stringify({ error: `No real adapter for ${toolName}` }), adapter: "none", durationMs: 0 };
   }
 }
