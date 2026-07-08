@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Shield, LayoutDashboard, Network, Bot, KeyRound, Radio, Boxes, Github,
-  Gauge, Store, Globe, Bug, Database, Menu, X, Zap, Activity, Cpu, Lock,
+  Gauge, Store, Globe, Bug, Database, Menu, X, Zap, Activity, Cpu, Lock, ScrollText,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,10 +21,11 @@ import { Marketplace } from "@/components/shadowpaste/marketplace"
 import { PublicScanner } from "@/components/shadowpaste/public-scanner"
 import { Attacks } from "@/components/shadowpaste/attacks"
 import { Vault } from "@/components/shadowpaste/vault"
+import { AuditTrail } from "@/components/shadowpaste/audit-trail"
 
 type ModuleId =
   | "dashboard" | "gateway" | "agents" | "permissions" | "recorder"
-  | "sandbox" | "github" | "trust" | "marketplace" | "public" | "attacks" | "vault"
+  | "sandbox" | "github" | "trust" | "marketplace" | "public" | "attacks" | "vault" | "audit"
 
 const NAV: Array<{ id: ModuleId; label: string; icon: typeof Shield; phase: string; group: string }> = [
   { id: "dashboard", label: "Command Center", icon: LayoutDashboard, phase: "OVERVIEW", group: "Monitor" },
@@ -33,6 +34,7 @@ const NAV: Array<{ id: ModuleId; label: string; icon: typeof Shield; phase: stri
   { id: "permissions", label: "Permission Center", icon: KeyRound, phase: "P3", group: "Control" },
   { id: "vault", label: "Secret Vault", icon: Lock, phase: "P4", group: "Control" },
   { id: "recorder", label: "Flight Recorder", icon: Radio, phase: "P4", group: "Monitor" },
+  { id: "audit", label: "Audit Trail", icon: ScrollText, phase: "COMPLIANCE", group: "Monitor" },
   { id: "sandbox", label: "Shadow Sandbox", icon: Boxes, phase: "P5", group: "Build" },
   { id: "github", label: "AI Safe GitHub", icon: Github, phase: "P6", group: "Build" },
   { id: "trust", label: "Trust Scores", icon: Gauge, phase: "P7", group: "Build" },
@@ -47,6 +49,7 @@ export default function Home() {
   const [seeded, setSeeded] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [stats, setStats] = useState<{ agents: number; toolCalls: number; attacks: number; vaultEntries?: number } | null>(null)
+  const [authUser, setAuthUser] = useState<{ id: string; email: string; name: string | null } | null>(null)
 
   useEffect(() => {
     // Auto-seed on first load
@@ -63,6 +66,8 @@ export default function Home() {
         setSeeding(false)
       }
     })()
+    // Check auth status
+    api<{ user: { id: string; email: string; name: string | null } | null }>("/api/auth/me").then((d) => setAuthUser(d.user)).catch(() => {})
   }, [])
 
   const activeItem = NAV.find((n) => n.id === active)!
@@ -185,6 +190,20 @@ export default function Home() {
                 <span className="font-mono text-[11px] text-zinc-400">policy-engine</span>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </div>
+              {/* Auth status indicator */}
+              {authUser ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px] font-bold text-emerald-300">
+                    {(authUser.name || authUser.email).charAt(0).toUpperCase()}
+                  </div>
+                  <span className="hidden font-mono text-[11px] text-emerald-300 sm:inline">{authUser.name || authUser.email}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  <span className="hidden font-mono text-[11px] text-zinc-400 sm:inline">Anonymous</span>
+                </div>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -220,6 +239,7 @@ export default function Home() {
                 {active === "public" && <PublicScanner />}
                 {active === "attacks" && <Attacks />}
                 {active === "vault" && <Vault />}
+                {active === "audit" && <AuditTrail />}
               </motion.div>
             </AnimatePresence>
           </main>

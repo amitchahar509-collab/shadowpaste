@@ -231,3 +231,44 @@ Stage Summary:
 - 12 modules now in sidebar (was 11) — Vault fills the gap between backend capability and UI
 - Dashboard enhanced with real-time security posture scoring + activity sparkline + quick navigation stats
 - All changes verified browser-clean (zero errors across 12 modules)
+
+---
+Task ID: CRON-REVIEW-V19.2
+Agent: Web Dev Review (cron)
+Task: QA 12 modules + add Audit Trail module (compliance) + auth status indicator
+
+Work Log:
+- Read worklog.md — project at V19.1 with 12 modules (Vault UI + System Posture added last round)
+- QA: agent-browser navigated all 12 modules → all rendered, zero console/runtime errors
+- QA: API health verified — 65 agents, 9 vault entries, 15K tool calls, 25 MCP tools
+- Identified key enterprise gap: AuditLog model was being WRITTEN to (vault.store, agent.create, tool.invoke, scan.run — 14K+ rows accumulated) but had NO read API and NO UI. This is a critical compliance gap — enterprises need to view/export their audit trail for SOC2/ISO 27001/GDPR.
+- Built /api/audit-logs route:
+  * GET with filters: ?limit, ?action, ?actorType
+  * Org-scoped (uses auth context, defaults to "default" org for anonymous)
+  * Returns logs + aggregated counts (byAction, byActor)
+- Built Audit Trail UI module (src/components/shadowpaste/audit-trail.tsx):
+  * Summary cards: Total Events, Agent Actions, User Actions, System Actions
+  * Action Distribution grid — clickable filter cards (vault.store, agent.create, tool.invoke, scan.run) with counts + percentages
+  * Event Timeline with vertical timeline line, actor-type nodes (user/agent/system), action icons, metadata tags, timestamps
+  * Filters: search box, actor-type dropdown, action filter (via distribution cards)
+  * CSV export button (compliance evidence export)
+  * Compliance note explaining SOC2/ISO 27001/GDPR readiness
+- Added Audit Trail to sidebar nav (Monitor group, "COMPLIANCE" phase badge)
+- Added auth status indicator to topbar:
+  * Fetches /api/auth/me on load
+  * Shows user avatar + name/email (green) when authenticated
+  * Shows "Anonymous" (amber dot) when not logged in
+  * Responsive: hides text on mobile, shows avatar/dot only
+- Added AuditTrail to router in page.tsx
+- Lint: 0 errors, 0 warnings
+- Verified via agent-browser: all 13 modules render correctly (including new Audit Trail), zero console errors, zero runtime errors
+- Verified audit-logs API: returned 14,417 total events (14,361 tool.invoke, 54 agent.create, 2 vault.store) — data was being written all along, now readable
+- Auth indicator correctly shows "Anonymous" for unauthenticated sessions
+
+Stage Summary:
+- New files: src/app/api/audit-logs/route.ts (38 lines), src/components/shadowpaste/audit-trail.tsx (220 lines)
+- Modified: src/app/page.tsx (added AuditTrail import + nav entry + router case + authUser state + auth status indicator in topbar)
+- 13 modules now in sidebar (was 12) — Audit Trail fills the enterprise compliance gap
+- 14,417 previously-unreadable audit events now viewable + exportable
+- Auth status indicator adds production-readiness visibility (shows who's logged in)
+- All changes verified browser-clean (zero errors across 13 modules)
