@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { DEMO_REPO_FILES, runScan } from "@/lib/scanner"
+import { getContext, anonymousContext } from "@/lib/auth"
+import { scanGitHubRepo } from "@/lib/github-scanner"
 
 // GET /api/scan?projectId=... — fetch project + latest scan
 export async function GET(req: NextRequest) {
@@ -14,33 +15,35 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ project })
 }
 
-// POST /api/scan — "Make Repo AI Safe" scan
-// Body: { repoUrl?: string, repoName?: string, useDemo?: boolean }
+// POST /api/scan — "Make Repo AI Safe" REAL scan via GitHub API
+// Body: { repo: "owner/name", token?: "ghp_..." }
 export async function POST(req: NextRequest) {
+  const ctx = await getContext(req) || anonymousContext()
   const body = await req.json()
-  const repoUrl = body.repoUrl || "https://github.com/acme/platform"
-  const repoName = body.repoName || repoUrl.split("/").slice(-2).join("/")
-  // For demo we always scan the bundled DEMO_REPO_FILES (simulating a repo fetch)
-  const fullContent = DEMO_REPO_FILES.map((f) => `# FILE: ${f.path}\n${f.content}`).join("\n\n")
-  const result = runScan(fullContent, repoName)
+  const repo = body.repo || (body.repoUrl ? body.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : "")
+  if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 })
+
+  const result = await scanGitHubRepo(repo, { token: body.token, orgId: ctx.orgId })
+  if (!result.ok) return NextResponse.json({ error: result.error || "scan failed" }, { status: 502 })
 
   // Persist project + scan
-  let project = await db.project.findFirst({ where: { repoUrl } })
+  let project = await db.project.findFirst({ where: { orgId: ctx.orgId, repoUrl: result.repo.url } })
   if (!project) {
-    project = await db.project.create({ data: { name: repoName, repoUrl, description: "Scanned via AI Safe GitHub", fileCount: DEMO_REPO_FILES.length } })
+    project = await db.project.create({ data: { orgId: ctx.orgId, name: repo, repoUrl: result.repo.url, description: "Scanned via AI Safe GitHub", fileCount: result.filesScanned } })
   }
   const scan = await db.scan.create({ data: { projectId: project.id, type: "full", status: "completed", findings: JSON.stringify(result.findings), score: result.score } })
   await db.project.update({ where: { id: project.id }, data: {
     trustScore: result.score, secretsProtected: result.secretsCount, riskyFiles: result.findings.length,
-    agentPermissions: 0, securityIssues: result.findings.filter((f) => f.severity === "high" || f.severity === "critical").length, status: result.score >= 80 ? "safe" : "at-risk",
+    securityIssues: result.findings.filter((f) => f.severity === "high" || f.severity === "critical").length,
+    status: result.score >= 80 ? "safe" : "at-risk", fileCount: result.filesScanned,
   }})
+  await db.auditLog.create({ data: { orgId: ctx.orgId, actorType: ctx.user ? "user" : "system", actorId: ctx.user?.id, action: "scan.run", target: repo, metadata: JSON.stringify({ files: result.filesScanned, findings: result.findings.length, score: result.score }) } })
 
   return NextResponse.json({
-    ok: true,
-    projectId: project.id,
-    scanId: scan.id,
-    repoUrl, repoName,
-    files: DEMO_REPO_FILES.map((f) => f.path),
-    ...result,
+    ok: true, projectId: project.id, scanId: scan.id,
+    repoUrl: result.repo.url, repoName: repo,
+    files: result.files, filesScanned: result.filesScanned,
+    findings: result.findings, secretsCount: result.secretsCount, configsCount: result.configsCount,
+    vaultedCount: result.vaultedCount, score: result.score, grade: result.grade,
   })
 }

@@ -1,9 +1,15 @@
 // ShadowPaste — VS Code extension entry point.
 //
 // Three commands:
-//   1. shadowpaste.scanWorkspace — concatenates every open text document in the
-//      workspace, POSTs it to {serverUrl}/api/scan with { repoUrl: "vscode-workspace" },
-//      and renders the findings in a Webview panel.
+//   1. shadowpaste.scanWorkspace — scans every open text document in the
+//      workspace LOCALLY using the byte-identical detector port
+//      (./detector.ts ≡ src/lib/security/detector.ts) and renders the
+//      findings in a Webview panel with the SAME trust score + grade formula
+//      the backend uses (computeTrustScore / scoreToGrade in
+//      src/lib/scanner.ts). The V20 backend's /api/scan is GitHub-specific
+//      (scanGitHubRepo calls api.github.com/repos/${owner}/${name}); it does
+//      NOT accept arbitrary workspace content, so we scan locally and stay
+//      honest about what was actually scanned.
 //   2. shadowpaste.protectSecrets — runs the LOCAL copy of the @shadowpaste
 //      detector (./detector.ts, byte-identical to src/lib/security/detector.ts)
 //      on the active document, replaces each secret with a
@@ -185,27 +191,63 @@ async function scanWorkspaceCommand(
   status.text = "$(sync~spin) ShadowPaste: scanning workspace…";
   status.show();
 
-  // Concatenate the documents with file headers so the scanner can attribute
-  // findings back to a path. Mirror the DEMO_REPO_FILES shape used by the
-  // backend's /api/scan handler.
-  const concatenated = docs
-    .map((d) => `# FILE: ${vscode.workspace.asRelativePath(d.uri)}\n${d.getText()}`)
-    .join("\n\n");
-
+  // The V20 backend's /api/scan is GitHub-specific (scanGitHubRepo calls
+  // api.github.com/repos/${owner}/${name}); it does NOT accept arbitrary
+  // workspace content. So we scan each open document LOCALLY using the
+  // SAME detector as the backend (src/detector.ts is a byte-identical port
+  // of src/lib/security/detector.ts — the Phase 1 invariant "the same
+  // secret behaves the same everywhere" still holds) and apply the SAME
+  // trust-score + grade formula the backend uses (computeTrustScore +
+  // scoreToGrade in src/lib/scanner.ts). The result is what the backend
+  // would produce if it had these files in a GitHub repo.
   try {
-    const res = await postJson<ScanResponse>(cfg, "/api/scan", {
+    const findings: ScanFinding[] = [];
+    const scannedPaths: string[] = [];
+    const riskyFiles = new Set<string>();
+    for (const d of docs) {
+      const path = vscode.workspace.asRelativePath(d.uri);
+      scannedPaths.push(path);
+      const text = d.getText();
+      const localFindings = scanForSecrets(text, path);
+      for (const f of localFindings) {
+        findings.push({
+          type: f.type,
+          severity: f.severity,
+          file: path,
+          line: f.line,
+          message: `${f.provider} ${f.detector}`,
+          evidence: f.masked,
+          provider: f.provider,
+        });
+        riskyFiles.add(path);
+      }
+    }
+    const secretsCount = findings.length;
+    // Mirror src/lib/scanner.ts::computeTrustScore exactly:
+    //   deductions = { critical: 25, high: 12, medium: 5, low: 2 }
+    const deductions: Record<string, number> = { critical: 25, high: 12, medium: 5, low: 2 };
+    let score = 100;
+    for (const f of findings) score -= deductions[f.severity] ?? 0;
+    score = Math.max(0, Math.min(100, score));
+    // Mirror src/lib/scanner.ts::scoreToGrade exactly:
+    //   A+ >=95, A >=90, B >=80, C >=70, D >=60, F <60
+    const grade =
+      score >= 95 ? "A+" : score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
+    const securityIssues = findings.filter(
+      (f) => f.severity === "high" || f.severity === "critical"
+    ).length;
+    const data: ScanResponse = {
+      ok: true,
       repoUrl: "vscode-workspace",
       repoName: "vscode-workspace",
-      // The /api/scan endpoint always scans DEMO_REPO_FILES today (V18 PARTIAL
-      // per the Reality Report); sending `content` is forward-compatible so a
-      // future backend can scan the real workspace content instead.
-      content: concatenated,
-    });
-    if (!res.ok) {
-      vscode.window.showErrorMessage(`ShadowPaste scan failed: ${res.error}`);
-      return;
-    }
-    const data = res.data;
+      files: scannedPaths,
+      findings,
+      secretsCount,
+      riskyFiles: riskyFiles.size,
+      securityIssues,
+      score,
+      grade,
+    };
     showScanPanel(context, cfg, data, docs);
   } finally {
     status.dispose();
@@ -271,9 +313,9 @@ function showScanPanel(
   a{color:#0ea5e9}
 </style></head><body>
   <h1>ShadowPaste — Workspace Scan</h1>
-  <div class="meta">${docs.length} document(s) scanned via <code>${escapeHtml(
+  <div class="meta">${docs.length} document(s) scanned locally (detector ≡ <code>src/lib/security/detector.ts</code>) · vault at <code>${escapeHtml(
     cfg.serverUrl
-  )}/api/scan</code> · repoUrl: <code>vscode-workspace</code>${
+  )}/api/vault</code>${
     scan.scanId ? ` · scanId ${scan.scanId}` : ""
   }</div>
   <div class="card"><div class="meta">Trust score</div><div class="score">${score}<span class="grade">${escapeHtml(

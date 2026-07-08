@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# ShadowPaste V19 — Phase 11 War Test Runner
-# Runs all 5 war tests sequentially and prints a final summary.
+# ShadowPaste V20 — Phase 5+11 War Test Runner
+# Runs all 9 war tests sequentially and prints a final summary.
 #
 # Usage: bash tests/run-all.sh
 #
-# Note: integration tests (load-mcp-calls, attack-*) SKIP gracefully if the
-# dev server is not running on http://localhost:3000. The unit test
+# Note: integration tests (load-mcp-calls, attack-*, test-*) SKIP gracefully
+# if the dev server is not running on http://localhost:3000. The unit test
 # (load-secret-detector) always runs.
 
 set -u  # fail on undefined vars
@@ -16,17 +16,23 @@ TESTS_DIR="$ROOT/tests"
 RESULTS_DIR="$TESTS_DIR"
 
 echo "============================================================"
-echo " ShadowPaste V19 — Phase 11 War Test Suite"
+echo " ShadowPaste V20 — Phase 5+11 War Test Suite"
 echo " $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "============================================================"
 echo
 
 declare -a TEST_NAMES=(
+  # V19 core (5 tests)
   "load-secret-detector"
   "load-mcp-calls"
   "attack-prompt-injection"
   "attack-tenant-isolation"
   "attack-stolen-token"
+  # V20 additions (4 tests) — rate limiting, billing, real scanner, observability
+  "attack-rate-limit"
+  "attack-billing-bypass"
+  "test-real-scanner"
+  "test-health-metrics"
 )
 
 declare -A TEST_STATUS
@@ -77,7 +83,7 @@ fi
 # ---- List result JSON files ----
 echo
 echo "Result JSON files:"
-for name in secret mcp injection tenant token; do
+for name in secret mcp injection tenant token rate-limit billing scanner health; do
   f="$RESULTS_DIR/results-${name}.json"
   if [ -f "$f" ]; then
     sz=$(wc -c < "$f" | tr -d ' ')
