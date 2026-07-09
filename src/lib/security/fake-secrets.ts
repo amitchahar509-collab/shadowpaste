@@ -99,7 +99,7 @@ export function generateFakeSecret(raw: string): FakeSecret {
 
     case "JWT":
       // JWT shape: header.payload.signature
-      fake = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowJQOeUMF_oh_Kz0VrgrGW${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}`
+      fake = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowJQOeUMF_oh_Kz0VrgrGWpsm6XuQdBXLno4UVyNAY${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}`
       note = "Fake JWT — valid structure, shadow claims, invalid signature"
       break
 
