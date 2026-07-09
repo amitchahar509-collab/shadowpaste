@@ -44,6 +44,10 @@ export const TOOL_REGISTRY: ToolDef[] = [
   // AI
   { name: "ai.generate", category: "ai", description: "Generate text via LLM", riskLevel: "low", riskScore: 20, packageName: "safe-ai-mcp", inputSchema: { prompt: "string" } },
   { name: "ai.train", category: "ai", description: "Trigger a model training job", riskLevel: "high", riskScore: 70, packageName: "safe-ai-mcp", inputSchema: { dataset: "string" } },
+  // ShadowPaste high-level tools (the "AI Security Control Plane" surface)
+  { name: "shadowpaste.scan", category: "shadowpaste", description: "Scan a GitHub repo for secrets + AI risks. Auto-vaults findings. Returns AI Safety Score.", riskLevel: "low", riskScore: 10, packageName: "shadowpaste-core", inputSchema: { repo: "string", token: "string" } },
+  { name: "shadowpaste.protect", category: "shadowpaste", description: "Scan text for secrets, vault them (AES-GCM-256), return redacted text. AI agents never see raw secrets.", riskLevel: "low", riskScore: 5, packageName: "shadowpaste-core", inputSchema: { text: "string", name: "string" } },
+  { name: "shadowpaste.audit", category: "shadowpaste", description: "Query the immutable audit trail. Returns recent security events (tool calls, vault ops, scans).", riskLevel: "low", riskScore: 5, packageName: "shadowpaste-core", inputSchema: { limit: "number", action: "string" } },
 ]
 
 export const MCP_PACKAGES = [

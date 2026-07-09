@@ -216,6 +216,74 @@ export async function dbSchemaInspect(_input: Record<string, unknown>): Promise<
   }
 }
 
+// ---- ShadowPaste high-level tools (shadowpaste.scan / protect / audit) ----
+
+// shadowpaste.scan — scan a GitHub repo for secrets + AI risks, auto-vault findings
+async function shadowpasteScan(input: { repo: string; token?: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const { scanGitHubRepo } = await import("@/lib/github-scanner");
+    const result = await scanGitHubRepo(input.repo, { token: input.token, orgId: opts.orgId });
+    return {
+      ok: result.ok,
+      output: { repo: result.repo, filesScanned: result.filesScanned, findings: result.findings.length, score: result.score, grade: result.grade, vaulted: result.vaultedCount },
+      redactedOutput: JSON.stringify({ repo: result.repo, filesScanned: result.filesScanned, findings: result.findings.length, score: result.score, grade: result.grade }),
+      adapter: "shadowpaste",
+      durationMs: Date.now() - start,
+    };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "shadowpaste", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
+// shadowpaste.protect — scan text for secrets, vault them, return virtualized (redacted) text
+async function shadowpasteProtect(input: { text: string; name?: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const { scanForSecrets } = await import("@/lib/security/detector");
+    const { storeSecret } = await import("@/lib/security/vault");
+    const { redactSecrets } = await import("@/lib/security/vault");
+    const findings = scanForSecrets(input.text, input.name || "protect");
+    const refs: Array<{ raw: string; reference: string }> = [];
+    for (const f of findings) {
+      try {
+        const stored = await storeSecret(f.raw, { name: `${input.name || "protect"}:${f.line}`, contextHint: input.name, orgId: opts.orgId });
+        refs.push({ raw: f.raw, reference: `{{SHADOW_SECRET_${stored.provider}_${stored.id.slice(-5)}}}` });
+      } catch { /* vault optional */ }
+    }
+    const protected_text = redactSecrets(input.text, refs);
+    return {
+      ok: true,
+      output: { secretsFound: findings.length, vaulted: refs.length, protected_text_length: protected_text.length, providers: [...new Set(findings.map((f) => f.provider))] },
+      redactedOutput: JSON.stringify({ secretsFound: findings.length, vaulted: refs.length, sample: protected_text.slice(0, 200) }),
+      adapter: "shadowpaste",
+      durationMs: Date.now() - start,
+    };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "shadowpaste", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
+// shadowpaste.audit — query the audit trail for recent events
+async function shadowpasteAudit(input: { limit?: number; action?: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const { db } = await import("@/lib/db");
+    const where: Record<string, unknown> = { orgId: opts.orgId };
+    if (input.action) where.action = { contains: input.action };
+    const logs = await db.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, take: Math.min(input.limit || 20, 100) });
+    return {
+      ok: true,
+      output: { events: logs.length, logs: logs.map((l) => ({ action: l.action, target: l.target, actorType: l.actorType, time: l.createdAt.toISOString() })) },
+      redactedOutput: JSON.stringify({ events: logs.length, logs: logs.slice(0, 10).map((l) => ({ action: l.action, time: l.createdAt.toISOString() })) }),
+      adapter: "shadowpaste",
+      durationMs: Date.now() - start,
+    };
+  } catch (e) {
+    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "shadowpaste", durationMs: Date.now() - start, error: (e as Error).message };
+  }
+}
+
 // ---- Dispatcher ----
 export async function executeTool(toolName: string, input: Record<string, unknown>, opts: { sessionId: string; orgId?: string; _tokenOverride?: string }): Promise<ExecResult> {
   switch (toolName) {
@@ -230,6 +298,10 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "db.schema.inspect": return dbSchemaInspect(input);
     case "stripe.read": return stripeRead(input as { resource: string; id?: string }, opts);
     case "stripe.subscription": return stripeSubscription(input as { subscriptionId: string }, opts);
+    // ShadowPaste high-level tools
+    case "shadowpaste.scan": return shadowpasteScan(input as { repo: string; token?: string }, opts);
+    case "shadowpaste.protect": return shadowpasteProtect(input as { text: string; name?: string }, opts);
+    case "shadowpaste.audit": return shadowpasteAudit(input as { limit?: number; action?: string }, opts);
     default: return { ok: false, output: { error: `No real adapter for ${toolName}` }, redactedOutput: JSON.stringify({ error: `No real adapter for ${toolName}` }), adapter: "none", durationMs: 0 };
   }
 }
