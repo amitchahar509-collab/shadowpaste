@@ -13,7 +13,7 @@ Nothing removed — Core 1.0 focuses on the ONE workflow that matters. Existing 
 **Before**: Secrets replaced with `{{SHADOW_SECRET_OPENAI_abc12}}` placeholders — breaks code, AI doesn't understand format.
 
 **After**: Secrets replaced with format-compatible fakes:
-- `sk-proj-abc123...` → `sk-proj-shadow-nPpasx5Jn...` (same OpenAI format)
+- `sk-proj-abc123...` → `sk-proj-shadow-Aqr3GOASt4Afc41hqVgCuuJtD7dasBUjoTHWeSkl...` (same OpenAI format)
 - `ghp_aBcDeFg...` → `ghp_shadow...` (same GitHub format)
 - `AKIAIOSFODNN7EXAMPLE` → `AKIASHADOWFAKEKEY00` (same AWS format, fails checksum)
 - `sk_live_51H8xK2...` → `sk_test_shadow...` (Stripe test mode, same shape)

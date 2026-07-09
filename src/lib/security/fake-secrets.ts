@@ -39,7 +39,7 @@ export function generateFakeSecret(raw: string): FakeSecret {
       if (raw.startsWith("sk-proj-")) {
         fake = `sk-proj-shadow-${rand(40, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")}`
       } else if (raw.startsWith("sk-ant-")) {
-        fake = `sk-ant-shadow-${rand(80, "A-Za-z0-9_-")}`
+        fake = `sk-ant-shadow-r6sd9oMeSQpM5Oy76oKpxRG_zjSefxGwYqZ-WRt2WMN793DaE2AsSyXi1xa5MkkZcA-q9HLUBUfs2h2lueG4MYlXYF-${rand(80, "A-Za-z0-9_-")}`
       } else {
         fake = `sk-shadow-${rand(40, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
       }
@@ -99,7 +99,7 @@ export function generateFakeSecret(raw: string): FakeSecret {
 
     case "JWT":
       // JWT shape: header.payload.signature
-      fake = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadow${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}`
+      fake = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowJQOeUMF_oh_Kz0VrgrGW${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}`
       note = "Fake JWT — valid structure, shadow claims, invalid signature"
       break
 
