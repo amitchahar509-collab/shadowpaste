@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "shadowpaste": {
+      "type": "http",
+      "url": "http://localhost:3000/api/mcp",
+      "headers": {
+        "Authorization": "Bearer local-dev"
+      },
+      "note": "ShadowPaste AI Agent Security Control Plane. Tools: shadowpaste.scan, shadowpaste.protect, shadowpaste.audit, fs.read/write, github.read/branch/commit/pr, db.read, stripe.read. Every call passes through zero-trust gateway: identity → risk → permission → execution → audit."
+    }
+  }
+}
