@@ -544,3 +544,38 @@ Stage Summary:
 - Full user workflow works end-to-end (except GitHub PR which needs OAuth token).
 - Scores: MCP 85, Security 95, UX 90, Launch Ready 75.
 - BLOCKED items are ALL environment limitations: no Claude Desktop, no Cursor, no Docker, no Postgres, no OAuth/Stripe credentials. Code is ready for all.
+
+---
+Task ID: V26-CORE-1-LAUNCH-LOCK
+Agent: Product Engineer + Security Engineer + DX Engineer
+Task: Core 1.0 — focus on ONE workflow: give AI your real project without exposing secrets
+
+Work Log:
+- P2 (core innovation): Built format-compatible fake secret generator (src/lib/security/fake-secrets.ts)
+  - generateFakeSecret(): 18+ provider types — OpenAI (sk-proj-shadow-...), GitHub (ghp_shadow...), AWS (AKIASHADOW...), Stripe (sk_test_shadow...), Postgres (shadow:shadow@shadow-db), JWT, SSH, Slack, Google, etc.
+  - virtualizeWithFakes(): replaces all secrets in text with format-compatible fakes
+  - KEY DIFFERENCE: old {{SHADOW_SECRET_ID}} placeholders broke code; new fakes preserve format so code runs + tests pass
+- P1: Built AI Safe Workspace (src/lib/workspace.ts)
+  - createSafeWorkspace(): walks project dir, scans each file, virtualizes secrets, writes to .workspaces/<project>-<id>/
+  - restoreSecrets(): replaces fakes with real secrets from vault back into source
+  - Preserves file structure, formatting, non-secret content verbatim
+  - Skips node_modules, .git, .next, dist, build
+  - Handles .env, .js, .ts, .py, .json, .yaml, etc.
+- P1 API: /api/workspace/create (POST), /api/workspace/restore (POST), /api/workspace/[id] (GET/DELETE)
+- P8 dogfood test: ran ShadowPaste on itself
+  - 1274 files scanned in ~30s
+  - 983 secrets virtualized with format-compatible fakes
+  - All secrets vaulted (AES-GCM-256)
+  - Workspace created at .workspaces/shadowpaste-dogfood2-ws-mrdambqa/
+  - First secret: .github/workflows/ci.yml:234 → shadow-ggcpf... (fake)
+- Fixed lint: converted require() to ES imports in fake-secrets.ts + workspace.ts
+- Lint: 0 errors, 0 warnings
+- War tests: all PASS (50/50 injection, 6/6 token, 10/10 tenant)
+- Browser: 13/13 modules render, zero console errors
+- Wrote CORE_1_FINAL_REPORT.md
+
+Stage Summary:
+- New files: src/lib/security/fake-secrets.ts (format-compatible fakes), src/lib/workspace.ts (AI safe workspace), src/app/api/workspace/{create,restore,[id]}/route.ts, CORE_1_FINAL_REPORT.md
+- Core workflow works: scan project → virtualize secrets with format-compatible fakes → AI works in workspace → restore real secrets → commit
+- Dogfood proven: 1274 files, 983 secrets virtualized on ShadowPaste's own codebase
+- The fake secret generator is the key innovation: sk-proj-abc123 → sk-proj-shadow-xxx (same format, AI understands, code runs, real secret never leaves vault)
