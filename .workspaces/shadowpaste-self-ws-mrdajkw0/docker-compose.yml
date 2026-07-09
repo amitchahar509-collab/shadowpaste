@@ -1,0 +1,121 @@
+# ShadowPaste V19 — Production compose (Phase 12)
+# -----------------------------------------------------------------------------
+# IMPORTANT — Prisma datasource switch required before deploying this compose
+# file to production:
+#
+#   1. In prisma/schema.prisma change the datasource provider from "sqlite" to
+#      "postgresql" (DATABASE_URL below already points at the `db` service).
+#   2. Regenerate the client + create a migration:
+#        bunx prisma generate
+#        bunx prisma migrate deploy
+#   3. The dev sandbox still uses SQLite (file:./db/custom.db). Production
+#      target is Postgres — see V19_FINAL_REPORT.md "Still Missing".
+#
+# Bring up:    docker compose up --build
+# Tear down:   docker compose down -v   (add -v to wipe the db volume)
+# -----------------------------------------------------------------------------
+
+services:
+  # ---------------------------------------------------------------------------
+  # app — the Next.js ShadowPaste web app (built from ./Dockerfile)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shadowpaste-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # PRODUCTION target — see note above about switching prisma provider
+      # from sqlite -> postgresql.
+      DATABASE_URL: "shadow-8FL4TtkmnhxdjY96EH0TytNL0cYCrZ1JpOX69wF"
+      AUTH_PEPPER: "${AUTH_PEPPER:-change-me-in-prod-via-secret}"
+      NODE_ENV: production
+      PORT: "3000"
+      # Redis is provisioned below for future session-cache / rate-limit use.
+      # The app currently does NOT read it (UNVERIFIED) — wire in src/lib/auth.ts
+      # before relying on it.
+      REDIS_URL: "redis://redis:6379"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # db — Postgres 16 (production target). SQLite is sandbox-only.
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: shadowpaste-db
+    environment:
+      POSTGRES_USER: shadow
+      POSTGRES_PASSWORD: shadow
+      POSTGRES_DB: shadowpaste
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shadow -d shadowpaste"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # Do not expose in real prod; left for local debugging.
+    ports:
+      - "5432:5432"
+
+  # ---------------------------------------------------------------------------
+  # redis — OPTIONAL future use: session cache, rate-limit bucket, SSE fan-out.
+  # The V19 app does not yet read REDIS_URL — wiring is tracked as UNVERIFIED.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: shadowpaste-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # ---------------------------------------------------------------------------
+  # mcp — stdio <-> HTTP bridge so Claude Desktop / Cursor can connect to the
+  # ShadowPaste MCP gateway (/api/mcp) over JSON-RPC.
+  # Uses the community `mcp-remote` package.  Replace with a pinned image in
+  # real prod (TODO: build shadowpaste/mcp-bridge:<tag>).
+  # ---------------------------------------------------------------------------
+  mcp:
+    image: node:20-slim
+    container_name: shadowpaste-mcp-bridge
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Local MCP HTTP endpoint exposed by the app container
+      SHADOWPASTE_MCP_URL: "http://app:3000/api/mcp"
+      # Set AGENT_API_KEY to the per-agent key minted in the app
+      AGENT_API_KEY: "${AGENT_API_KEY:-local-dev}"
+    # `mcp-remote` bridges stdio (Claude Desktop) <-> HTTP (ShadowPaste app).
+    # Install on first run, then keep the process alive for stdio traffic.
+    command: >
+      sh -c "npm install -g mcp-remote@latest &&
+             echo 'ShadowPaste MCP stdio bridge listening on stdin/stdout' &&
+             exec mcp-remote http://app:3000/api/mcp --header 'Authorization: Bearer ${AGENT_API_KEY:-local-dev}'"
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+volumes:
+  pgdata:
+  redisdata:

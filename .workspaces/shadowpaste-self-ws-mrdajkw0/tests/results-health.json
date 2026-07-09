@@ -1,0 +1,145 @@
+{
+  "timestamp": "2026-07-08T17:43:59.700Z",
+  "runTag": "mrcda81r",
+  "health": {
+    "httpStatus": 200,
+    "status": "healthy",
+    "version": "20.0.0",
+    "uptime": 15.371486639,
+    "totalLatencyMs": 143,
+    "checks": [
+      {
+        "name": "database",
+        "ok": true,
+        "latencyMs": 3
+      },
+      {
+        "name": "vault",
+        "ok": true,
+        "latencyMs": 0
+      },
+      {
+        "name": "mcp",
+        "ok": true,
+        "latencyMs": 0,
+        "detail": "25 tools"
+      },
+      {
+        "name": "github-api",
+        "ok": true,
+        "latencyMs": 135
+      }
+    ],
+    "fakeStringMatches": []
+  },
+  "metrics": {
+    "httpStatus": 200,
+    "queryLatencyMs": 43,
+    "agents": {
+      "total": 115,
+      "active": 98,
+      "quarantined": 8,
+      "avgTrust": 61
+    },
+    "toolCalls": {
+      "total": 15725,
+      "allowed": 11442,
+      "denied": 0,
+      "sandboxed": 0,
+      "blockRate": 0
+    },
+    "latency": {
+      "p50": 2,
+      "p95": 5,
+      "p99": 15,
+      "sampleSize": 97
+    },
+    "security": {
+      "vaultEntries": 23,
+      "toolExecutions": 11442,
+      "auditLogs": 14923,
+      "attacks": 6,
+      "blockedAttacks": 6,
+      "attackBlockRate": 100
+    },
+    "catalog": {
+      "mcpTools": 25,
+      "mcpPackages": 10,
+      "projects": 2,
+      "publicScans": 1
+    },
+    "memory": {
+      "rssMb": 1827,
+      "heapUsedMb": 173
+    },
+    "fakeStringMatches": []
+  },
+  "preWarm": {
+    "probeAgentId": "shadow-31tF2OwGNlS1dh3dec"
+  },
+  "checks": [
+    {
+      "id": "H1",
+      "description": "/api/health returns status 'healthy' or 'degraded'",
+      "passed": true,
+      "detail": "status=\"healthy\", httpStatus=200"
+    },
+    {
+      "id": "H2",
+      "description": "/api/health checks include database, vault, mcp, github-api",
+      "passed": true,
+      "detail": "required=[\"database\",\"vault\",\"mcp\",\"github-api\"]; actual=[\"database\",\"vault\",\"mcp\",\"github-api\"]"
+    },
+    {
+      "id": "H3",
+      "description": "All required health checks ok:true (strict)",
+      "passed": true,
+      "detail": "failing checks: []. All healthy."
+    },
+    {
+      "id": "H4",
+      "description": "/api/health response has no 'fake'/'placeholder'/'mock' strings",
+      "passed": true,
+      "detail": "clean"
+    },
+    {
+      "id": "M1",
+      "description": "/api/metrics agents.total > 0",
+      "passed": true,
+      "detail": "agents.total=115 (type: number)"
+    },
+    {
+      "id": "M2",
+      "description": "/api/metrics toolCalls.total > 0",
+      "passed": true,
+      "detail": "toolCalls.total=15725 (type: number)"
+    },
+    {
+      "id": "M3",
+      "description": "/api/metrics latency.p50 > 0 (real recorded durations)",
+      "passed": true,
+      "detail": "latency.p50=2, p95=5, p99=15, sampleSize=97"
+    },
+    {
+      "id": "M4",
+      "description": "/api/metrics response has no 'fake'/'placeholder'/'mock' strings",
+      "passed": true,
+      "detail": "clean"
+    },
+    {
+      "id": "M5",
+      "description": "/api/metrics has all expected top-level keys (agents, toolCalls, latency, security, catalog, memory)",
+      "passed": true,
+      "detail": "expected=[\"agents\",\"toolCalls\",\"latency\",\"security\",\"catalog\",\"memory\"]; actual=[\"timestamp\",\"queryLatencyMs\",\"agents\",\"toolCalls\",\"latency\",\"security\",\"catalog\",\"memory\"]"
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "passRate": 1,
+    "overallPass": true,
+    "hardFailCount": 0,
+    "degradedGithubOnly": false
+  }
+}

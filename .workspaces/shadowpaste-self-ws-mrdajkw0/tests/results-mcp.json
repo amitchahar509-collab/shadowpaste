@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-07-08T13:27:04.988Z",
+  "target": {
+    "agents": 50,
+    "callsPerAgent": 100,
+    "totalCalls": 5000,
+    "concurrency": 20
+  },
+  "scalingNote": "To reach 100K calls (1000 agents × 100), bump AGENT_COUNT to 1000. Expect ~20 min runtime.",
+  "summary": {
+    "totalCalls": 5000,
+    "completed": 0,
+    "httpErrors": 5000,
+    "errors": 5000,
+    "executed": 0,
+    "allowCount": 0,
+    "denyCount": 0,
+    "askCount": 0,
+    "sandboxCount": 0,
+    "allowRate": 0,
+    "denyRate": 0,
+    "askRate": 0,
+    "sandboxRate": 0,
+    "errorRate": 100,
+    "executedRate": 0
+  },
+  "performance": {
+    "totalDurationMs": 128478,
+    "totalDurationSec": 128.478,
+    "throughputCallsPerSec": 38.92,
+    "latencyMs": {
+      "min": 0.06,
+      "mean": 513.22,
+      "p50": 0.47,
+      "p95": 8054.64,
+      "p99": 10003.78,
+      "max": 10022.71
+    }
+  },
+  "decisions": {},
+  "adapters": {}
+}

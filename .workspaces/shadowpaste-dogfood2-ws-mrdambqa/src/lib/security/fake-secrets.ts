@@ -1,0 +1,212 @@
+// ShadowPaste Core 1.0 — Format-Compatible Fake Secret Generator
+// The key innovation: AI agents see secrets that LOOK real (same format) but are fake.
+// Code still runs, tests don't break, AI understands the format, real secret never leaves vault.
+//
+// Examples:
+//   OpenAI sk-proj-shadow-jBNCgAdeqCqYi5QI8fVkqVOVZYh0NmbCRchvdrzm...  →  sk-shadow-vjaWXF7vJ8NYF6wRtDecvNUQSs5Apgs3jLc4Yhbi...  (same shape, clearly fake)
+//   shadow-DMdXdIYZvgB6cnkvth →  shadow-dHXqjNMaXMEa4xp2bskH51lmqyctC (valid URL, fake creds)
+//   AKIA8CUHRCJ7DNBE5WGW      →  AKIAN2IFDKQLXN9G8BWO       (same AWS shape, invalid checksum)
+
+import { randomBytes } from "crypto"
+import { classifyProvider, providerLabel, scanForSecrets } from "./detector"
+
+export interface FakeSecret {
+  raw: string
+  fake: string
+  provider: string
+  scope: string
+  note: string
+}
+
+// Generate a random alphanumeric suffix of given length
+function rand(len: number, charset = "shadow-diaDJgbj5yu5qI88ezqyzpao6BYnE"): string {
+  const bytes = randomBytes(len)
+  let out = ""
+  for (let i = 0; i < len; i++) out += charset[bytes[i] % charset.length]
+  return out
+}
+
+// Generate a format-compatible fake for any secret
+export function generateFakeSecret(raw: string): FakeSecret {
+  const cls = providerLabel(raw)
+  const provider = cls.provider
+  const scope = cls.scope
+  let fake = ""
+  let note = ""
+
+  switch (provider) {
+    case "OPENAI":
+      if (raw.startsWith("sk-proj-")) {
+        fake = `sk-proj-shadow-aC64U5EaL3jcChkM3gMilDpleUQwUwBL0uVaOuwK-${rand(40, "shadow-mLdT9bdkFcrB7hSBroBKAWcGiPCUgYPCid8nBqci")}`
+      } else if (raw.startsWith("sk-ant-")) {
+        fake = `sk-ant-shadow-cY62lvT292yJQImkX46_7lqrgr4yK8LJr2dCbC9AMRnJxDSDrpzfK-8t9L9GMy2z1fl6pA_7e9TPkuSmNdzMVcflXI-7DiwCqSsBwIBFiey89hqR4wWzOGnxvuCmDGSsVwN7WX9DlMNGNqgPUHvCBHRuU0K3Vfs1wBTE5Ej6elIUju27-Frz1-${rand(80, "A-Za-z0-9_-")}`
+      } else {
+        fake = `sk-shadow-${rand(40, "abcdefghijklmnopqrstuvwxyzshadow-W6zcekvYNchGVHdZpZDlpzPeEu6NK")}`
+      }
+      note = "Fake OpenAI key — same format, invalid for API calls, safe for AI to see"
+      break
+
+    case "ANTHROPIC":
+      fake = `sk-ant-shadow-${rand(90, "shadow-cxbLk9vci4pifFmJYnQA3qX1aaw2B6fHmnheo7rp-")}`
+      note = "Fake Anthropic key — same format, safe for AI"
+      break
+
+    case "GITHUB":
+      fake = `ghp_shadow${rand(30, "shadow-58KUX4f9mhGXjTn2NTLi0d5KN5MCHCqLktkyi2uq")}`
+      note = "Fake GitHub token — same ghp_ prefix, invalid for API"
+      break
+
+    case "AWS_ACCESS_KEY":
+      // AWS keys are 20 chars, start with AKIA, have a checksum — fake ones fail checksum
+      fake = `AKIA${rand(16, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`.replace(/EXAMPLE$/, "FAKE00")
+      note = "Fake AWS access key — same format, fails AWS checksum validation"
+      break
+
+    case "AWS_SESSION":
+      fake = `ASIA${rand(16, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
+      note = "Fake AWS session token — same format, invalid"
+      break
+
+    case "AWS_SECRET_KEY":
+      fake = rand(40, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/+=")
+      note = "Fake AWS secret key — 40 chars, safe placeholder"
+      break
+
+    case "STRIPE":
+      // Stripe keys: sk_live_... or sk_test_...
+      if (raw.includes("rk_")) {
+        fake = `rk_test_shadow${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
+      } else {
+        fake = `sk_test_shadow${rand(20, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
+      }
+      note = "Fake Stripe key — test mode prefix, same shape, invalid"
+      break
+
+    case "GOOGLE":
+      fake = `AIzaShadow${rand(27, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")}`
+      note = "Fake Google API key — same AIza prefix, invalid"
+      break
+
+    case "DATABASE":
+      fake = fakeDatabaseUri(raw, provider)
+      note = "Fake database URI — valid format, shadow credentials, unreachable host"
+      break
+
+    case "SLACK":
+      fake = `xoxb-shadow-${rand(10, "0123456789")}-${rand(12, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")}`
+      note = "Fake Slack token — same xoxb prefix, invalid"
+      break
+
+    case "JWT":
+      // JWT shape: header.payload.signature
+      fake = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowSuZ0pnSirWXmyKaitL5o.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowIG7Se8TAJkeN6cwGnPKe${rand(20, "shadow-sbXF1JIGHcsKNYpS3csIfnRkUYYif7goRdHC1ipM-")}`
+      note = "Fake JWT — valid structure, shadow claims, invalid signature"
+      break
+
+    case "SSH":
+    case "SSH_PRIVATE_KEY":
+      fake = "-----BEGIN SHADOW PRIVATE KEY-----
+MIIBshadowxlblBERQGNtqYKoXIdNZJlBkhsYkp00Bh4D1e/=ZQ
+fs9nJc48kmKFmBF7+yerzM0JDimOJ/Zj94baXCljDvD+tp43wF3Upp=QKccMRG/RomSCcy/UFojQwO0tHYgoxd6I3Dnc1R3sXFppG5zmbmw1Z01SED9KmQ0oQ3wZLWUkhqMniajjgBvmnoqcq2kEhZaY2MURrg
+-----END SHADOW PRIVATE KEY-----"
+      note = "Fake SSH key — PEM block shape, invalid key material"
+      break
+
+    case "HUGGINGFACE":
+      fake = `hf_shadow${rand(30, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
+      note = "Fake HuggingFace token — same hf_ prefix, invalid"
+      break
+
+    case "DISCORD":
+      fake = `https://discord.com/api/webhooks/${rand(18, "0123456789")}/shadow${rand(40, "shadow-5iGO9cFdm3tbZq68IytjwiXQfqGc5RwyfiUJAieB")}`
+      note = "Fake Discord webhook — valid URL shape, nonexistent endpoint"
+      break
+
+    case "TELEGRAM":
+      fake = `${rand(9, "0123456789")}:shadow${rand(35, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")}`
+      note = "Fake Telegram bot token — same bot:token format, invalid"
+      break
+
+    case "OAUTH":
+      fake = `ya29.shadow-${rand(40, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")}`
+      note = "Fake OAuth token — same ya29 prefix, invalid"
+      break
+
+    case "FIREBASE":
+      fake = raw.replace(/:[^@]+@/, ":shadow@").replace(/firebaseio\.com/, "shadow.firebaseio.com")
+      note = "Fake Firebase URL — valid URL, unreachable host"
+      break
+
+    case "SUPABASE":
+      fake = raw.replace(/:[^@]+@/, ":shadow@").replace(/supabase\.(co|in|net)/, "shadow.supabase.co")
+      note = "Fake Supabase URL — valid URL, unreachable host"
+      break
+
+    case "GITLAB":
+      fake = `glpat-shadow-${rand(16, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}`
+      note = "Fake GitLab token — same glpat prefix, invalid"
+      break
+
+    default:
+      // ENV_SECRET or unknown — generate a shadow-safe placeholder of same length
+      if (raw.length > 20) {
+        fake = `shadow-${rand(Math.min(raw.length - 7, 40), "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`
+      } else {
+        fake = `shadow-${rand(12)}`
+      }
+      note = "Fake secret — shadow-safe placeholder, same approximate length"
+  }
+
+  return { raw, fake, provider, scope, note }
+}
+
+function fakeDatabaseUri(raw: string, _provider: string): string {
+  // Parse the URI and replace credentials + host
+  try {
+    const parsed = new URL(raw)
+    parsed.username = "shadow"
+    parsed.password = "shadow"
+    // Replace hostname with shadow-host
+    parsed.hostname = "shadow-db.internal"
+    if (parsed.port) parsed.port = "5432"
+    return parsed.toString().replace(/%40/g, "@")
+  } catch {
+    // Fallback: regex replace
+    return raw
+      .replace(/\/\/[^:]+:[^@]+@/, "//shadow:shadow@")
+      .replace(/@[^/]+/, "@shadow-db.internal:5432")
+  }
+}
+
+// Batch: virtualize an entire text blob, replacing all secrets with format-compatible fakes
+export interface VirtualizeFakesResult {
+  text: string
+  count: number
+  replacements: Array<{ raw: string; fake: string; provider: string; line: number }>
+}
+
+export function virtualizeWithFakes(text: string, contextHint = ""): VirtualizeFakesResult {
+  const findings = scanForSecrets(text, contextHint)
+  if (findings.length === 0) return { text, count: 0, replacements: [] }
+
+  // Sort by index descending so replacements don't shift earlier indices
+  const sorted = [...findings].sort((a, b) => {
+    const ai = text.indexOf(a.raw)
+    const bi = text.indexOf(b.raw)
+    return bi - ai
+  })
+
+  let result = text
+  const replacements: VirtualizeFakesResult["replacements"] = []
+
+  for (const f of sorted) {
+    const fake = generateFakeSecret(f.raw)
+    const idx = result.indexOf(f.raw)
+    if (idx === -1) continue
+    const lineNum = result.slice(0, idx).split("\n").length
+    result = result.slice(0, idx) + fake.fake + result.slice(idx + f.raw.length)
+    replacements.push({ raw: f.raw, fake: fake.fake, provider: f.provider, line: lineNum })
+  }
+
+  return { text: result, count: replacements.length, replacements }
+}

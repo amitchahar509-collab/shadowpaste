@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-08T13:30:14.879Z",
+  "scan": {
+    "validRepo": {
+      "status": 200,
+      "ok": true,
+      "filesScanned": 0,
+      "score": 100,
+      "grade": "A+",
+      "repoUrl": "https://github.com/octocat/Hello-World",
+      "findingsCount": 0,
+      "sampleFiles": [],
+      "rateLimited": false
+    },
+    "invalidRepo": {
+      "status": 502,
+      "error": "GitHub API 404",
+      "rateLimited": false
+    },
+    "publicScan": {
+      "status": 0,
+      "rateLimited": false
+    }
+  },
+  "demoRepoReferencesFound": {
+    "validScan": false,
+    "publicScan": false
+  },
+  "checks": [
+    {
+      "id": "T1",
+      "description": "Real repo scan returns ok:true, filesScanned>=0, score 0-100, grade, no DEMO_REPO",
+      "passed": true,
+      "detail": "status=200, ok=true, filesScanned=0, score=100, grade=A+, repoUrl=https://github.com/octocat/Hello-World, DEMO_REPO present=false"
+    },
+    {
+      "id": "T2",
+      "description": "Nonexistent repo scan returns an error (404/502/400), ok != true",
+      "passed": true,
+      "detail": "status=502, ok=undefined, error=\"GitHub API 404\""
+    },
+    {
+      "id": "T3",
+      "description": "Public scan returns ok:true + shareId, no DEMO_REPO",
+      "passed": false,
+      "detail": "status=0, ok=undefined, shareId=null, DEMO_REPO present=false"
+    },
+    {
+      "id": "T4",
+      "description": "GET /api/public-scan?shareId returns the saved scan record",
+      "passed": false,
+      "detail": "SKIPPED — T3 did not produce a shareId"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 2,
+    "failed": 2,
+    "passRate": 0.5,
+    "overallPass": false,
+    "hardFailCount": 1,
+    "rateLimitedChecks": []
+  }
+}

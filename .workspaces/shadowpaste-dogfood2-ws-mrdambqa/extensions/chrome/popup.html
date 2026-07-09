@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ShadowPaste</title>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --panel: #11161f;
+      --panel-2: #161c28;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #10b981;
+      --accent-2: #0ea5e9;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      width: 340px;
+      margin: 0;
+      font: 13px system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: .2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header .badge {
+      font: 700 10px system-ui;
+      background: rgba(255,255,255,.18);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .body { padding: 12px 14px; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin: 6px 0;
+    }
+    .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+    .value { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .value.score { font-size: 22px; }
+    .grade {
+      font: 700 11px system-ui;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #06241c;
+    }
+    .grade.warn { background: var(--warn); color: #2a1d02; }
+    .grade.danger { background: var(--danger); color: #2a0606; }
+    .meta { font-size: 11px; color: var(--muted); margin: 6px 2px; }
+    .empty { color: var(--muted); font-style: italic; padding: 8px 4px; }
+    a.btn {
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      margin-top: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font: 700 12px system-ui;
+      background: linear-gradient(135deg, var(--accent-2), #2563eb);
+      color: #fff;
+    }
+    a.btn.secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      margin-top: 6px;
+    }
+    details {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    details summary { cursor: pointer; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+    details label { display: block; font-size: 11px; color: var(--muted); margin: 6px 0 2px; }
+    details input {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font: 12px ui-monospace, monospace;
+    }
+    details .save {
+      margin-top: 8px;
+      width: 100%;
+      padding: 8px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #06241c;
+      font: 700 12px system-ui;
+      cursor: pointer;
+    }
+    .err { color: var(--danger); font-size: 11px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span>ShadowPaste</span>
+    <span class="badge" id="conn">…</span>
+  </header>
+  <div class="body">
+    <div class="label">Vault status</div>
+    <div id="vault" class="row"><span class="empty">Loading…</span></div>
+
+    <div class="label" style="margin-top:10px;">Last scan score</div>
+    <div id="scan" class="row"><span class="empty">No scan yet.</span></div>
+    <div id="scanMeta" class="meta"></div>
+
+    <a href="#" id="open" class="btn">Open dashboard ↗</a>
+    <a href="#" id="rescan" class="btn secondary">Re-scan last repo</a>
+
+    <details>
+      <summary>Settings</summary>
+      <label for="serverUrl">Server URL</label>
+      <input id="serverUrl" type="text" placeholder="http://localhost:3000" />
+      <label for="apiKey">API key (optional)</label>
+      <input id="apiKey" type="password" placeholder="Bearer token for private repos" />
+      <button class="save" id="save">Save</button>
+      <div id="cfgErr" class="err"></div>
+    </details>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

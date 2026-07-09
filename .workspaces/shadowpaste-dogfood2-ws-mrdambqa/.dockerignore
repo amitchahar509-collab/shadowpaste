@@ -1,0 +1,44 @@
+# Build artifacts
+.next/
+out/
+build/
+dist/
+
+# Deps
+node_modules/
+bun.lockb
+
+# VCS / IDE
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# Local DB + workspace (sandbox data — never ship)
+db/
+.workspace/
+upload/
+download/
+
+# Logs
+*.log
+dev.log
+server.log
+npm-debug.log*
+
+# Env + secrets
+.env
+.env.*
+!.env.example
+
+# Misc
+.DS_Store
+*.md
+!prisma/*.md
+tests/
+examples/
+Caddyfile
+.dockerignore
+Dockerfile
+docker-compose.yml
