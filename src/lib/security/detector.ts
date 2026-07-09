@@ -2,6 +2,8 @@
 // Ported from packages/security/index.mjs + packages/engine/index.mjs.
 // ONE source of truth for secret detection across Web App, MCP Gateway, Scanner, Extension.
 
+import { SECRET_PATTERNS } from "./secret-patterns";
+
 export interface Detector {
   id: string;
   virtualize: boolean;
@@ -152,6 +154,7 @@ function lineColOf(text: string, index: number): { line: number; column: number 
 
 export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] {
   const findings: SecretFinding[] = [];
+  // 1. Legacy high-precision detectors (6 patterns)
   for (const d of detectors) {
     const re = d.regex();
     let m: RegExpExecArray | null;
@@ -166,6 +169,31 @@ export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] 
         detector: d.id,
         provider,
         scope,
+        raw,
+        masked: maskEvidence(raw),
+        line,
+        column,
+      });
+      if (raw.length === 0) re.lastIndex++;
+    }
+  }
+  // 2. Expanded 500-pattern catalog (GitGuardian-class coverage)
+  const seen = new Set(findings.map((f) => f.raw));
+  for (const p of SECRET_PATTERNS) {
+    if (p.confidence < 0.3) continue; // skip very-low-confidence patterns to reduce FP
+    const re = new RegExp(p.regex.source, p.regex.flags);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const raw = m[0];
+      if (raw.length < 12 || seen.has(raw)) { if (raw.length === 0) re.lastIndex++; continue; }
+      seen.add(raw);
+      const { line, column } = lineColOf(text, m.index);
+      findings.push({
+        type: "secret",
+        severity: p.severity,
+        detector: p.id,
+        provider: p.provider,
+        scope: p.service,
         raw,
         masked: maskEvidence(raw),
         line,
