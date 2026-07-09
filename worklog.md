@@ -639,3 +639,36 @@ Stage Summary:
 - Core workflow proven: init (8s) + protect (25s) + restore (5s) = 38s total
 - Dogfood: 1012 secrets virtualized + restored with format-compatible fakes, 0 leaks
 - Final scores: Core 92, UX 90, Claude 82, Cursor 80, Launch Ready 85
+
+---
+Task ID: V29-SESSION-DNA
+Agent: Principal Security Architect + Cryptography Engineer + Red Team Lead
+Task: Agent Session DNA — cryptographically verifiable trust layer
+
+Work Log:
+- P0: Wrote SESSION_DNA_AUDIT.md — audited vault, capability, crypto, gateway, audit. Found Ed25519 available in Node 20+ WebCrypto (verified).
+- P1: Built SessionDNA (src/lib/security/session-dna.ts) — Ed25519 keypair, session ID, SHA-256 fingerprint, trust score, expiry, status. Private key NEVER exported (in-memory only). createSessionDNA, getSession, signWithSession, verifySessionSignature, revokeSession, checkAnomaly, evaluateAnomaly.
+- P3: Built session-bound secret capsules (src/lib/security/session-capsule.ts) — real secret → vault (AES-GCM-256) → session capsule (encrypted with SHA-256(sessionFingerprint + sessionId) wrapping key) → format-compatible fake. restoreFromCapsule verifies session ID + fingerprint match. Cross-session restore DENIED.
+- P4: Built cryptographic flight recorder (src/lib/security/flight-recorder.ts) — hash chain: hash(eventId|previousHash|action|timestamp|data). Ed25519 signatures. verifyChain() detects tampering (hash mismatch). tamperEvent() for testing.
+- P6: Kill switch — revokeSession() removes private key from memory + marks revoked. Auto-revoke on anomaly (risk ≥ 85): secret extraction, dangerous command, prompt injection, privilege abuse.
+- P8: Local policy engine — checkAnomaly() detects 4 attack types, evaluateAnomaly() auto-revokes. No cloud required.
+- API: 6 routes — /api/session-dna/{create,[id],list,capsule,verify,war-test}
+- FIX 1: Capsule key derivation used variable-length key → AES-GCM rejected. Fixed: SHA-256(fingerprint + sessionId) to get 32 bytes.
+- FIX 2: Session AES key was extractable=false → couldn't wrap it. Fixed: generateAesKey(true).
+- P11 RED TEAM WAR TEST: 7/7 attacks BLOCKED ✅
+  1. Cross-session restore → DENIED (session mismatch)
+  2. Audit log tampering → hash mismatch detected
+  3. Stolen/revoked session → capsule not found
+  4. Fake agent identity → Ed25519 verification failed
+  5. Prompt injection → auto-revoked
+  6. Unauthorized MCP (revoked) → blocked
+  7. Silent restore (no session) → denied
+- Regression: prompt-injection 50/50 ✅, browser 13/13 ✅, lint 0 errors ✅
+- Wrote AGENT_SESSION_DNA_REPORT.md
+
+Stage Summary:
+- New files: src/lib/security/{session-dna,session-capsule,flight-recorder}.ts, src/app/api/session-dna/{create,[id],list,capsule,verify,war-test}/route.ts, SESSION_DNA_AUDIT.md, AGENT_SESSION_DNA_REPORT.md
+- Real cryptography: Ed25519 (keypair/sign/verify), AES-GCM-256 (vault/capsule), SHA-256 (fingerprint/chain), all via WebCrypto
+- 7/7 red team attacks blocked (allBlocked: true)
+- Session DNA: every AI session gets cryptographic identity, secrets are session-bound, audit logs are tamper-proof, malicious agents can be instantly revoked
+- Limitations (honest): hardware keys NOT implemented (in-memory fallback), chain NOT persisted across restart, MCP gateway doesn't yet require session DNA, no visual dashboard (per no-new-dashboards rule)
