@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-07-09T07:22:43.852Z",
+  "users": {
+    "A": {
+      "email": "userA-mrd6j4cb@tenant1.test",
+      "orgId": "shadow-hyVgUw9kxIjyVbe8e3",
+      "orgSlug": "user-a-76d607",
+      "agentId": "shadow-sQ9XglfNMOnAZRACXN"
+    },
+    "B": {
+      "email": "userB-mrd6j4cb@tenant2.test",
+      "orgId": "shadow-9bO8pym1TrhRYXGm8J",
+      "orgSlug": "user-b-e62ed7",
+      "agentId": "shadow-MGGqTOglQ5ecZP8VLl"
+    }
+  },
+  "orgsAreDistinct": true,
+  "checks": [
+    {
+      "id": "T1",
+      "description": "userA can create agent",
+      "passed": true,
+      "detail": "agentAId=cmrd6j4jx00ahshtpg0lzjjxp"
+    },
+    {
+      "id": "T2",
+      "description": "userA can store vault secret",
+      "passed": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "T3",
+      "description": "userB cannot see userA's agents",
+      "passed": true,
+      "detail": "userB sees 0 agents, none belonging to userA"
+    },
+    {
+      "id": "T4",
+      "description": "userB cannot invoke tools via userA's agent (403)",
+      "passed": true,
+      "detail": "HTTP 403 — agent not found in your org"
+    },
+    {
+      "id": "T5",
+      "description": "userB cannot see userA's vault secrets",
+      "passed": true,
+      "detail": "userB vault has 0 entries, none from userA"
+    },
+    {
+      "id": "T6",
+      "description": "userB can create agent in their own org",
+      "passed": true,
+      "detail": "agentBId=cmrd6j4p500apshtpo9tsmnk2"
+    },
+    {
+      "id": "T7",
+      "description": "userB can store vault secret in their own org",
+      "passed": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "T8",
+      "description": "userA cannot see userB's agents",
+      "passed": true,
+      "detail": "userA sees 1 agents, none belonging to userB"
+    },
+    {
+      "id": "T9",
+      "description": "userA cannot invoke tools via userB's agent (403)",
+      "passed": true,
+      "detail": "HTTP 403 — agent not found in your org"
+    },
+    {
+      "id": "T10",
+      "description": "userA cannot see userB's vault secrets",
+      "passed": true,
+      "detail": "userA vault has 1 entries, none from userB"
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "passRate": 1,
+    "overallPass": true
+  }
+}

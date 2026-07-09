@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "shadowpaste": {
+      "url": "http://localhost:3000/api/mcp",
+      "headers": {
+        "Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaGFkb3ciOiJzYWZlIiwidGVzdCI6dHJ1ZX0.shadowexllv5z9-jRkXkR1c-bp"
+      }
+    }
+  }
+}
