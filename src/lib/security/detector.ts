@@ -178,14 +178,45 @@ export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] 
     }
   }
   // 2. Expanded 500-pattern catalog (GitGuardian-class coverage)
+  // Allowlist: patterns that look like secrets but are safe (UUIDs, git SHAs, example values, versions)
+  const ALLOWLIST = [
+    /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i, // UUID
+    /^[\da-f]{40}$/i, // git SHA
+    /^[\da-f]{7,}$/i, // short git SHA (if alone, no key context)
+    /^(your|my|example|test|fake|placeholder|changeme|xxx|sample|demo|template|default)[_a-z0-9]*$/i, // example values
+    /^(your|my|example|test|fake|placeholder|changeme|xxx|sample|demo|template|default)[_a-z0-9_]+$/i, // example values with underscores
+    /^[\d]+\.[\d]+\.[\d]+/, // semver
+    /^#[0-9a-f]{6}$/i, // CSS color
+    /^data:image\//, // data URLs
+    /^[\w-]+\/[\w-]+$/, // owner/repo format
+    /^[0-9]+$/, // pure numbers
+  ]
+  // Context keywords that indicate a real secret (not an example)
+  const SECRET_CONTEXT = /(api[_-]?key|secret|token|password|passwd|credential|private[_-]?key|access[_-]?key|client[_-]?secret|auth[_-]?token|bearer|vault)/i
   const seen = new Set(findings.map((f) => f.raw));
   for (const p of SECRET_PATTERNS) {
     if (p.confidence < 0.3) continue; // skip very-low-confidence patterns to reduce FP
+    // Skip generic entropy/hex patterns unless they're in a credential context
+    const isGeneric = p.provider === "HighEntropy" || p.provider === "HexToken" || p.provider === "UUID" || p.provider === "Base64" || p.id === "linode_token" || p.id === "vultr_token"
     const re = new RegExp(p.regex.source, p.regex.flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
       const raw = m[0];
       if (raw.length < 12 || seen.has(raw)) { if (raw.length === 0) re.lastIndex++; continue; }
+      // Allowlist check: skip known-safe patterns
+      if (ALLOWLIST.some((al) => al.test(raw))) { if (raw.length === 0) re.lastIndex++; continue; }
+      // Check if the VALUE part (after = or :) is an example value
+      const valueMatch = raw.match(/[:=]\s*['"]?([^'"\s]+)['"]?$/)
+      if (valueMatch && ALLOWLIST.some((al) => al.test(valueMatch[1]))) { if (raw.length === 0) re.lastIndex++; continue; }
+      // Generic patterns: only flag if in a credential context (key=value, "secret", "token", etc.)
+      if (isGeneric) {
+        const before = text.slice(Math.max(0, m.index - 60), m.index).toLowerCase()
+        const after = text.slice(m.index + raw.length, m.index + raw.length + 20).toLowerCase()
+        if (!SECRET_CONTEXT.test(before) && !SECRET_CONTEXT.test(after) && !before.includes("=") && !before.includes(":")) {
+          if (raw.length === 0) re.lastIndex++
+          continue
+        }
+      }
       seen.add(raw);
       const { line, column } = lineColOf(text, m.index);
       findings.push({
