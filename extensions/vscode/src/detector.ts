@@ -90,8 +90,8 @@ export function providerLabel(raw: string, ctx = ""): ProviderClass {
 
 
 // ---- scanForSecrets (extension version — core patterns only) ----
-export function scanForSecrets(text, contextHint = "") {
-  const findings = []
+export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] {
+  const findings: SecretFinding[] = []
   for (const d of detectors) {
     const re = d.regex()
     let m
@@ -105,4 +105,60 @@ export function scanForSecrets(text, contextHint = "") {
     }
   }
   return findings
+}
+
+// ---- SecretFinding + virtualizeText (synced from main detector) ----
+export interface SecretFinding {
+  type: "secret";
+  severity: "low" | "medium" | "high" | "critical";
+  detector: string;
+  provider: string;
+  scope: string;
+  raw: string;
+  masked: string;
+  line: number;
+  column: number;
+}
+
+const SKIP_VALUE = /^(?:true|false|null|undefined|none|example|changeme|your[_-]?\w+|xxx+|<[^>]+>|\{\{[^}]+\}\}|\[DETECTED_)/i;
+
+function shortId(raw: string, salt = ""): string {
+  let h = 0x811c9dc5;
+  const s = salt + raw;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36).toUpperCase().padStart(5, "0").slice(0, 5);
+}
+
+export function virtualizeText(text: string, opts: { mode?: string; salt?: string } = {}) {
+  const mode = opts.mode || "PROTECT";
+  const salt = opts.salt || "";
+  if (typeof text !== "string" || text.length === 0) return { text: text ?? "", count: 0, findings: [] };
+  const spans: Array<{ start: number; end: number; raw: string }> = [];
+  const pushSpan = (start: number, end: number, raw: string) => {
+    if (!raw || raw.length < 6) return;
+    if (SKIP_VALUE.test(raw)) return;
+    if (raw.includes("SHADOW_SECRET") || raw.includes("DETECTED_")) return;
+    spans.push({ start, end, raw });
+  };
+  // Use the detectors array (each detector has a regex() function)
+  for (const d of detectors) {
+    const re = d.regex(); let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) { pushSpan(m.index, m.index + m[0].length, m[0]); if (m[0].length === 0) re.lastIndex++; }
+  }
+  if (spans.length === 0) return { text, count: 0, findings: [] };
+  spans.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const chosen: typeof spans = []; let lastEnd = -1;
+  for (const s of spans) { if (s.start >= lastEnd) { chosen.push(s); lastEnd = s.end; } }
+  const refByRaw = new Map<string, string>(); const findings: Array<{ provider: string; reference: string; occurrences: number; length: number }> = [];
+  const refFor = (raw: string): string => {
+    if (refByRaw.has(raw)) return refByRaw.get(raw)!;
+    const { provider } = providerLabel(raw, salt);
+    const token = mode === "TEST" ? `[DETECTED_${provider}_SECRET]` : `{{SHADOW_SECRET_${provider}_${shortId(raw, salt)}}}`;
+    refByRaw.set(raw, token); findings.push({ provider, reference: token, occurrences: 0, length: raw.length });
+    return token;
+  };
+  let out = ""; let cursor = 0;
+  for (const s of chosen) { const token = refFor(s.raw); out += text.slice(cursor, s.start) + token; cursor = s.end; const f = findings.find(x => x.reference === token); if (f) f.occurrences++; }
+  out += text.slice(cursor);
+  return { text: out, count: chosen.length, findings };
 }

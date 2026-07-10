@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "ShadowPaste — AI Safety Scanner",
+  "version": "1.0.0",
+  "description": "Scan any GitHub repository for leaked secrets & risky AI-agent configs via the ShadowPaste backend. Vault status + recent scan score in the popup.",
+  "permissions": ["activeTab", "storage", "scripting", "contextMenus"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://localhost:3000/*",
+    "https://github.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "ShadowPaste",
+    "default_popup": "popup.html"
+  }
+}
