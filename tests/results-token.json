@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-10T07:58:48.120Z",
+  "timestamp": "2026-07-10T17:34:57.948Z",
   "agents": {
-    "active": "cmren9cma009hrf42iplmyqnp",
-    "suspended": "cmren9d8w009xrf42grpgkkns",
-    "quarantined": "cmren9dbc00a5rf42y5x8yd51"
+    "active": "cmrf7uav9009hpkpqnb11w1oj",
+    "suspended": "cmrf7ubhi009xpkpq178aty6o",
+    "quarantined": "cmrf7ubkk00a5pkpqe3dzrsz9"
   },
   "checks": [
     {
