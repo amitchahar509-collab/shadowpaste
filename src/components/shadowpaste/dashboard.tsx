@@ -46,16 +46,17 @@ export function Dashboard({ onNavigate }: { onNavigate: (id: string) => void }) 
 
   return (
     <div className="space-y-6">
-      {/* Hero banner */}
-      <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.07] via-[#0d1218] to-[#0d1218] p-6">
-        <div className="absolute right-0 top-0 h-full w-1/2 opacity-20" style={{ background: "radial-gradient(circle at 80% 20%, rgba(16,185,129,0.4), transparent 60%)" }} />
+      {/* Hero banner — holographic glass */}
+      <Card className="glass-panel holo-border relative overflow-hidden rounded-2xl p-6 scan-line">
+        <div className="absolute right-0 top-0 h-full w-1/2 opacity-30" style={{ background: "radial-gradient(circle at 80% 20%, rgba(16,185,129,0.5), transparent 60%)" }} />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <div className="mb-2 flex items-center gap-2">
-              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-300">PHASE 1-11 · LIVE</Badge>
-              <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px] text-zinc-400">ZERO-TRUST MCP</Badge>
+              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-300">LIVE · AI SECURITY OS</Badge>
+              <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-[10px] text-cyan-300">ZERO-TRUST MCP</Badge>
+              <Badge variant="outline" className="border-violet-500/30 bg-violet-500/10 text-[10px] text-violet-300">SESSION DNA</Badge>
             </div>
-            <h2 className="font-mono text-2xl font-bold text-white lg:text-3xl">
+            <h2 className="font-mono text-2xl font-bold text-white text-glow lg:text-3xl">
               The security layer between developers,<br className="hidden lg:block" /> AI agents, and real systems.
             </h2>
             <p className="mt-2 text-sm text-zinc-400">
@@ -74,7 +75,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (id: string) => void }) 
       </Card>
 
       {/* Agent Map — 3D network visualization */}
-      <Card className="relative overflow-hidden border-white/5 bg-[#0d1218]/80 backdrop-blur p-0">
+      <Card className="glass-panel holo-border relative overflow-hidden rounded-2xl p-0">
         <div className="absolute left-4 top-4 z-10">
           <div className="flex items-center gap-2">
             <Network className="h-4 w-4 text-emerald-400" />
@@ -184,14 +185,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (id: string) => void }) 
 function KpiCard({ icon: Icon, label, value, sub, accent, onClick }: { icon: typeof Bot; label: string; value: number; sub: string; accent: "emerald" | "teal" | "cyan" | "red"; onClick?: () => void }) {
   const colors = { emerald: "text-emerald-400 bg-emerald-500/10", teal: "text-teal-400 bg-teal-500/10", cyan: "text-cyan-400 bg-cyan-500/10", red: "text-red-400 bg-red-500/10" }
   return (
-    <Card className="group cursor-pointer border-white/5 bg-[#0d1218] p-5 transition-all hover:border-white/10 hover:bg-white/[0.03]" onClick={onClick}>
+    <Card className="group glass-panel holo-border cursor-pointer rounded-xl p-5 transition-all" onClick={onClick}>
       <div className="flex items-start justify-between">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${colors[accent]}`}>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${colors[accent]} pulse-glow`}>
           <Icon className="h-4 w-4" />
         </div>
         <ArrowRight className="h-4 w-4 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
-      <div className="mt-3 font-mono text-3xl font-bold text-white">{value.toLocaleString()}</div>
+      <div className="mt-3 font-mono text-3xl font-bold text-white text-glow">{value.toLocaleString()}</div>
       <div className="mt-1 text-xs font-medium text-zinc-300">{label}</div>
       <div className="text-[11px] text-zinc-500">{sub}</div>
     </Card>
@@ -250,8 +251,8 @@ function SystemPosture({ data, callTotal, blockRate, onNavigate }: { data: Dashb
   })
 
   return (
-    <Card className="relative overflow-hidden border-white/5 bg-gradient-to-br from-[#0d1218] via-[#0d1218] to-[#0a0e14] p-5">
-      <div className="absolute right-0 top-0 h-32 w-32 opacity-10" style={{ background: `radial-gradient(circle, ${postureColor}, transparent 70%)` }} />
+    <Card className="glass-panel holo-border relative overflow-hidden rounded-2xl p-5">
+      <div className="absolute right-0 top-0 h-32 w-32 opacity-20" style={{ background: `radial-gradient(circle, ${postureColor}, transparent 70%)` }} />
       <div className="relative">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
