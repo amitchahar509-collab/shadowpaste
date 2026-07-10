@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-08T13:33:44.836Z",
-  "runTag": "mrc4cdyk",
+  "timestamp": "2026-07-10T07:58:49.349Z",
+  "runTag": "mren9djk",
   "spoofIps": {
-    "mcp": "203.0.113.54",
-    "auth": "198.51.100.54"
+    "mcp": "203.0.113.14",
+    "auth": "198.51.100.14"
   },
   "mcp": {
     "limit": 60,
@@ -24,7 +24,7 @@
       "401": 10
     },
     "eleventhStatus": 429,
-    "eleventhError": "too many attempts, try again later"
+    "eleventhError": "rate limit exceeded: too many auth attempts, try again later"
   },
   "checks": [
     {
@@ -55,22 +55,22 @@
       "id": "T5",
       "description": "Auth attempt 11 returns 429",
       "passed": true,
-      "detail": "status=429, error=\"too many attempts, try again later\""
+      "detail": "status=429, error=\"rate limit exceeded: too many auth attempts, try again later\""
     },
     {
       "id": "T6",
       "description": "429 auth response error message contains 'rate limit' (SOFT)",
-      "passed": false,
-      "detail": "error=\"too many attempts, try again later\". NOTE: auth route currently returns \"too many attempts, try again later\" — does NOT contain the literal phrase \"rate limit\". This is a documentation/UX gap, not a security gap (429 IS returned)."
+      "passed": true,
+      "detail": "error=\"rate limit exceeded: too many auth attempts, try again later\". NOTE: auth route currently returns \"too many attempts, try again later\" — does NOT contain the literal phrase \"rate limit\". This is a documentation/UX gap, not a security gap (429 IS returned)."
     }
   ],
   "summary": {
     "total": 6,
-    "passed": 5,
-    "failed": 1,
-    "passRate": 0.8333,
+    "passed": 6,
+    "failed": 0,
+    "passRate": 1,
     "overallPass": true,
     "hardFailCount": 0,
-    "softFailCount": 1
+    "softFailCount": 0
   }
 }
