@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-07-10T17:35:00.397Z",
-  "runTag": "mrf7udfp",
+  "timestamp": "2026-07-11T08:39:43.037Z",
+  "runTag": "mrg45u7x",
   "health": {
     "httpStatus": 200,
     "status": "healthy",
     "version": "20.0.0",
-    "uptime": 18.278512317,
-    "totalLatencyMs": 41,
+    "uptime": 14.664014118,
+    "totalLatencyMs": 42,
     "checks": [
       {
         "name": "database",
@@ -27,37 +27,37 @@
       {
         "name": "github-api",
         "ok": true,
-        "latencyMs": 40
+        "latencyMs": 41
       }
     ],
     "fakeStringMatches": []
   },
   "metrics": {
     "httpStatus": 200,
-    "queryLatencyMs": 66,
+    "queryLatencyMs": 64,
     "agents": {
-      "total": 215,
-      "active": 176,
-      "quarantined": 19,
-      "avgTrust": 59
+      "total": 235,
+      "active": 192,
+      "quarantined": 21,
+      "avgTrust": 58
     },
     "toolCalls": {
-      "total": 16772,
-      "allowed": 11714,
+      "total": 16888,
+      "allowed": 11729,
       "denied": 0,
       "sandboxed": 0,
       "blockRate": 0
     },
     "latency": {
-      "p50": 2,
-      "p95": 6,
-      "p99": 33,
-      "sampleSize": 96
+      "p50": 1,
+      "p95": 2,
+      "p99": 7,
+      "sampleSize": 93
     },
     "security": {
-      "vaultEntries": 2023,
-      "toolExecutions": 11714,
-      "auditLogs": 16068,
+      "vaultEntries": 2027,
+      "toolExecutions": 11729,
+      "auditLogs": 16201,
       "attacks": 6,
       "blockedAttacks": 6,
       "attackBlockRate": 100
@@ -66,16 +66,16 @@
       "mcpTools": 25,
       "mcpPackages": 10,
       "projects": 4,
-      "publicScans": 2
+      "publicScans": 3
     },
     "memory": {
-      "rssMb": 934,
+      "rssMb": 820,
       "heapUsedMb": 192
     },
     "fakeStringMatches": []
   },
   "preWarm": {
-    "probeAgentId": "cmrf7udg000b7pkpqs9ns1qau"
+    "probeAgentId": "cmrg45u8300b7snt2zcds1zik"
   },
   "checks": [
     {
@@ -106,19 +106,19 @@
       "id": "M1",
       "description": "/api/metrics agents.total > 0",
       "passed": true,
-      "detail": "agents.total=215 (type: number)"
+      "detail": "agents.total=235 (type: number)"
     },
     {
       "id": "M2",
       "description": "/api/metrics toolCalls.total > 0",
       "passed": true,
-      "detail": "toolCalls.total=16772 (type: number)"
+      "detail": "toolCalls.total=16888 (type: number)"
     },
     {
       "id": "M3",
       "description": "/api/metrics latency.p50 > 0 (real recorded durations)",
       "passed": true,
-      "detail": "latency.p50=2, p95=6, p99=33, sampleSize=96"
+      "detail": "latency.p50=1, p95=2, p99=7, sampleSize=93"
     },
     {
       "id": "M4",

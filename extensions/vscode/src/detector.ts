@@ -145,20 +145,22 @@ export function virtualizeText(text: string, opts: { mode?: string; salt?: strin
     const re = d.regex(); let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) { pushSpan(m.index, m.index + m[0].length, m[0]); if (m[0].length === 0) re.lastIndex++; }
   }
-  if (spans.length === 0) return { text, count: 0, findings: [] };
+  if (spans.length === 0) return { text, count: 0, findings: [], raws: [] as Array<{ raw: string; provider: string; reference: string }> };
   spans.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
   const chosen: typeof spans = []; let lastEnd = -1;
   for (const s of spans) { if (s.start >= lastEnd) { chosen.push(s); lastEnd = s.end; } }
   const refByRaw = new Map<string, string>(); const findings: Array<{ provider: string; reference: string; occurrences: number; length: number }> = [];
+  const raws: Array<{ raw: string; provider: string; reference: string }> = [];
   const refFor = (raw: string): string => {
     if (refByRaw.has(raw)) return refByRaw.get(raw)!;
     const { provider } = providerLabel(raw, salt);
     const token = mode === "TEST" ? `[DETECTED_${provider}_SECRET]` : `{{SHADOW_SECRET_${provider}_${shortId(raw, salt)}}}`;
     refByRaw.set(raw, token); findings.push({ provider, reference: token, occurrences: 0, length: raw.length });
+    raws.push({ raw, provider, reference: token });
     return token;
   };
   let out = ""; let cursor = 0;
   for (const s of chosen) { const token = refFor(s.raw); out += text.slice(cursor, s.start) + token; cursor = s.end; const f = findings.find(x => x.reference === token); if (f) f.occurrences++; }
   out += text.slice(cursor);
-  return { text: out, count: chosen.length, findings };
+  return { text: out, count: chosen.length, findings, raws };
 }
