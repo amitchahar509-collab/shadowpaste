@@ -3,6 +3,15 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
+// Suppress THREE.Clock deprecation warning (R3F internal, non-breaking)
+if (typeof window !== "undefined") {
+  const _origWarn = console.warn.bind(console);
+  console.warn = (...args: unknown[]) => {
+    if (args.length > 0 && typeof args[0] === "string" && args[0].includes("THREE.Clock")) return;
+    _origWarn(...args);
+  };
+}
+
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 

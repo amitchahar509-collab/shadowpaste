@@ -175,7 +175,7 @@ async function scanWorkspaceCommand(
   const cfg = readConfig();
   // Gather every open text document in the workspace.
   const docs = vscode.workspace.textDocuments.filter(
-    (d) => d.uri.scheme === "file" && d.languageId !== "git" && d.languageId !== "search-result"
+    (d: { uri: { scheme: string }; languageId: string }) => d.uri.scheme === "file" && d.languageId !== "git" && d.languageId !== "search-result"
   );
   if (docs.length === 0) {
     vscode.window.showWarningMessage(
@@ -385,7 +385,7 @@ async function protectSecretsCommand(
   // Deduplicate by raw value so the same secret isn't stored twice.
   const seenRaw = new Set<string>();
   const stored: Array<{ reference: string; provider: string; ok: boolean; id?: string; error?: string }> = [];
-  for (const r of v.raws) {
+  for (const r of v.raws || []) {
     if (seenRaw.has(r.raw)) continue;
     seenRaw.add(r.raw);
     const res = await postJson<VaultStoreResponse>(cfg, "/api/vault", {
