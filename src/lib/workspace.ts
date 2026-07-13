@@ -150,32 +150,54 @@ export async function restoreSecrets(opts: {
   const errors: string[] = []
   let restored = 0
 
-  // Group secrets by file
+  // Group secrets by file (for fake→real replacement)
   const byFile = new Map<string, WorkspaceSecret[]>()
   for (const s of secrets) {
     if (!byFile.has(s.filePath)) byFile.set(s.filePath, [])
     byFile.get(s.filePath)!.push(s)
   }
 
-  for (const [filePath, fileSecrets] of byFile) {
-    try {
-      const sourceFile = path.join(sourcePath, filePath)
-      const workspaceFile = path.join(workspacePath, filePath)
-      // Read the AI-edited workspace file
-      const editedContent = await fs.readFile(workspaceFile, "utf8")
-      // Replace fakes back with real secrets
-      let restoredContent = editedContent
-      for (const s of fileSecrets) {
-        restoredContent = restoredContent.split(s.fake).join(s.raw)
+  // Walk the ENTIRE workspace and copy every file back to source.
+  // Files with secrets get fake→real replacement; files without secrets
+  // are copied as-is (preserving AI edits).
+  const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build"])
+  let fileCount = 0
+
+  async function walkAndRestore(wsDir: string, srcDir: string, relPath: string) {
+    const entries = await fs.readdir(wsDir, { withFileTypes: true })
+    await fs.mkdir(srcDir, { recursive: true })
+    for (const entry of entries) {
+      // Skip metadata file and hidden files
+      if (entry.name.startsWith(".shadowpaste")) continue
+      const wsPath = path.join(wsDir, entry.name)
+      const srcPath = path.join(srcDir, entry.name)
+      const relFilePath = relPath ? `${relPath}/${entry.name}` : entry.name
+
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue
+        await walkAndRestore(wsPath, srcPath, relFilePath)
+      } else if (entry.isFile()) {
+        try {
+          const editedContent = await fs.readFile(wsPath, "utf8")
+          // Replace fakes back with real secrets (if this file had any)
+          let restoredContent = editedContent
+          const fileSecrets = byFile.get(relFilePath) || []
+          for (const s of fileSecrets) {
+            restoredContent = restoredContent.split(s.fake).join(s.raw)
+          }
+          await fs.writeFile(srcPath, restoredContent, "utf8")
+          restored += fileSecrets.length
+          fileCount++
+        } catch (e) {
+          // Binary files or read errors — copy as-is
+          try { await fs.copyFile(wsPath, srcPath); fileCount++ }
+          catch { errors.push(`${relFilePath}: ${(e as Error).message}`) }
+        }
       }
-      // Write back to source
-      await fs.writeFile(sourceFile, restoredContent, "utf8")
-      restored += fileSecrets.length
-    } catch (e) {
-      errors.push(`${filePath}: ${(e as Error).message}`)
     }
   }
 
+  await walkAndRestore(workspacePath, sourcePath, "")
   return { restored, errors }
 }
 

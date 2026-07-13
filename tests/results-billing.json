@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-07-11T08:39:42.309Z",
-  "runTag": "mrg45tlv",
+  "timestamp": "2026-07-13T13:21:50.690Z",
+  "runTag": "mrj94cu7",
   "user": {
-    "email": "billing-mrg45tlv@bypasstest.test",
-    "userId": "cmrg45tne00aosnt2d6a50msz",
-    "orgId": "cmrg45tnf00apsnt21g1lyhxd",
-    "orgSlug": "billing-tester-a70424"
+    "email": "billing-mrj94cu7@bypasstest.test",
+    "userId": "cmrj94cvz00aopbaih2psknl9",
+    "orgId": "cmrj94cw100appbai5ih66xe6",
+    "orgSlug": "billing-tester-1bd167"
   },
   "createdAgentIds": [
-    "cmrg45tpq00avsnt2dk7tovuw",
-    "cmrg45tq200azsnt2uwaplgmj",
-    "cmrg45tqb00b3snt24otancqb"
+    "cmrj94d1600avpbai05t93za0",
+    "cmrj94d1r00azpbaihhjjz5h3",
+    "cmrj94d2300b3pbai1x26l3bz"
   ],
   "billingBypass": {
     "attempted": true,
@@ -110,19 +110,19 @@
       "id": "T2",
       "description": "Agent #1 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrg45tpq00avsnt2dk7tovuw, error=none"
+      "detail": "status=200, agentId=cmrj94d1600avpbai05t93za0, error=none"
     },
     {
       "id": "T3",
       "description": "Agent #2 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrg45tq200azsnt2uwaplgmj, error=none"
+      "detail": "status=200, agentId=cmrj94d1r00azpbaihhjjz5h3, error=none"
     },
     {
       "id": "T4",
       "description": "Agent #3 created successfully (within limit)",
       "passed": true,
-      "detail": "status=200, agentId=cmrg45tqb00b3snt24otancqb, error=none"
+      "detail": "status=200, agentId=cmrj94d2300b3pbai1x26l3bz, error=none"
     },
     {
       "id": "T5",
