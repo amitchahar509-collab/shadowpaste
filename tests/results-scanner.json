@@ -1,20 +1,28 @@
 {
-  "timestamp": "2026-07-13T13:21:51.225Z",
+  "timestamp": "2026-07-21T11:35:51.540Z",
   "scan": {
     "validRepo": {
-      "status": 502,
+      "status": 200,
+      "ok": true,
+      "filesScanned": 0,
+      "score": 100,
+      "grade": "A+",
+      "repoUrl": "https://github.com/octocat/Hello-World",
       "findingsCount": 0,
       "sampleFiles": [],
-      "rateLimited": true
+      "rateLimited": false
     },
     "invalidRepo": {
       "status": 502,
-      "error": "GitHub API 403",
-      "rateLimited": true
+      "error": "GitHub API 404",
+      "rateLimited": false
     },
     "publicScan": {
-      "status": 502,
-      "rateLimited": true
+      "status": 200,
+      "ok": true,
+      "shareId": "share-0ca77516",
+      "score": 100,
+      "rateLimited": false
     }
   },
   "demoRepoReferencesFound": {
@@ -25,38 +33,35 @@
     {
       "id": "T1",
       "description": "Real repo scan returns ok:true, filesScanned>=0, score 0-100, grade, no DEMO_REPO",
-      "passed": false,
-      "detail": "SKIP/GITHUB-RATE-LIMITED: status=502, error=\"GitHub API 403\". Scanner code is correct (verified by curl), but unauthenticated GitHub API rate limit (60/hour/IP) was exhausted in the test sandbox. Re-run after the rate limit window resets."
+      "passed": true,
+      "detail": "status=200, ok=true, filesScanned=0, score=100, grade=A+, repoUrl=https://github.com/octocat/Hello-World, DEMO_REPO present=false"
     },
     {
       "id": "T2",
       "description": "Nonexistent repo scan returns an error (404/502/400), ok != true",
       "passed": true,
-      "detail": "status=502, ok=undefined, error=\"GitHub API 403\" (rate-limited but !ok still correctly returned)"
+      "detail": "status=502, ok=undefined, error=\"GitHub API 404\""
     },
     {
       "id": "T3",
       "description": "Public scan returns ok:true + shareId, no DEMO_REPO",
-      "passed": false,
-      "detail": "SKIP/GITHUB-RATE-LIMITED: status=502, error=\"GitHub API 403\". Scanner code correct, GitHub API rate-limited in sandbox."
+      "passed": true,
+      "detail": "status=200, ok=true, shareId=share-0ca77516, DEMO_REPO present=false"
     },
     {
       "id": "T4",
       "description": "GET /api/public-scan?shareId returns the saved scan record",
-      "passed": false,
-      "detail": "SKIPPED — T3 did not produce a shareId"
+      "passed": true,
+      "detail": "status=200, shareId=share-0ca77516, score=100, DEMO_REPO present=false"
     }
   ],
   "summary": {
     "total": 4,
-    "passed": 1,
-    "failed": 3,
-    "passRate": 0.25,
+    "passed": 4,
+    "failed": 0,
+    "passRate": 1,
     "overallPass": true,
     "hardFailCount": 0,
-    "rateLimitedChecks": [
-      "T1",
-      "T3"
-    ]
+    "rateLimitedChecks": []
   }
 }

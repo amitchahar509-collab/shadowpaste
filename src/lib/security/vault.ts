@@ -94,8 +94,16 @@ export async function listSecrets(orgId = "default"): Promise<Array<{ id: string
   return rows.map((r) => ({ id: r.id, name: r.name, provider: r.provider, scope: r.scope, masked: r.masked, fingerprint: r.fingerprint, createdAt: r.createdAt }));
 }
 
-export async function deleteSecret(id: string): Promise<void> {
+// Delete a vault entry. When orgId is provided the delete is tenant-scoped so
+// a secret can only be removed by its owning org; returns whether a row was
+// actually deleted.
+export async function deleteSecret(id: string, orgId?: string): Promise<boolean> {
+  if (orgId) {
+    const res = await db.vaultEntry.deleteMany({ where: { id, orgId } });
+    return res.count > 0;
+  }
   await db.vaultEntry.delete({ where: { id } });
+  return true;
 }
 
 // ---- Credential injection for tool calls ----

@@ -13,7 +13,7 @@ import { virtualizeWithFakes, generateFakeSecret } from "./security/fake-secrets
 import { storeSecret } from "./security/vault"
 import { db } from "./db"
 
-const WORKSPACE_ROOT = path.resolve(process.cwd(), ".workspaces")
+export const WORKSPACE_ROOT = path.resolve(process.cwd(), ".workspaces")
 
 export interface WorkspaceSecret {
   id: string
@@ -134,8 +134,10 @@ export async function createSafeWorkspace(opts: {
     createdAt: new Date(),
   }
 
-  // Update project status
-  await db.project.update({ where: { id: projectId }, data: { sandboxStatus: "created" } }).catch(() => {})
+  // Update project status. updateMany (not update) so that an ephemeral
+  // projectId — the CLI uses "local-*" ids that never hit the DB — is a no-op
+  // rather than a thrown "record not found" that Prisma logs to stderr.
+  await db.project.updateMany({ where: { id: projectId }, data: { sandboxStatus: "created" } }).catch(() => {})
 
   return workspace
 }

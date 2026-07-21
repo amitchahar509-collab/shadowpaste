@@ -24,8 +24,13 @@
 //
 // Output: results-scanner.json + stdout summary.
 
+import { authCookie } from "./_auth";
+
 const BASE = "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 30_000; // GitHub API can be slow
+// Set once in main() — /api/scan requires an authenticated session
+// (/api/public-scan remains the anonymous path, exercised by T3/T4).
+let SESSION = "";
 
 async function checkServer(): Promise<boolean> {
   try {
@@ -44,7 +49,7 @@ async function api<T = any>(
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(SESSION ? { cookie: SESSION } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -82,6 +87,8 @@ async function main() {
 
   console.log("=== ShadowPaste V20 — Real GitHub Scanner Test ===\n");
   console.log("This test hits the REAL GitHub API (no DEMO_REPO).\n");
+
+  SESSION = await authCookie(BASE);
 
   const checks: CheckResult[] = [];
 
@@ -266,7 +273,7 @@ async function main() {
 
   printSummaryTable(checks);
 
-  const outPath = "/home/z/my-project/tests/results-scanner.json";
+  const outPath = "tests/results-scanner.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

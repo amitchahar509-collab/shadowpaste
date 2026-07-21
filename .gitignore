@@ -30,8 +30,28 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — never commit real secrets; the template IS committed
 .env*
+!.env.example
+
+# local SQLite database + generated workspaces
+/db/*.db
+/db/*.db-journal
+/prisma/db/
+*.db
+/.workspaces/
+
+# runtime-generated working dirs (created on demand by the app/adapters)
+/.workspace/
+/.sandbox/
+/.sampleproj/
+
+# local artifacts / scratch (not part of the product)
+/upload/
+/download/
+/tool-results/
+/.zscripts/
+*.tsbuildinfo
 
 # vercel
 .vercel

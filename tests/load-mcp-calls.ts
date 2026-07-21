@@ -15,6 +15,10 @@
 //
 // Output: results-mcp.json + stdout summary.
 
+import { authCookie } from "./_auth";
+// Set once in main() — mutating endpoints require an authenticated session.
+let SESSION = "";
+
 const BASE = "http://localhost:3000";
 const AGENT_COUNT = 50;
 const CALLS_PER_AGENT = 100;
@@ -40,7 +44,8 @@ async function api<T = any>(
   const start = performance.now();
   try {
     const headers: Record<string, string> = { "content-type": "application/json" };
-    if (cookie) headers.cookie = cookie;
+    const c = cookie || SESSION;
+    if (c) headers.cookie = c;
     const res = await fetch(`${BASE}${path}`, {
       method,
       headers,
@@ -52,7 +57,7 @@ async function api<T = any>(
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
     return { status: res.status, data, ok: res.ok, durationMs: performance.now() - start };
   } catch (e) {
-    return { status: 0, data: { error: (e as Error).message }, ok: false, durationMs: performance.now() - start };
+    return { status: 0, data: { error: (e as Error).message } as T, ok: false, durationMs: performance.now() - start };
   }
 }
 
@@ -86,7 +91,7 @@ async function ensureAgents(): Promise<string[]> {
   if (needed > 0) {
     console.log(`  ${existing.length} found, seeding ${needed} more...`);
     for (let i = 0; i < needed; i++) {
-      const res = await api<{ agent: { id: string } }>("POST", "/api/agents", {
+      const res = await api<{ agent: { id: string; name: string } }>("POST", "/api/agents", {
         name: `LoadTestAgent-${existing.length + i}`,
         provider: ["Claude", "OpenAI", "Cursor", "Copilot", "Custom"][i % 5],
         description: `Load test agent #${existing.length + i} — auto-seeded by war test`,
@@ -113,6 +118,8 @@ async function main() {
   console.log("=== ShadowPaste V19 — MCP Gateway Load Test ===");
   console.log(`Target: ${AGENT_COUNT} agents × ${CALLS_PER_AGENT} calls = ${AGENT_COUNT * CALLS_PER_AGENT} tool calls`);
   console.log(`Concurrency: ${CONCURRENCY} in-flight at a time\n`);
+
+  SESSION = await authCookie(BASE);
 
   const agentIds = await ensureAgents();
   if (agentIds.length === 0) {
@@ -258,7 +265,7 @@ async function main() {
   console.log("Decisions breakdown:", decisions);
   console.log("Adapters used:", adapterCounts);
 
-  const outPath = "/home/z/my-project/tests/results-mcp.json";
+  const outPath = "tests/results-mcp.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

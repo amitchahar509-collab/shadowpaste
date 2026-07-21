@@ -1,0 +1,12 @@
+# Normalize line endings to LF for all text files so the repo is consistent
+# across Windows/macOS/Linux checkouts.
+* text=auto eol=lf
+
+# Binary files git should never touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.db binary
+*.lock binary

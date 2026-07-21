@@ -2,23 +2,40 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { scanGitHubRepo } from "@/lib/github-scanner"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 // GET /api/scan?projectId=... — fetch project + latest scan
+// Every query is org-scoped: without the orgId filter this listed and returned
+// projects belonging to every tenant.
 export async function GET(req: NextRequest) {
+  const ctx = await getContext(req) || anonymousContext()
   const { searchParams } = new URL(req.url)
   const projectId = searchParams.get("projectId")
   if (!projectId) {
-    const projects = await db.project.findMany({ orderBy: { updatedAt: "desc" } })
+    const projects = await db.project.findMany({ where: { orgId: ctx.orgId }, orderBy: { updatedAt: "desc" } })
     return NextResponse.json({ projects })
   }
-  const project = await db.project.findUnique({ where: { id: projectId }, include: { scans: { orderBy: { createdAt: "desc" }, take: 5 } } })
+  const project = await db.project.findFirst({
+    where: { id: projectId, orgId: ctx.orgId },
+    include: { scans: { orderBy: { createdAt: "desc" }, take: 5 } },
+  })
+  if (!project) return NextResponse.json({ error: "not found" }, { status: 404 })
   return NextResponse.json({ project })
 }
 
 // POST /api/scan — "Make Repo AI Safe" REAL scan via GitHub API
 // Body: { repo: "owner/name", token?: "ghp_..." }
+// Authenticated only; /api/public-scan serves the no-login demo path.
 export async function POST(req: NextRequest) {
-  const ctx = await getContext(req) || anonymousContext()
+  const rl = checkRateLimit(req, "scan")
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    )
+  }
+  const ctx = await getContext(req)
+  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
   const body = await req.json()
   const repo = body.repo || (body.repoUrl ? body.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : "")
   if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 })
@@ -37,7 +54,7 @@ export async function POST(req: NextRequest) {
     securityIssues: result.findings.filter((f) => f.severity === "high" || f.severity === "critical").length,
     status: result.score >= 80 ? "safe" : "at-risk", fileCount: result.filesScanned,
   }})
-  await db.auditLog.create({ data: { orgId: ctx.orgId, actorType: ctx.user ? "user" : "system", actorId: ctx.user?.id, action: "scan.run", target: repo, metadata: JSON.stringify({ files: result.filesScanned, findings: result.findings.length, score: result.score }) } })
+  await db.auditLog.create({ data: { orgId: ctx.orgId, actorType: "user", actorId: ctx.user.id, action: "scan.run", target: repo, metadata: JSON.stringify({ files: result.filesScanned, findings: result.findings.length, score: result.score }) } })
 
   return NextResponse.json({
     ok: true, projectId: project.id, scanId: scan.id,

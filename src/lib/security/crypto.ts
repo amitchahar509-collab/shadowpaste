@@ -11,7 +11,10 @@ if (!subtle) throw new Error("WebCrypto unavailable: requires Node >= 20 or a se
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-export function randomBytes(n: number): Uint8Array {
+// Byte helpers are annotated as Uint8Array<ArrayBuffer> rather than the bare
+// Uint8Array: since TS 5.7 the bare form widens to ArrayBufferLike, which is
+// not assignable to the BufferSource that WebCrypto expects.
+export function randomBytes(n: number): Uint8Array<ArrayBuffer> {
   return g.crypto.getRandomValues(new Uint8Array(n));
 }
 
@@ -28,7 +31,7 @@ export function bufToB64(buf: ArrayBuffer | Uint8Array): string {
   return Buffer.from(s, "binary").toString("base64");
 }
 
-export function b64ToBuf(b64: string): Uint8Array {
+export function b64ToBuf(b64: string): Uint8Array<ArrayBuffer> {
   const s = Buffer.from(b64, "base64").toString("binary");
   const out = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);

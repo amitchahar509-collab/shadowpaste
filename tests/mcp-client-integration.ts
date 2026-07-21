@@ -140,7 +140,7 @@ async function main() {
   const dropContent = JSON.parse((dropRes.result as { content: Array<{ text: string }> }).content[0].text)
   L(`  ✓ Decision: ${dropContent.decision}`)
   L(`  ✓ Executed: ${dropContent.executed}`)
-  L(`  ✓ isError: ${dropRes.result?.isError}`)
+  L(`  ✓ isError: ${(dropRes.result as { isError?: boolean })?.isError}`)
   L("")
 
   L("=== RESULT: ALL MCP PROTOCOL TESTS PASSED ===")
@@ -152,7 +152,7 @@ async function main() {
   L("")
 
   // Write proof log
-  await Bun.write("/home/z/my-project/tests/mcp-client-proof.log", log.join("\n"))
+  await Bun.write("tests/mcp-client-proof.log", log.join("\n"))
   L("Proof log written to: tests/mcp-client-proof.log")
 }
 

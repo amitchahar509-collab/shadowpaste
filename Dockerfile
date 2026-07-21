@@ -35,9 +35,10 @@ WORKDIR /app
 COPY prisma ./prisma
 COPY . .
 
-# Generate Prisma Client before Next.js build so imports resolve
+# Generate Prisma Client before Next.js build so imports resolve.
+# AUTH_PEPPER is intentionally NOT baked in — it is a runtime secret. The build
+# does not read it (pepper is resolved lazily on the first auth request).
 ENV DATABASE_URL="postgresql://shadow:shadow@db:5432/shadowpaste"
-ENV AUTH_PEPPER="change-me-in-prod-via-secret"
 RUN bunx prisma generate
 
 # Next.js standalone build.  Output goes to .next/standalone (+ .next/static).
@@ -63,12 +64,14 @@ COPY --from=builder --chown=sp:sp /app/node_modules/@prisma ./node_modules/@pris
 
 USER sp
 
-# Production env — must be overridden by docker-compose / -e at runtime.
+# Production env — DATABASE_URL/AUTH_PEPPER must be provided at runtime.
+# AUTH_PEPPER is deliberately unset: the app refuses auth in production until a
+# unique, non-placeholder value is supplied (see src/lib/auth.ts). Baking a
+# default here would ship a shared, forgeable secret.
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV DATABASE_URL="postgresql://shadow:shadow@db:5432/shadowpaste"
-ENV AUTH_PEPPER="change-me-in-prod-via-secret"
 
 EXPOSE 3000
 

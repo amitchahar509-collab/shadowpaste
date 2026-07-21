@@ -1,0 +1,14 @@
+{
+  // Typecheck config for the Bun/Node surfaces: the CLI and the war-test
+  // scripts. These run under `bun`, not the browser, so they need the Bun
+  // global types. moduleDetection:"force" treats every file as its own module
+  // so the standalone test scripts don't collide in a shared global scope.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleDetection": "force",
+    "types": ["bun-types"],
+    "noEmit": true
+  },
+  "include": ["cli/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"]
+}

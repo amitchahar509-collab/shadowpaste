@@ -18,5 +18,5 @@ export async function POST(req: NextRequest) {
   if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 });
   const result = await scanGitHubRepo(repo, { token, orgId: ctx.orgId });
   if (!result.ok) return NextResponse.json({ error: result.error || "scan failed" }, { status: 502 });
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ...result, ok: true });
 }

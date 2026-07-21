@@ -49,6 +49,43 @@ jobs:
         run: bun run lint
 
   # ---------------------------------------------------------------------------
+  # typecheck — enforced TypeScript checks (app + node/cli/test surfaces)
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache bun deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-typecheck-${{ runner.os }}-${{ hashFiles('package.json', 'bun.lock*') }}
+          restore-keys: |
+            bun-typecheck-${{ runner.os }}-
+            bun-${{ runner.os }}-
+
+      - name: Install deps
+        run: bun install --frozen-lockfile || bun install
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+        env:
+          DATABASE_URL: "file:./db/custom.db"
+
+      - name: Run typecheck (app + node)
+        run: bun run typecheck
+
+  # ---------------------------------------------------------------------------
   # test — start dev server, run integration script if present
   # ---------------------------------------------------------------------------
   test:
@@ -108,15 +145,16 @@ jobs:
             bash tests/run-all.sh
           else
             echo "tests/run-all.sh not found — running smoke checks instead"
-            # Smoke: seed + dashboard + deny destructive tool
+            # Smoke: seed (dev-only) + dashboard read + confirm mutating MCP
+            # endpoint rejects anonymous callers (expects HTTP 401).
             curl -fsS -X POST http://127.0.0.1:3000/api/seed || echo "seed: non-fatal"
             curl -fsS http://127.0.0.1:3000/api/dashboard | head -c 500
             echo
-            curl -fsS -X POST http://127.0.0.1:3000/api/mcp/call \
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3000/api/mcp/call \
               -H 'Content-Type: application/json' \
-              -d '{"agentId":"smoke","toolName":"db.schema.drop","input":{"schema":"public"}}' \
-              | head -c 500
-            echo
+              -d '{"agentId":"smoke","toolName":"db.schema.drop","input":{"schema":"public"}}')
+            echo "anonymous /api/mcp/call -> $code (expect 401)"
+            test "$code" = "401"
           fi
 
       - name: Show dev log on failure
@@ -172,25 +210,17 @@ jobs:
         env:
           DATABASE_URL: "file:./db/custom.db"
 
-      # NOTE: project rules forbid `bun run build` in DEV, but CI build is fine.
-      # next.config.ts has `typescript.ignoreBuildErrors: true` so type errors
-      # won't break the build; if `next build` fails for any other reason the
-      # job is marked UNVERIFIED (continue-on-error) rather than red.
+      # next.config.ts enforces type checking during the build
+      # (typescript.ignoreBuildErrors: false), so a type error fails this job.
       - name: Next.js production build
         run: bun run build
-        continue-on-error: true
         env:
           DATABASE_URL: "file:./db/custom.db"
           AUTH_PEPPER: "ci-build-pepper"
           NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Verify standalone output
-        run: |
-          if [ -f .next/standalone/server.js ]; then
-            echo "OK: .next/standalone/server.js produced"
-          else
-            echo "UNVERIFIED: standalone server.js missing — build may have failed (see step above)"
-          fi
+        run: test -f .next/standalone/server.js && echo "OK: .next/standalone/server.js produced"
 
   # ---------------------------------------------------------------------------
   # security-scan — grep for common leaked secret patterns in src/ (excluding

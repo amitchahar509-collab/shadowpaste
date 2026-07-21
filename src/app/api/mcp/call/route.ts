@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { invokeTool } from "@/lib/gateway"
 import { db } from "@/lib/db"
-import { getContext, anonymousContext } from "@/lib/auth"
+import { getContext } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rate-limit"
 
 // POST /api/mcp/call — invoke a tool through the zero-trust gateway (REAL execution)
@@ -10,7 +10,11 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, "mcp")
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } })
 
-  const ctx = await getContext(req) || anonymousContext()
+  // Authenticated only: the gateway executes real side effects (filesystem
+  // writes, GitHub mutations) on behalf of the caller's org.
+  const ctx = await getContext(req)
+  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+
   const body = await req.json()
   const { agentId, sessionId, toolName, input, _tokenOverride } = body
   if (!agentId || !toolName) return NextResponse.json({ error: "agentId and toolName required" }, { status: 400 })
