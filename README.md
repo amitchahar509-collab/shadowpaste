@@ -7,10 +7,8 @@ replaces real secrets with format-compatible fakes, creates an AI-safe
 workspace copy, lets AI coding tools work inside it, and restores the real
 secrets when you are ready to commit.
 
-[![CI](https://github.com/OWNER/shadowpaste/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/shadowpaste/actions/workflows/ci.yml)
+[![CI](https://github.com/amitchahar509-collab/shadowpaste/actions/workflows/ci.yml/badge.svg)](https://github.com/amitchahar509-collab/shadowpaste/actions/workflows/ci.yml)
 &nbsp;License: MIT
-
-> Replace `OWNER` in the badge URL with your GitHub org/user after the first push.
 
 ---
 
