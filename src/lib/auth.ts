@@ -9,12 +9,44 @@ import { enforce as rbacEnforce, type Permission } from "@/lib/security/rbac";
 
 const SESSION_COOKIE = "sp_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const PEPPER = process.env.AUTH_PEPPER || "shadowpaste-dev-pepper-change-in-prod";
+
+// AUTH_PEPPER keys both the password hashes and the session-token HMAC. This
+// source is public, so falling back to a literal default in production would
+// let anyone forge a session cookie for any account. Development keeps a fixed
+// fallback so local setup needs no configuration; production must supply one.
+const DEV_PEPPER = "shadowpaste-dev-pepper-change-in-prod";
+// Well-known placeholder values that have shipped in configs/images. Treating
+// them as "set" would defeat the guard, since they are public constants — so
+// they are rejected in production exactly like the unset case.
+const INSECURE_PEPPERS = new Set([
+  DEV_PEPPER,
+  "change-me-in-prod-via-secret",
+  "ci-build-pepper",
+  "changeme",
+  "change-me",
+]);
+
+// Resolved lazily (not at module load) so that `next build`, which evaluates
+// modules in production mode without runtime env, does not fail — the guard
+// fires on the first auth operation of a running production server instead.
+let _pepper: string | undefined;
+function pepper(): string {
+  if (_pepper !== undefined) return _pepper;
+  const fromEnv = process.env.AUTH_PEPPER?.trim();
+  if (fromEnv && !INSECURE_PEPPERS.has(fromEnv)) return (_pepper = fromEnv);
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_PEPPER must be set to a unique, non-placeholder random value in production. " +
+        "Generate one with: openssl rand -hex 32"
+    );
+  }
+  return (_pepper = DEV_PEPPER);
+}
 
 // ---- Password hashing (scrypt + pepper) ----
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
-  const derived = scryptSync(password + PEPPER, salt, 64).toString("hex");
+  const derived = scryptSync(password + pepper(), salt, 64).toString("hex");
   return `scrypt$${salt}$${derived}`;
 }
 
@@ -22,7 +54,7 @@ export function verifyPassword(password: string, stored: string): boolean {
   const parts = stored.split("$");
   if (parts.length !== 3 || parts[0] !== "scrypt") return false;
   const [, salt, derived] = parts;
-  const test = scryptSync(password + PEPPER, salt, 64);
+  const test = scryptSync(password + pepper(), salt, 64);
   const storedBuf = Buffer.from(derived, "hex");
   return test.length === storedBuf.length && timingSafeEqual(test, storedBuf);
 }
@@ -33,7 +65,7 @@ export function generateSessionToken(): string {
 }
 
 export function hmacToken(token: string): string {
-  return createHmac("sha256", PEPPER).update(token).digest("hex");
+  return createHmac("sha256", pepper()).update(token).digest("hex");
 }
 
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {

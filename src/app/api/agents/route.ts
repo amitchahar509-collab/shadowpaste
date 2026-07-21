@@ -15,8 +15,10 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/agents — create a new agent in the caller's org (billing-enforced)
+// Authenticated only: writes org-scoped state.
 export async function POST(req: NextRequest) {
-  const ctx = await getContext(req) || anonymousContext()
+  const ctx = await getContext(req)
+  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
   const body = await req.json()
   const { name, provider, description, trustScore, modelVersion, avatarColor } = body
   if (!name || !provider) return NextResponse.json({ error: "name and provider required" }, { status: 400 })
@@ -30,12 +32,12 @@ export async function POST(req: NextRequest) {
 
   const agent = await db.agent.create({
     data: {
-      orgId: ctx.orgId, createdById: ctx.user?.id,
+      orgId: ctx.orgId, createdById: ctx.user.id,
       name, provider, description: description || null,
       trustScore: typeof trustScore === "number" ? trustScore : 50,
       modelVersion: modelVersion || null, avatarColor: avatarColor || "#10b981",
     },
   })
-  await db.auditLog.create({ data: { orgId: ctx.orgId, actorType: "user", actorId: ctx.user?.id, action: "agent.create", target: agent.id, metadata: JSON.stringify({ name, provider }) } })
+  await db.auditLog.create({ data: { orgId: ctx.orgId, actorType: "user", actorId: ctx.user.id, action: "agent.create", target: agent.id, metadata: JSON.stringify({ name, provider }) } })
   return NextResponse.json({ agent })
 }

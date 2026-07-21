@@ -17,6 +17,6 @@ export async function POST(req: NextRequest) {
 
   const { token, expiresAt } = await createSession(user.id);
   const res = NextResponse.json({ ok: true, user: { id: user.id, email: user.email, name: user.name }, org: { id: org.id, slug: org.slug, role: "OWNER" } });
-  res.cookies.set(SESSION_COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", expires: expiresAt, path: "/" });
+  res.cookies.set(SESSION_COOKIE_NAME, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", expires: expiresAt, path: "/" });
   return res;
 }

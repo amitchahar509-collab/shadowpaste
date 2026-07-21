@@ -2,11 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  // Type errors now fail the build. The app surface (src/) typechecks clean;
+  // the Bun/Node surfaces (cli/, tests/) are checked separately via
+  // `bun run typecheck` against tsconfig.node.json.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  reactStrictMode: false,
+  reactStrictMode: true,
 };
 
 export default nextConfig;

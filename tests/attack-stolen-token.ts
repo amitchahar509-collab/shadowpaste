@@ -14,8 +14,12 @@
 //
 // Output: results-token.json + stdout summary.
 
+import { authCookie } from "./_auth";
+
 const BASE = "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 10_000;
+// Set once in main() — mutating endpoints require an authenticated session.
+let SESSION = "";
 
 async function checkServer(): Promise<boolean> {
   try {
@@ -34,7 +38,7 @@ async function api<T = any>(
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(SESSION ? { cookie: SESSION } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -63,7 +67,7 @@ async function setStatus(agentId: string, status: string) {
   return api<{ agent: { id: string; status: string } }>("PATCH", `/api/agents/${agentId}`, { status });
 }
 
-async function callTool(agentId: string, toolName = "fs.read", input = { path: "package.json" }) {
+async function callTool(agentId: string, toolName = "fs.read", input: Record<string, unknown> = { path: "package.json" }) {
   return api("POST", "/api/mcp/call", { agentId, toolName, input });
 }
 
@@ -81,6 +85,8 @@ async function main() {
   }
 
   console.log("=== ShadowPaste V19 — Stolen/Revoked Token Attack ===\n");
+
+  SESSION = await authCookie(BASE);
 
   const runTag = Date.now().toString(36);
   const checks: CheckResult[] = [];
@@ -229,7 +235,7 @@ async function main() {
     }
   }
 
-  const outPath = "/home/z/my-project/tests/results-token.json";
+  const outPath = "tests/results-token.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

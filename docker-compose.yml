@@ -9,7 +9,10 @@
 #        bunx prisma generate
 #        bunx prisma migrate deploy
 #   3. The dev sandbox still uses SQLite (file:./db/custom.db). Production
-#      target is Postgres — see V19_FINAL_REPORT.md "Still Missing".
+#      target is Postgres.
+#
+# Set a real AUTH_PEPPER before bringing this up (the app refuses auth in
+# production without one):  export AUTH_PEPPER=$(openssl rand -hex 32)
 #
 # Bring up:    docker compose up --build
 # Tear down:   docker compose down -v   (add -v to wipe the db volume)
@@ -31,7 +34,9 @@ services:
       # PRODUCTION target — see note above about switching prisma provider
       # from sqlite -> postgresql.
       DATABASE_URL: "postgresql://shadow:shadow@db:5432/shadowpaste"
-      AUTH_PEPPER: "${AUTH_PEPPER:-change-me-in-prod-via-secret}"
+      # Required — compose errors out if AUTH_PEPPER is not set in the
+      # environment. Generate one with: openssl rand -hex 32
+      AUTH_PEPPER: "${AUTH_PEPPER:?set AUTH_PEPPER to a unique random value (openssl rand -hex 32)}"
       NODE_ENV: production
       PORT: "3000"
       # Redis is provisioned below for future session-cache / rate-limit use.

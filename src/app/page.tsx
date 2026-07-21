@@ -229,7 +229,7 @@ export default function Home() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
-                {active === "dashboard" && <Dashboard onNavigate={setActive} />}
+                {active === "dashboard" && <Dashboard onNavigate={(id) => setActive(id as ModuleId)} />}
                 {active === "gateway" && <McpGateway />}
                 {active === "agents" && <Agents />}
                 {active === "permissions" && <Permissions />}

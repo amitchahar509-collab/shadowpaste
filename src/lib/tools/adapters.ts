@@ -6,6 +6,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { injectCredential, consumeCredential, redactSecrets, getCapabilityEngine } from "@/lib/security/vault";
+import { isWithin } from "@/lib/security/paths";
 import { db } from "@/lib/db";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), ".workspace");
@@ -16,8 +17,11 @@ async function ensureWorkspace(): Promise<string> {
 }
 
 function safePath(p: string): string {
-  const resolved = path.resolve(WORKSPACE_ROOT, p.replace(/^\//, ""));
-  if (!resolved.startsWith(WORKSPACE_ROOT)) throw new Error(`Path escape attempt: ${p}`);
+  if (typeof p !== "string" || p.includes("\0")) throw new Error("Invalid path");
+  const resolved = path.resolve(WORKSPACE_ROOT, p.replace(/^[/\\]+/, ""));
+  // A plain startsWith() prefix test would accept sibling directories such as
+  // ".workspace-evil"; compare on path segments instead.
+  if (!isWithin(WORKSPACE_ROOT, resolved)) throw new Error(`Path escape attempt: ${p}`);
   return resolved;
 }
 

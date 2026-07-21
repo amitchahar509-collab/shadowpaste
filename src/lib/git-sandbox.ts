@@ -6,6 +6,7 @@ import { promises as fs } from "fs"
 import path from "path"
 import { db } from "@/lib/db"
 import { analyzeDiff } from "@/lib/sandbox"
+import { isWithin } from "@/lib/security/paths"
 
 const SANDBOX_ROOT = path.resolve(process.cwd(), ".sandbox")
 
@@ -46,14 +47,27 @@ export async function initSandbox(projectId: string, projectName: string): Promi
   }
 }
 
-// Write a file to the sandbox repo (AI change)
+// Write a file to the sandbox repo (AI change).
+//
+// filePath and message come from the request body, so this used to be doubly
+// unsafe: path.join let filePath escape the repo (../../etc/passwd), and the
+// values were interpolated into a shelled-out `git ...` string (command
+// injection). We now confine the path and shell out via execFileSync with an
+// argument array so nothing is interpreted by a shell.
 export async function writeSandboxFile(repoPath: string, filePath: string, content: string, message?: string): Promise<void> {
-  const { execSync } = await import("child_process")
-  const fullPath = path.join(repoPath, filePath)
+  const { execFileSync } = await import("child_process")
+  if (typeof filePath !== "string" || filePath.includes("\0")) throw new Error("invalid filePath")
+
+  const fullPath = path.resolve(repoPath, filePath.replace(/^[/\\]+/, ""))
+  if (!isWithin(repoPath, fullPath) || fullPath === repoPath) {
+    throw new Error(`filePath escapes the sandbox: ${filePath}`)
+  }
+  const relPath = path.relative(repoPath, fullPath)
+
   await fs.mkdir(path.dirname(fullPath), { recursive: true })
   await fs.writeFile(fullPath, content)
-  execSync(`git add "${filePath}"`, { cwd: repoPath, stdio: "pipe" })
-  execSync(`git commit -m "${(message || `AI: update ${filePath}`).replace(/"/g, "'")}"`, { cwd: repoPath, stdio: "pipe" })
+  execFileSync("git", ["add", "--", relPath], { cwd: repoPath, stdio: "pipe" })
+  execFileSync("git", ["commit", "-m", message || `AI: update ${relPath}`], { cwd: repoPath, stdio: "pipe" })
 }
 
 // Generate real git diff between base and sandbox branch

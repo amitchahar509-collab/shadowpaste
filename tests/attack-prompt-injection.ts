@@ -14,8 +14,12 @@
 //
 // Output: results-injection.json + stdout summary.
 
+import { authCookie } from "./_auth";
+
 const BASE = "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 10_000;
+// Set once in main() — mutating endpoints require an authenticated session.
+let SESSION = "";
 // Two-threshold model: HARD_FLOOR = critical regression (test fails the suite);
 // SOFT_TARGET = aspirational coverage (test warns but does not block CI).
 const HARD_FLOOR = 0.50; // <50% caught → genuine regression in the detector
@@ -39,7 +43,7 @@ async function api<T = any>(
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(SESSION ? { cookie: SESSION } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -132,6 +136,8 @@ async function main() {
 
   console.log("=== ShadowPaste V19 — Prompt Injection Attack Suite ===");
   console.log(`Firing ${PAYLOADS.length} prompt-injection payloads through the MCP gateway\n`);
+
+  SESSION = await authCookie(BASE);
 
   // Ensure a dedicated attack-test agent exists with moderate trust
   const agentRes = await api<{ agent: { id: string } }>("POST", "/api/agents", {
@@ -282,7 +288,7 @@ async function main() {
   }
 
   // ---- Write JSON ----
-  const outPath = "/home/z/my-project/tests/results-injection.json";
+  const outPath = "tests/results-injection.json";
   await Bun.write(outPath, JSON.stringify(summary, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

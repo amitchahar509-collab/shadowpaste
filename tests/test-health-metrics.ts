@@ -304,7 +304,7 @@ async function main() {
 
   printSummaryTable(checks);
 
-  const outPath = "/home/z/my-project/tests/results-health.json";
+  const outPath = "tests/results-health.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

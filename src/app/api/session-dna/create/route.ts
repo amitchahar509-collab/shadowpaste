@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSessionDNA } from "@/lib/security/session-dna"
+import { getContext } from "@/lib/auth"
 
-// POST /api/session-dna/create — create a new Agent Session DNA
+// POST /api/session-dna/create — create a new Agent Session DNA.
+// Authenticated only: mints a signing identity for an agent session.
 export async function POST(req: NextRequest) {
+  const ctx = await getContext(req)
+  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+
   const { agentId, agentName, workspacePath, trustScore } = await req.json()
   if (!agentId || !agentName) return NextResponse.json({ error: "agentId and agentName required" }, { status: 400 })
 

@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-07-13T13:21:51.617Z",
-  "runTag": "mrj94doa",
+  "timestamp": "2026-07-21T11:35:52.311Z",
+  "runTag": "mrukuw84",
   "health": {
     "httpStatus": 200,
     "status": "healthy",
     "version": "20.0.0",
-    "uptime": 22.728720809,
-    "totalLatencyMs": 40,
+    "uptime": 70.0896984,
+    "totalLatencyMs": 100,
     "checks": [
       {
         "name": "database",
         "ok": true,
-        "latencyMs": 1
+        "latencyMs": 4
       },
       {
         "name": "vault",
@@ -27,55 +27,55 @@
       {
         "name": "github-api",
         "ok": true,
-        "latencyMs": 39
+        "latencyMs": 82
       }
     ],
     "fakeStringMatches": []
   },
   "metrics": {
     "httpStatus": 200,
-    "queryLatencyMs": 36,
+    "queryLatencyMs": 26,
     "agents": {
-      "total": 245,
-      "active": 200,
-      "quarantined": 22,
-      "avgTrust": 58
+      "total": 42,
+      "active": 33,
+      "quarantined": 5,
+      "avgTrust": 57
     },
     "toolCalls": {
-      "total": 16945,
-      "allowed": 11736,
+      "total": 239,
+      "allowed": 30,
       "denied": 0,
       "sandboxed": 0,
       "blockRate": 0
     },
     "latency": {
-      "p50": 2,
-      "p95": 4,
-      "p99": 7,
-      "sampleSize": 98
+      "p50": 6,
+      "p95": 13,
+      "p99": 253,
+      "sampleSize": 100
     },
     "security": {
-      "vaultEntries": 2029,
-      "toolExecutions": 11736,
-      "auditLogs": 16266,
+      "vaultEntries": 12,
+      "toolExecutions": 30,
+      "auditLogs": 281,
       "attacks": 6,
       "blockedAttacks": 6,
       "attackBlockRate": 100
     },
     "catalog": {
-      "mcpTools": 25,
+      "mcpTools": 28,
       "mcpPackages": 10,
-      "projects": 4,
-      "publicScans": 3
+      "projects": 6,
+      "publicScans": 7
     },
     "memory": {
-      "rssMb": 1026,
-      "heapUsedMb": 214
+      "rssMb": 155,
+      "heapUsedMb": 55
     },
     "fakeStringMatches": []
   },
   "preWarm": {
-    "probeAgentId": "cmrj94doj00b7pbai1xurw01q"
+    "probeAgentId": null
   },
   "checks": [
     {
@@ -106,19 +106,19 @@
       "id": "M1",
       "description": "/api/metrics agents.total > 0",
       "passed": true,
-      "detail": "agents.total=245 (type: number)"
+      "detail": "agents.total=42 (type: number)"
     },
     {
       "id": "M2",
       "description": "/api/metrics toolCalls.total > 0",
       "passed": true,
-      "detail": "toolCalls.total=16945 (type: number)"
+      "detail": "toolCalls.total=239 (type: number)"
     },
     {
       "id": "M3",
       "description": "/api/metrics latency.p50 > 0 (real recorded durations)",
       "passed": true,
-      "detail": "latency.p50=2, p95=4, p99=7, sampleSize=98"
+      "detail": "latency.p50=6, p95=13, p99=253, sampleSize=100"
     },
     {
       "id": "M4",

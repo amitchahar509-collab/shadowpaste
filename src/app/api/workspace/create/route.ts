@@ -1,24 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getContext, anonymousContext } from "@/lib/auth"
+import { getContext } from "@/lib/auth"
 import { createSafeWorkspace } from "@/lib/workspace"
 import { db } from "@/lib/db"
-import { promises as fs } from "fs"
 import path from "path"
+import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 // POST /api/workspace/create — scan a project folder + create AI-safe workspace copy
 // Body: { sourcePath: string, projectName?: string }
+//
+// Authenticated only: this reads every file under sourcePath and extracts the
+// secrets it finds, so it must never be reachable anonymously.
 export async function POST(req: NextRequest) {
-  const ctx = await getContext(req) || anonymousContext()
+  const rl = checkRateLimit(req, "scan")
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    )
+  }
+
+  const ctx = await getContext(req)
+  if (!ctx || !ctx.user) {
+    return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  }
+
   const { sourcePath, projectName } = await req.json()
   if (!sourcePath) return NextResponse.json({ error: "sourcePath required" }, { status: 400 })
 
-  // Resolve and validate path (prevent path traversal)
-  const resolved = path.resolve(sourcePath)
+  // Confine to the configured project roots — path.resolve() alone would
+  // accept any absolute location on the host filesystem.
+  let resolved: string
   try {
-    const stat = await fs.stat(resolved)
-    if (!stat.isDirectory()) return NextResponse.json({ error: "sourcePath must be a directory" }, { status: 400 })
-  } catch {
-    return NextResponse.json({ error: `directory not found: ${resolved}` }, { status: 404 })
+    resolved = await resolveWithinRoots(sourcePath, "sourcePath")
+    await assertDirectory(resolved, "sourcePath")
+  } catch (e) {
+    if (e instanceof PathNotAllowedError) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
+    throw e
   }
 
   const name = projectName || path.basename(resolved)

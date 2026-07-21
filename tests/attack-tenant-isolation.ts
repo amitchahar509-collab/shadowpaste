@@ -309,7 +309,7 @@ async function main() {
     }
   }
 
-  const outPath = "/home/z/my-project/tests/results-tenant.json";
+  const outPath = "tests/results-tenant.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

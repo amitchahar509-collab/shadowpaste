@@ -297,7 +297,7 @@ async function main() {
   if (fpDetails.length) console.log("FP advisory details:", fpDetails.slice(0, 10));
 
   // ---- Write JSON ----
-  const outPath = "/home/z/my-project/tests/results-secret.json";
+  const outPath = "tests/results-secret.json";
   await Bun.write(outPath, JSON.stringify(result, null, 2));
   console.log(`\nResults written to ${outPath}`);
 

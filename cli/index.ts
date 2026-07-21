@@ -204,7 +204,7 @@ program
     const { execSync } = await import("child_process")
     console.log(`\n  Opening ${workspacePath} in ${opts.editor}...`)
     try {
-      execSync(`${opts.editor} "${workspacePath}"`, { stdio: "ignore", detached: true })
+      execSync(`${opts.editor} "${workspacePath}"`, { stdio: "ignore" })
       console.log(`  ✓ Opened`)
     } catch { console.log(`  ⚠ ${opts.editor} not found. Open manually: ${workspacePath}`) }
     console.log("")

@@ -31,5 +31,5 @@ export async function POST(req: NextRequest) {
     score: result.score, secrets: result.secretsCount, permissions: 0, configs: result.configsCount,
     findings: JSON.stringify(result.findings), shareId,
   }})
-  return NextResponse.json({ ok: true, scan, ...result })
+  return NextResponse.json({ ...result, scan, ok: true })
 }
