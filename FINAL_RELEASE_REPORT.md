@@ -135,9 +135,9 @@ credentials/hosts and are documented, not code defects.
 - [x] `.github/` issue templates + PR template + CI workflow
 - [x] `docs/` (install, quickstart, config, architecture, dev, API, troubleshooting, security)
 - [x] `CHANGELOG.md`, `ROADMAP.md`
-- [ ] Repository created + pushed (needs GitHub auth — see below)
-- [ ] `1.0.0` tag + release notes published
-- [ ] Replace `OWNER` in README badge and issue-template links with the real org/user
+- [x] `OWNER` placeholders replaced with the real account (`amitchahar509-collab`)
+- [x] Repository created + pushed (public, `amitchahar509-collab/shadowpaste`)
+- [x] `1.0.0` tag + release published
 
 ## Public release checklist
 
