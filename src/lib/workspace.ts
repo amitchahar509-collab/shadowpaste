@@ -139,7 +139,54 @@ export async function createSafeWorkspace(opts: {
   // rather than a thrown "record not found" that Prisma logs to stderr.
   await db.project.updateMany({ where: { id: projectId }, data: { sandboxStatus: "created" } }).catch(() => {})
 
+  // Persist the real↔fake mapping alongside the workspace so that `restore`
+  // (CLI or dashboard) can run from just the workspace path — no need for the
+  // caller to hold the real secrets. This file lives inside the (gitignored)
+  // workspace directory, mirroring what the CLI writes.
+  await writeWorkspaceMeta(workspace)
+
   return workspace
+}
+
+export const META_FILENAME = ".shadowpaste-meta.json"
+
+export interface WorkspaceMeta {
+  id: string
+  sourcePath: string
+  workspacePath: string
+  secrets: WorkspaceSecret[]
+  createdAt: string
+}
+
+export async function writeWorkspaceMeta(ws: SafeWorkspace): Promise<void> {
+  const meta: WorkspaceMeta = {
+    id: ws.id,
+    sourcePath: ws.sourcePath,
+    workspacePath: ws.workspacePath,
+    secrets: ws.secrets,
+    createdAt: ws.createdAt.toISOString(),
+  }
+  await fs.writeFile(path.join(ws.workspacePath, META_FILENAME), JSON.stringify(meta, null, 2), "utf8")
+}
+
+export async function readWorkspaceMeta(workspacePath: string): Promise<WorkspaceMeta | null> {
+  try {
+    const raw = await fs.readFile(path.join(workspacePath, META_FILENAME), "utf8")
+    return JSON.parse(raw) as WorkspaceMeta
+  } catch {
+    return null
+  }
+}
+
+// Restore using the mapping persisted in the workspace, so the caller only
+// needs the workspace path (the dashboard never holds real secrets).
+export async function restoreFromMeta(
+  workspacePath: string
+): Promise<{ restored: number; errors: string[]; sourcePath: string; secretCount: number }> {
+  const meta = await readWorkspaceMeta(workspacePath)
+  if (!meta) throw new Error(`no ${META_FILENAME} found in workspace — was it created by ShadowPaste?`)
+  const result = await restoreSecrets({ workspacePath, sourcePath: meta.sourcePath, secrets: meta.secrets })
+  return { ...result, sourcePath: meta.sourcePath, secretCount: meta.secrets.length }
 }
 
 // Restore real secrets back into the original project (for commit)

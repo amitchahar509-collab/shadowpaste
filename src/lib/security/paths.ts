@@ -7,10 +7,21 @@
 // happily accepts any absolute location on the host.
 //
 // Allowed roots come from SHADOWPASTE_PROJECT_ROOTS (OS path-delimiter
-// separated). When unset we fall back to the process working directory, which
-// keeps local single-user usage working without configuration.
+// separated). When unset we fall back to the user's home directory: on a
+// locally-run single-user install that is where real projects live (e.g.
+// ~/Downloads/my-app, ~/projects/*), so "Protect a project" works out of the
+// box while system locations (C:\Windows, /etc, other users' homes) stay off
+// limits. Hosted/multi-tenant deployments are expected to set the env var
+// explicitly to lock this down.
+//
+// Previously the default was process.cwd() — the ShadowPaste install directory
+// — which meant every project outside that one folder was rejected ("outside
+// the allowed project roots", or "sourcePath not found" for relative input),
+// making the flagship import flow unusable even though the CLI equivalent,
+// which does no confinement, worked on any path.
 
 import path from "path"
+import os from "os"
 import { promises as fs } from "fs"
 
 export class PathNotAllowedError extends Error {
@@ -23,7 +34,12 @@ export class PathNotAllowedError extends Error {
 /** Directories the server is permitted to read from and write to. */
 export function allowedRoots(): string[] {
   const raw = process.env.SHADOWPASTE_PROJECT_ROOTS
-  if (!raw || !raw.trim()) return [path.resolve(process.cwd())]
+  if (!raw || !raw.trim()) {
+    // Default to the user's home directory; fall back to cwd only if the home
+    // directory can't be determined (e.g. a locked-down service account).
+    const home = os.homedir()
+    return [path.resolve(home && home.trim() ? home : process.cwd())]
+  }
   return raw
     .split(path.delimiter)
     .map((p) => p.trim())

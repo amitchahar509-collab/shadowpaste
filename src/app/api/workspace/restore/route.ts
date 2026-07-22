@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getContext } from "@/lib/auth"
-import { restoreSecrets, type WorkspaceSecret } from "@/lib/workspace"
+import { restoreSecrets, restoreFromMeta, type WorkspaceSecret } from "@/lib/workspace"
 import { db } from "@/lib/db"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-// POST /api/workspace/restore — restore real secrets back into the source project
-// Body: { workspacePath: string, sourcePath: string, secrets: [...] }
+// POST /api/workspace/restore — restore real secrets back into the source project.
 //
-// Authenticated only: this writes caller-supplied content into sourcePath, so
-// an anonymous caller here would mean arbitrary file write on the host.
+// Two forms:
+//   { workspacePath }                          → reads .shadowpaste-meta.json in
+//                                                the workspace (dashboard path —
+//                                                caller never holds real secrets)
+//   { workspacePath, sourcePath, secrets[] }   → explicit mapping (CLI path)
+//
+// Authenticated only: this writes content into the source project, so an
+// anonymous caller would mean arbitrary file write on the host.
 export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, "scan")
   if (!rl.ok) {
@@ -25,30 +30,40 @@ export async function POST(req: NextRequest) {
   }
 
   const { workspacePath, sourcePath, secrets } = await req.json()
-  if (!workspacePath || !sourcePath || !Array.isArray(secrets)) {
-    return NextResponse.json({ error: "workspacePath, sourcePath, secrets[] required" }, { status: 400 })
+  if (!workspacePath) {
+    return NextResponse.json({ error: "workspacePath required" }, { status: 400 })
   }
 
+  // Confine the workspace path in both modes.
   let resolvedWorkspace: string
-  let resolvedSource: string
   try {
     resolvedWorkspace = await resolveWithinRoots(workspacePath, "workspacePath")
-    resolvedSource = await resolveWithinRoots(sourcePath, "sourcePath")
     await assertDirectory(resolvedWorkspace, "workspacePath")
-    await assertDirectory(resolvedSource, "sourcePath")
   } catch (e) {
-    if (e instanceof PathNotAllowedError) {
-      return NextResponse.json({ error: e.message }, { status: 400 })
-    }
+    if (e instanceof PathNotAllowedError) return NextResponse.json({ error: e.message }, { status: 400 })
     throw e
   }
 
   try {
-    const result = await restoreSecrets({
-      workspacePath: resolvedWorkspace,
-      sourcePath: resolvedSource,
-      secrets: secrets as WorkspaceSecret[],
-    })
+    let result: { restored: number; errors: string[] }
+    let target = resolvedWorkspace
+
+    if (Array.isArray(secrets) && sourcePath) {
+      // Explicit mapping form (CLI-style).
+      const resolvedSource = await resolveWithinRoots(sourcePath, "sourcePath")
+      await assertDirectory(resolvedSource, "sourcePath")
+      result = await restoreSecrets({ workspacePath: resolvedWorkspace, sourcePath: resolvedSource, secrets: secrets as WorkspaceSecret[] })
+      target = resolvedSource
+    } else {
+      // Meta-driven form: the workspace carries its own real↔fake mapping and
+      // source path. We still confine the recorded source path.
+      const meta = await import("@/lib/workspace").then((m) => m.readWorkspaceMeta(resolvedWorkspace))
+      if (!meta) return NextResponse.json({ error: "no .shadowpaste-meta.json in workspace — provide sourcePath + secrets[]" }, { status: 400 })
+      await resolveWithinRoots(meta.sourcePath, "sourcePath") // throws if the recorded source escaped the roots
+      const r = await restoreFromMeta(resolvedWorkspace)
+      result = { restored: r.restored, errors: r.errors }
+      target = r.sourcePath
+    }
 
     await db.auditLog.create({
       data: {
@@ -56,13 +71,14 @@ export async function POST(req: NextRequest) {
         actorType: "user",
         actorId: ctx.user.id,
         action: "workspace.restore",
-        target: resolvedWorkspace,
+        target,
         metadata: JSON.stringify({ restored: result.restored, errors: result.errors.length }),
       },
     })
 
-    return NextResponse.json({ ok: true, ...result })
+    return NextResponse.json({ ok: true, ...result, sourcePath: target })
   } catch (e) {
+    if (e instanceof PathNotAllowedError) return NextResponse.json({ error: e.message }, { status: 400 })
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }
 }

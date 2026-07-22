@@ -71,7 +71,16 @@ export function ScoreRing({ score, size = 120 }: { score: number; size?: number 
 
 export async function api<T = unknown>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    // Surface the server's error message (routes return { error }) so toasts are
+    // actionable, while keeping the status prefix callers key off (e.g. "401").
+    let detail = res.statusText
+    try {
+      const body = await res.json()
+      if (body?.error) detail = body.error
+    } catch { /* non-JSON body */ }
+    throw new Error(`${res.status} ${detail}`)
+  }
   return res.json()
 }
 

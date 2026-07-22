@@ -1,9 +1,10 @@
 "use client"
 import { useEffect, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import {
   Shield, LayoutDashboard, Network, Bot, KeyRound, Radio, Boxes, Github,
   Gauge, Store, Globe, Bug, Database, Menu, X, Zap, Activity, Cpu, Lock, ScrollText,
+  FolderLock, LogIn, LogOut,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,17 +23,21 @@ import { PublicScanner } from "@/components/shadowpaste/public-scanner"
 import { Attacks } from "@/components/shadowpaste/attacks"
 import { Vault } from "@/components/shadowpaste/vault"
 import { AuditTrail } from "@/components/shadowpaste/audit-trail"
+import { AiSafeWorkspace } from "@/components/shadowpaste/ai-safe-workspace"
+import { AuthPanel, type AuthUser } from "@/components/shadowpaste/auth-panel"
+import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
 // 3D neural background — loaded dynamically (client-only, no SSR)
 const NeuralBackground3D = dynamic(() => import("@/components/shadowpaste/neural-background"), { ssr: false })
 
 type ModuleId =
-  | "dashboard" | "gateway" | "agents" | "permissions" | "recorder"
+  | "dashboard" | "workspace" | "gateway" | "agents" | "permissions" | "recorder"
   | "sandbox" | "github" | "trust" | "marketplace" | "public" | "attacks" | "vault" | "audit"
 
 const NAV: Array<{ id: ModuleId; label: string; icon: typeof Shield; phase: string; group: string }> = [
   { id: "dashboard", label: "Command Center", icon: LayoutDashboard, phase: "OVERVIEW", group: "Monitor" },
+  { id: "workspace", label: "AI-Safe Workspace", icon: FolderLock, phase: "CORE", group: "Protect" },
   { id: "gateway", label: "MCP Gateway", icon: Network, phase: "P1", group: "Control" },
   { id: "agents", label: "Agent Identities", icon: Bot, phase: "P2", group: "Control" },
   { id: "permissions", label: "Permission Center", icon: KeyRound, phase: "P3", group: "Control" },
@@ -53,7 +58,14 @@ export default function Home() {
   const [seeded, setSeeded] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [stats, setStats] = useState<{ agents: number; toolCalls: number; attacks: number; vaultEntries?: number } | null>(null)
-  const [authUser, setAuthUser] = useState<{ id: string; email: string; name: string | null } | null>(null)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+
+  const logout = async () => {
+    try { await fetch("/api/auth/logout", { method: "POST" }) } catch { /* ignore */ }
+    setAuthUser(null)
+    toast.success("Signed out")
+  }
 
   useEffect(() => {
     // Auto-seed on first load
@@ -108,7 +120,7 @@ export default function Home() {
 
             {/* Nav */}
             <nav className="flex-1 overflow-y-auto px-3 py-4" style={{ scrollbarWidth: "thin" }}>
-              {(["Monitor", "Control", "Build", "Growth", "Test"] as const).map((group) => {
+              {(["Protect", "Monitor", "Control", "Build", "Growth", "Test"] as const).map((group) => {
                 const items = NAV.filter((n) => n.group === group)
                 if (!items.length) return null
                 return (
@@ -192,24 +204,44 @@ export default function Home() {
                 <span className="font-mono text-[11px] text-zinc-400">policy-engine</span>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </div>
-              {/* Auth status indicator */}
+              {/* Auth control */}
               {authUser ? (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
+                <button
+                  onClick={logout}
+                  title="Sign out"
+                  className="group flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 hover:border-emerald-500/40"
+                >
                   <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px] font-bold text-emerald-300">
                     {(authUser.name || authUser.email).charAt(0).toUpperCase()}
                   </div>
                   <span className="hidden font-mono text-[11px] text-emerald-300 sm:inline">{authUser.name || authUser.email}</span>
-                </div>
+                  <LogOut className="h-3.5 w-3.5 text-emerald-400/60 group-hover:text-emerald-300" />
+                </button>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                  <span className="hidden font-mono text-[11px] text-zinc-400 sm:inline">Anonymous</span>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAuthOpen(true)}
+                  className="border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                >
+                  <LogIn className="mr-1.5 h-3.5 w-3.5" />Sign in
+                </Button>
               )}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={async () => { setSeeding(true); await api("/api/seed", { method: "POST" }); setSeeding(false); setSeeded(true); window.location.reload() }}
+                onClick={async () => {
+                  setSeeding(true)
+                  try {
+                    await api("/api/seed", { method: "POST" })
+                    setSeeded(true)
+                    window.location.reload()
+                  } catch (e) {
+                    toast.error(`Demo data unavailable: ${(e as Error).message}`)
+                  } finally {
+                    setSeeding(false)
+                  }
+                }}
                 disabled={seeding}
                 className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200"
               >
@@ -219,23 +251,28 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Content */}
+          {/* Content — keyed by `active` so each module remounts and fades in.
+              We deliberately do NOT gate this on an AnimatePresence exit
+              animation: mode="wait" leaves the previous module on screen until
+              its exit tween finishes, which never happens when rAF is throttled
+              (background tab, reduced-motion, headless), stranding the user on
+              the old view. */}
           <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-            <AnimatePresence mode="wait">
+            <div>
               <motion.div
                 key={active}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
                 {active === "dashboard" && <Dashboard onNavigate={(id) => setActive(id as ModuleId)} />}
+                {active === "workspace" && <AiSafeWorkspace authed={!!authUser} onRequireAuth={() => setAuthOpen(true)} />}
                 {active === "gateway" && <McpGateway />}
                 {active === "agents" && <Agents />}
                 {active === "permissions" && <Permissions />}
                 {active === "recorder" && <FlightRecorder />}
                 {active === "sandbox" && <Sandbox />}
-                {active === "github" && <AiSafeGithub />}
+                {active === "github" && <AiSafeGithub authed={!!authUser} onRequireAuth={() => setAuthOpen(true)} onProtect={() => setActive("workspace")} />}
                 {active === "trust" && <TrustScore />}
                 {active === "marketplace" && <Marketplace />}
                 {active === "public" && <PublicScanner />}
@@ -243,7 +280,7 @@ export default function Home() {
                 {active === "vault" && <Vault />}
                 {active === "audit" && <AuditTrail />}
               </motion.div>
-            </AnimatePresence>
+            </div>
           </main>
 
           {/* Footer */}
@@ -263,6 +300,7 @@ export default function Home() {
           </footer>
         </div>
       </div>
+      <AuthPanel open={authOpen} onOpenChange={setAuthOpen} onAuthed={(u) => setAuthUser(u)} />
       <Toaster theme="dark" position="bottom-right" />
     </div>
   )

@@ -12,17 +12,22 @@ import { Github, Zap, ShieldCheck, ShieldAlert, FileWarning, KeyRound, Settings2
 interface Finding { type: "secret" | "permission" | "config" | "dependency"; severity: "low" | "medium" | "high" | "critical"; file: string; line: number; message: string; evidence: string }
 interface ScanResult { ok: boolean; projectId: string; scanId: string; repoUrl: string; repoName: string; files: string[]; findings: Finding[]; secretsCount: number; permissionsCount: number; configsCount: number; score: number; grade: string }
 
-export function AiSafeGithub() {
+export function AiSafeGithub({ authed = true, onRequireAuth, onProtect }: { authed?: boolean; onRequireAuth?: () => void; onProtect?: () => void } = {}) {
   const [repoUrl, setRepoUrl] = useState("https://github.com/acme/platform")
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
 
   const scan = async () => {
+    if (!authed) { onRequireAuth?.(); return }
     setScanning(true); setResult(null)
     try {
       const r = await api<ScanResult>("/api/scan", { method: "POST", body: JSON.stringify({ repoUrl }) })
       setResult(r); toast.success(`AI Safety Report ready — score ${r.score}/100`)
-    } catch (e) { toast.error((e as Error).message) } finally { setScanning(false) }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.startsWith("401")) { onRequireAuth?.(); toast.error("Please sign in to scan a repo.") }
+      else toast.error(msg)
+    } finally { setScanning(false) }
   }
 
   return (
@@ -87,7 +92,7 @@ export function AiSafeGithub() {
                   <FindingStat icon={Settings2} label="Configs" value={result.configsCount} color="text-amber-400" />
                 </div>
               </div>
-              <Button className="bg-emerald-600 text-white hover:bg-emerald-500"><Sparkles className="mr-1.5 h-4 w-4" />Protect Now</Button>
+              <Button onClick={onProtect} className="bg-emerald-600 text-white hover:bg-emerald-500"><Sparkles className="mr-1.5 h-4 w-4" />Protect a local copy</Button>
             </div>
           </Card>
 
