@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { agentId, toolName, scope, decision, riskLevel, grantedBy } = body
   if (!agentId || !toolName || !decision) {
     return NextResponse.json({ error: "agentId, toolName, decision required" }, { status: 400 })

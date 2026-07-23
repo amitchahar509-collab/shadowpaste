@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
 
-  const { plan } = await req.json()
+  const { plan } = await req.json().catch(() => ({}))
   const planConfig = PLANS[plan as keyof typeof PLANS]
   if (!planConfig || planConfig.price === 0) return NextResponse.json({ error: "invalid plan" }, { status: 400 })
 

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/public-scan — public no-login scan: { repo }
 export async function POST(req: NextRequest) {
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const repoInput = body.repo || (body.repoUrl ? body.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : "")
   if (!repoInput) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 })
 

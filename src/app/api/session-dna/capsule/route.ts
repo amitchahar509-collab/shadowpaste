@@ -4,7 +4,7 @@ import { getSession } from "@/lib/security/session-dna"
 
 // POST /api/session-dna/capsule — create or restore a session-bound capsule
 export async function POST(req: NextRequest) {
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { action } = body
 
   if (action === "create") {

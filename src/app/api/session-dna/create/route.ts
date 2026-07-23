@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
 
-  const { agentId, agentName, workspacePath, trustScore } = await req.json()
+  const { agentId, agentName, workspacePath, trustScore } = await req.json().catch(() => ({}))
   if (!agentId || !agentName) return NextResponse.json({ error: "agentId and agentName required" }, { status: 400 })
 
   const { session, privateKey: _priv } = await createSessionDNA({ agentId, agentName, workspacePath, trustScore })

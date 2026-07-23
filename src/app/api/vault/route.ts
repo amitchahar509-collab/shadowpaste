@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getContext, anonymousContext } from "@/lib/auth";
+import { getContext } from "@/lib/auth";
 import { storeSecret, listSecrets } from "@/lib/security/vault";
 import { db } from "@/lib/db";
 import { checkUsageLimit } from "@/lib/billing";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 // GET /api/vault — list vaulted secrets (masked only, never raw)
-// Allows anonymous read for the public demo (default org), but real orgs require auth.
+// Zero-trust: even the masked list + metadata (names, providers, fingerprints)
+// is tenant-private, so this requires an authenticated session and is scoped to
+// the caller's org.
 export async function GET(req: NextRequest) {
-  const ctx = await getContext(req) || anonymousContext();
+  const ctx = await getContext(req);
+  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 });
   const secrets = await listSecrets(ctx.orgId);
   return NextResponse.json({ secrets, count: secrets.length });
 }
@@ -23,7 +26,9 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req);
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required to store secrets" }, { status: 401 });
 
-  const { raw, name, contextHint, projectId } = await req.json();
+  let body: { raw?: string; name?: string; contextHint?: string; projectId?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid JSON body" }, { status: 400 }); }
+  const { raw, name, contextHint, projectId } = body || {};
   if (!raw) return NextResponse.json({ error: "raw secret required" }, { status: 400 });
 
   // Billing enforcement: check vault secret limit

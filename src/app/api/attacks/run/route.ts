@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const scenario = ATTACK_SCENARIOS.find((s) => s.id === body.scenarioId)
   if (!scenario) return NextResponse.json({ error: "scenario not found" }, { status: 404 })
   // Default to a rogue agent in the caller's org if not specified

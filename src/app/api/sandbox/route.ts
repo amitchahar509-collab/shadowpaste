@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { projectId, action } = body
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 })
 

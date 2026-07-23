@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, "auth");
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded: too many auth attempts, try again later", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
-  const { email, password } = await req.json();
+  const { email, password } = await req.json().catch(() => ({}));
   if (!email || !password) return NextResponse.json({ error: "email and password required" }, { status: 400 });
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {

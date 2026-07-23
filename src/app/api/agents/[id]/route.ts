@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const agent = await db.agent.findFirst({ where: { id, orgId: authCtx.orgId } })
   if (!agent) return NextResponse.json({ error: "not found" }, { status: 404 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const update: Record<string, unknown> = {}
   if (typeof body.trustScore === "number") update.trustScore = body.trustScore
   if (body.status) update.status = body.status

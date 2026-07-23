@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req);
   if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required — use /api/public-scan for anonymous scans" }, { status: 401 });
 
-  const { repo, token } = await req.json();
+  const { repo, token } = await req.json().catch(() => ({}));
   if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 });
   const result = await scanGitHubRepo(repo, { token, orgId: ctx.orgId });
   if (!result.ok) return NextResponse.json({ error: result.error || "scan failed" }, { status: 502 });

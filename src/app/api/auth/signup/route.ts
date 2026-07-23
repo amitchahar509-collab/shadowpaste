@@ -4,7 +4,7 @@ import { hashPassword, createSession, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { randomBytes } from "crypto";
 
 export async function POST(req: NextRequest) {
-  const { email, password, name, orgName } = await req.json();
+  const { email, password, name, orgName } = await req.json().catch(() => ({}));
   if (!email || !password) return NextResponse.json({ error: "email and password required" }, { status: 400 });
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) return NextResponse.json({ error: "email already registered" }, { status: 409 });

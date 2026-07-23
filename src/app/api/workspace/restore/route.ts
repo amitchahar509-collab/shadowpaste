@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "authentication required" }, { status: 401 })
   }
 
-  const { workspacePath, sourcePath, secrets } = await req.json()
+  const { workspacePath, sourcePath, secrets } = await req.json().catch(() => ({}))
   if (!workspacePath) {
     return NextResponse.json({ error: "workspacePath required" }, { status: 400 })
   }
