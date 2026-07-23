@@ -151,7 +151,25 @@ program
       console.log(`  Source: ${meta.sourcePath}`)
       console.log(`  Secrets to restore: ${meta.secrets.length}\n`)
       const result = await restoreSecrets({ workspacePath, sourcePath: meta.sourcePath, secrets: meta.secrets })
-      console.log(`  ✓ ${result.restored} secrets restored to source project`)
+
+      // ANSI red/bold — a missed placeholder means a REAL secret was not put back
+      // and a fake fragment may remain in the source project. Never let that pass quietly.
+      const RED = "\x1b[31m", BOLD = "\x1b[1m", RESET = "\x1b[0m", YELLOW = "\x1b[33m"
+
+      console.log(`  ✓ ${result.restored}/${meta.secrets.length} secrets restored (${result.replacements} substitutions)`)
+
+      if (result.missed > 0) {
+        console.log("")
+        console.log(`${RED}${BOLD}  ⚠️  PARTIAL RESTORE WARNING${RESET}`)
+        for (const w of result.warnings) {
+          console.log(`${RED}  AI modified or deleted the fake secret in ${BOLD}${w.filePath}${RESET}${RED} (line ${w.line}, ${w.provider}). Manual review required.${RESET}`)
+        }
+        console.log(`${RED}  ${result.missed} secret(s) were NOT restored. Your project may still contain a placeholder`)
+        console.log(`  instead of the real credential — fix these before running or committing.${RESET}\n`)
+        console.log(`${YELLOW}  ⚠ Restore completed WITH ERRORS.${RESET}\n`)
+        process.exit(1)
+      }
+
       if (result.errors.length > 0) { console.log(`  ⚠ ${result.errors.length} errors:`); for (const e of result.errors) console.log(`    - ${e}`) }
       console.log("\n  ✅ Restore complete! Source project has real secrets back.")
       console.log("  You can now commit your changes.\n")

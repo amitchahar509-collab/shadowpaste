@@ -182,7 +182,7 @@ export async function readWorkspaceMeta(workspacePath: string): Promise<Workspac
 // needs the workspace path (the dashboard never holds real secrets).
 export async function restoreFromMeta(
   workspacePath: string
-): Promise<{ restored: number; errors: string[]; sourcePath: string; secretCount: number }> {
+): Promise<{ restored: number; missed: number; replacements: number; errors: string[]; warnings: RestoreWarning[]; sourcePath: string; secretCount: number }> {
   const meta = await readWorkspaceMeta(workspacePath)
   if (!meta) throw new Error(`no ${META_FILENAME} found in workspace — was it created by ShadowPaste?`)
   const result = await restoreSecrets({ workspacePath, sourcePath: meta.sourcePath, secrets: meta.secrets })
@@ -190,14 +190,24 @@ export async function restoreFromMeta(
 }
 
 // Restore real secrets back into the original project (for commit)
+export interface RestoreWarning {
+  filePath: string
+  provider: string
+  line: number
+  reason: string
+}
+
 export async function restoreSecrets(opts: {
   workspacePath: string
   sourcePath: string
   secrets: WorkspaceSecret[]
-}): Promise<{ restored: number; errors: string[] }> {
+}): Promise<{ restored: number; missed: number; replacements: number; errors: string[]; warnings: RestoreWarning[] }> {
   const { workspacePath, sourcePath, secrets } = opts
   const errors: string[] = []
-  let restored = 0
+  const warnings: RestoreWarning[] = []
+  let restored = 0      // mappings with >= 1 successful substitution
+  let missed = 0        // mappings whose placeholder could not be found
+  let replacements = 0  // total substitutions actually performed
 
   // Group secrets by file (for fake→real replacement)
   const byFile = new Map<string, WorkspaceSecret[]>()
@@ -240,13 +250,34 @@ export async function restoreSecrets(opts: {
           } else {
             // File had secrets → it is text. Decode, swap each fake back to its
             // real value (AI text edits elsewhere in the file are preserved), write.
+            //
+            // Every substitution is VERIFIED. An agent can rewrite, truncate,
+            // reformat or delete a placeholder; a blind split/join would then
+            // silently (a) fail to restore the real secret and (b) leave a fake
+            // fragment behind in the real project, while still reporting success.
             const editedContent = await fs.readFile(wsPath, "utf8")
             let restoredContent = editedContent
             for (const s of fileSecrets) {
-              restoredContent = restoredContent.split(s.fake).join(s.raw)
+              const parts = restoredContent.split(s.fake)
+              const hits = parts.length - 1
+              if (hits === 0) {
+                missed++
+                warnings.push({
+                  filePath: relFilePath,
+                  provider: s.provider,
+                  line: s.line,
+                  reason: "placeholder was modified or removed by the agent — real secret NOT restored",
+                })
+                errors.push(
+                  `${relFilePath}:${s.line} [${s.provider}] placeholder missing — real secret NOT restored (manual review required)`
+                )
+                continue
+              }
+              restoredContent = parts.join(s.raw)
+              replacements += hits
+              restored++
             }
             await fs.writeFile(srcPath, restoredContent, "utf8")
-            restored += fileSecrets.length
             fileCount++
           }
         } catch (e) {
@@ -259,7 +290,7 @@ export async function restoreSecrets(opts: {
   }
 
   await walkAndRestore(workspacePath, sourcePath, "")
-  return { restored, errors }
+  return { restored, missed, replacements, errors, warnings }
 }
 
 // List files in a workspace

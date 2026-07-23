@@ -72,3 +72,7 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# internal-only documents — kept locally, never published
+COMMERCIAL_STRATEGY_AND_VALUATION.md
+CODEBASE_AUDIT_AND_FIXES.md

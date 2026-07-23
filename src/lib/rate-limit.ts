@@ -28,12 +28,20 @@ export function rateLimit(identifier: string, opts: RateLimitOptions): RateLimit
   let bucket = buckets.get(key)
 
   if (!bucket) {
-    // Evict oldest if at capacity
+    // LRU eviction at capacity. A Map iterates in insertion order, and every
+    // touch re-inserts (see below), so the FIRST key is the least-recently-USED.
+    // The previous implementation evicted the first-INSERTED key, which let an
+    // attacker flood unique keys to evict — and thereby reset — their own
+    // throttled bucket.
     if (buckets.size >= MAX_BUCKETS) {
-      const oldestKey = buckets.keys().next().value
-      if (oldestKey) buckets.delete(oldestKey)
+      const lruKey = buckets.keys().next().value
+      if (lruKey) buckets.delete(lruKey)
     }
     bucket = { tokens: opts.max, lastRefill: now }
+    buckets.set(key, bucket)
+  } else {
+    // Touch: move to the most-recently-used end of the iteration order.
+    buckets.delete(key)
     buckets.set(key, bucket)
   }
 
@@ -52,13 +60,36 @@ export function rateLimit(identifier: string, opts: RateLimitOptions): RateLimit
   return { ok: false, remaining: 0, resetMs: opts.windowMs, retryAfterMs }
 }
 
-// Get client IP from request (handles proxy headers)
+// Resolve the client identity used to key rate limits.
+//
+// SECURITY: X-Forwarded-For / X-Real-IP are attacker-controlled unless the app
+// actually sits behind a trusted proxy that overwrites them. Trusting them
+// unconditionally let any caller send a random value per request and receive a
+// fresh token bucket every time — defeating every limit, including the
+// brute-force protection on login/signup.
+//
+// Default (local-first): use the socket address when the runtime exposes it,
+// otherwise a single shared key. A shared key is deliberately STRICTER — many
+// clients share one budget — because over-throttling is safe and under-
+// throttling is not.
+//
+// Behind a real proxy, set TRUST_PROXY=true so the forwarded header is honoured.
+const TRUST_PROXY = process.env.TRUST_PROXY === "true"
+
+function socketAddress(req: Request): string | null {
+  // The Web Request API has no socket accessor; some runtimes attach one.
+  const r = req as unknown as { ip?: string; socket?: { remoteAddress?: string } }
+  return r.ip || r.socket?.remoteAddress || null
+}
+
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for")
-  if (forwarded) return forwarded.split(",")[0].trim()
-  const real = req.headers.get("x-real-ip")
-  if (real) return real
-  return "unknown"
+  if (TRUST_PROXY) {
+    const forwarded = req.headers.get("x-forwarded-for")
+    if (forwarded) return forwarded.split(",")[0].trim()
+    const real = req.headers.get("x-real-ip")
+    if (real) return real
+  }
+  return socketAddress(req) || "local"
 }
 
 // Preset rate limits per endpoint category
