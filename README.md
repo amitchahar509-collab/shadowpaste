@@ -32,7 +32,10 @@ bun run cli/index.ts restore
 bun run dev          # http://localhost:3000
 ```
 
-See **[docs/QUICKSTART.md](docs/QUICKSTART.md)** for a full walkthrough and
+📖 **New here? Read the [Usage Guide](USAGE_GUIDE.md)** — every feature, CLI and
+dashboard walkthroughs, MCP setup for Claude Code / Cursor, and troubleshooting.
+
+See also **[docs/QUICKSTART.md](docs/QUICKSTART.md)** for a full walkthrough and
 **[docs/INSTALLATION.md](docs/INSTALLATION.md)** for production deployment.
 
 **Prerequisites:** Bun ≥ 1.3 (or Node ≥ 20), and `git` on PATH if you want to
@@ -166,6 +169,7 @@ Reporting a vulnerability: **[SECURITY.md](SECURITY.md)**.
 
 | Guide | |
 |-------|--|
+| **[Usage Guide](USAGE_GUIDE.md)** | **Start here** — full feature matrix, CLI + dashboard walkthroughs, MCP setup, troubleshooting |
 | [Quick Start](docs/QUICKSTART.md) | Protect → edit → restore, end to end |
 | [Installation](docs/INSTALLATION.md) | Local, Docker, and production setup |
 | [Configuration](docs/CONFIGURATION.md) | Every environment variable |
