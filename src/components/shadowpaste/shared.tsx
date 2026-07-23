@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils"
 export type RiskLevel = "low" | "medium" | "high" | "critical"
 
 export const RISK_STYLES: Record<RiskLevel, string> = {
-  low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  low: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   critical: "bg-red-500/15 text-red-400 border-red-500/30",
 }
 
 export const RISK_DOT: Record<RiskLevel, string> = {
-  low: "bg-emerald-400",
+  low: "bg-blue-400",
   medium: "bg-amber-400",
   high: "bg-orange-400",
   critical: "bg-red-400",
@@ -29,7 +29,7 @@ export function RiskBadge({ level, score }: { level: RiskLevel; score?: number }
 }
 
 export const DECISION_STYLES: Record<string, string> = {
-  allowed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  allowed: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   denied: "bg-red-500/15 text-red-400 border-red-500/30",
   blocked: "bg-red-500/15 text-red-400 border-red-500/30",
   pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
@@ -46,7 +46,7 @@ export function DecisionBadge({ decision }: { decision: string }) {
 
 export function GradeBadge({ score }: { score: number }) {
   const grade = score >= 95 ? "A+" : score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F"
-  const color = score >= 90 ? "text-emerald-400" : score >= 70 ? "text-amber-400" : "text-red-400"
+  const color = score >= 90 ? "text-blue-400" : score >= 70 ? "text-amber-400" : "text-red-400"
   return <span className={cn("font-mono text-2xl font-bold", color)}>{grade}</span>
 }
 
@@ -54,7 +54,7 @@ export function ScoreRing({ score, size = 120 }: { score: number; size?: number 
   const r = (size - 14) / 2
   const c = 2 * Math.PI * r
   const offset = c - (score / 100) * c
-  const color = score >= 90 ? "#10b981" : score >= 70 ? "#f59e0b" : score >= 50 ? "#f97316" : "#ef4444"
+  const color = score >= 90 ? "#3b6dff" : score >= 70 ? "#f59e0b" : score >= 50 ? "#f97316" : "#ef4444"
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">

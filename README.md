@@ -35,6 +35,39 @@ bun run dev          # http://localhost:3000
 See **[docs/QUICKSTART.md](docs/QUICKSTART.md)** for a full walkthrough and
 **[docs/INSTALLATION.md](docs/INSTALLATION.md)** for production deployment.
 
+**Prerequisites:** Bun ≥ 1.3 (or Node ≥ 20), and `git` on PATH if you want to
+import projects by clone URL.
+
+---
+
+## Core Features
+
+| Feature | What it does |
+|---------|--------------|
+| **Secret Virtualization** | Finds real credentials and swaps them for format-compatible fakes, so AI tools see a valid-looking but dead credential. 500 patterns across 322 providers, plus entropy detection. |
+| **Byte-Level Restore Engine** | Restores real secrets and copies AI edits back. Files without a secret mapping are copied byte-for-byte, so images, fonts, archives and other binaries survive the round trip unchanged. |
+| **MCP Security** | Zero-trust MCP gateway: every agent tool call is risk-scored, policy-gated, credential-injected, executed, and audited with secrets redacted. |
+| **Flight Recorder** | Black-box timeline of every agent action, backed by an immutable, org-scoped audit trail with CSV export. |
+| **Project Intelligence** | On import, automatically detects framework, language, runtime, package manager, build tool, database, ORM, cloud, containers, IaC, CI/CD, monorepo tooling and AI-agent configs — then scores health, security, risk, AI-readiness, complexity and dependencies, with insights and per-stage recommendations. |
+
+## Import a Project
+
+Bring a project in whichever way suits you — the Import Hub in the dashboard
+(**AI-Safe Workspace**) exposes all of them, and analysis runs automatically:
+
+| Method | How |
+|--------|-----|
+| Drag & drop a folder | drop it on the dropzone (directories are read recursively) |
+| Select a folder | **Select folder** button |
+| Archive | `.zip`, `.tar`, `.tar.gz`, `.tgz` — drop it or use **Select archive** |
+| Local path | paste an absolute path (local or network drive) inside an allowed root |
+| Git clone | public **HTTPS** URL — GitHub, GitLab, Bitbucket, Azure DevOps, Codeberg, Gitea |
+| Recent projects | one-click reopen of a previously protected workspace |
+
+> SSH URLs and private repositories are intentionally **not** supported in the
+> web app (it never handles your credentials). Clone locally, then use the
+> local-path method or `shadowpaste protect`.
+
 ---
 
 ## How It Works

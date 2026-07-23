@@ -226,19 +226,31 @@ export async function restoreSecrets(opts: {
         if (SKIP_DIRS.has(entry.name)) continue
         await walkAndRestore(wsPath, srcPath, relFilePath)
       } else if (entry.isFile()) {
+        const fileSecrets = byFile.get(relFilePath) || []
         try {
-          const editedContent = await fs.readFile(wsPath, "utf8")
-          // Replace fakes back with real secrets (if this file had any)
-          let restoredContent = editedContent
-          const fileSecrets = byFile.get(relFilePath) || []
-          for (const s of fileSecrets) {
-            restoredContent = restoredContent.split(s.fake).join(s.raw)
+          if (fileSecrets.length === 0) {
+            // No secret mapping for this file — copy the raw bytes verbatim.
+            // This preserves BOTH binary files (images, fonts, archives — which
+            // never carry detected secrets) and any AI text edits exactly, with
+            // no lossy utf8 round-trip. Reading a binary as utf8 and writing it
+            // back silently corrupts it, which previously destroyed every binary
+            // asset on restore.
+            await fs.copyFile(wsPath, srcPath)
+            fileCount++
+          } else {
+            // File had secrets → it is text. Decode, swap each fake back to its
+            // real value (AI text edits elsewhere in the file are preserved), write.
+            const editedContent = await fs.readFile(wsPath, "utf8")
+            let restoredContent = editedContent
+            for (const s of fileSecrets) {
+              restoredContent = restoredContent.split(s.fake).join(s.raw)
+            }
+            await fs.writeFile(srcPath, restoredContent, "utf8")
+            restored += fileSecrets.length
+            fileCount++
           }
-          await fs.writeFile(srcPath, restoredContent, "utf8")
-          restored += fileSecrets.length
-          fileCount++
         } catch (e) {
-          // Binary files or read errors — copy as-is
+          // Read/write error — fall back to a raw byte copy so nothing is lost.
           try { await fs.copyFile(wsPath, srcPath); fileCount++ }
           catch { errors.push(`${relFilePath}: ${(e as Error).message}`) }
         }

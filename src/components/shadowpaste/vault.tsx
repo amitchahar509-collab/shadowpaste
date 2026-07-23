@@ -61,19 +61,22 @@ export function Vault() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-emerald-400" />
-            <h2 className="font-mono text-lg font-bold text-white">Zero-Trust Secret Vault</h2>
+          <div className="mb-2 flex items-center gap-2.5 text-blue-300/90">
+            <span className="h-px w-6 bg-gradient-to-r from-transparent to-blue-400" />
+            <span className="label-thin">Zero-Trust · Encrypted at rest</span>
           </div>
-          <p className="mt-1 text-xs text-zinc-400">AES-GCM-256 encrypted storage. AI agents NEVER receive raw secrets — they get scoped, time-limited, single-use capability tokens.</p>
+          <h2 className="flex items-center gap-2.5 text-3xl font-light tracking-tight text-white">
+            <Lock className="h-6 w-6 text-blue-400" strokeWidth={1.5} /> Secret Vault
+          </h2>
+          <p className="mt-2 max-w-xl text-xs font-light leading-relaxed text-zinc-400">AES-GCM-256 encrypted storage. AI agents never receive raw secrets — they get scoped, time-limited, single-use capability tokens.</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={load} className="border-white/10"><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Refresh</Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-emerald-600 text-white hover:bg-emerald-500"><Plus className="mr-1.5 h-4 w-4" />Vault Secret</Button>
+              <Button className="bg-blue-600 text-white hover:bg-blue-500"><Plus className="mr-1.5 h-4 w-4" />Vault Secret</Button>
             </DialogTrigger>
             <AddSecretDialog onAdd={add} />
           </Dialog>
@@ -81,21 +84,21 @@ export function Vault() {
       </div>
 
       {/* Encryption flow visualization */}
-      <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] via-[#0d1218] to-[#0d1218] p-5">
-        <div className="absolute right-0 top-0 h-full w-1/3 opacity-10" style={{ background: "radial-gradient(circle at 70% 30%, rgba(16,185,129,0.5), transparent 60%)" }} />
+      <Card className="relative overflow-hidden border-blue-500/20 bg-gradient-to-br from-blue-500/[0.06] via-[#0d1218] to-[#0d1218] p-5">
+        <div className="absolute right-0 top-0 h-full w-1/3 opacity-10" style={{ background: "radial-gradient(circle at 70% 30%, rgba(59,109,255,0.5), transparent 60%)" }} />
         <div className="relative">
           <div className="mb-3 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <h3 className="font-mono text-sm font-semibold text-white">Credential Injection Flow</h3>
-            <Badge variant="outline" className="ml-auto border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">AES-GCM-256 · HMAC-SHA256</Badge>
+            <ShieldCheck className="h-4 w-4 text-blue-400" />
+            <h3 className="text-sm font-medium tracking-tight text-white">Credential Injection Flow</h3>
+            <Badge variant="outline" className="ml-auto border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-400">AES-GCM-256 · HMAC-SHA256</Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             {[
               { label: "Agent requests tool", icon: Zap, color: "text-amber-400" },
-              { label: "Policy check", icon: ShieldCheck, color: "text-emerald-400" },
+              { label: "Policy check", icon: ShieldCheck, color: "text-blue-400" },
               { label: "Mint capability token", icon: KeyRound, color: "text-violet-400" },
-              { label: "Inject credential", icon: ArrowRight, color: "text-cyan-400" },
-              { label: "Execute tool", icon: Zap, color: "text-emerald-400" },
+              { label: "Inject credential", icon: ArrowRight, color: "text-sky-400" },
+              { label: "Execute tool", icon: Zap, color: "text-blue-400" },
               { label: "Redact from audit", icon: EyeOff, color: "text-red-400" },
               { label: "Consume token (single-use)", icon: Clock, color: "text-zinc-400" },
             ].map((s, i, arr) => {
@@ -120,10 +123,10 @@ export function Vault() {
           {Object.entries(providerCounts).map(([provider, count]) => {
             const Icon = PROVIDER_ICONS[provider] || KeyRound
             return (
-              <Card key={provider} className="border-white/5 bg-[#0d1218] p-4">
+              <Card key={provider} className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-4">
                 <div className="flex items-center justify-between">
-                  <Icon className="h-4 w-4 text-emerald-400" />
-                  <span className="font-mono text-lg font-bold text-white">{count}</span>
+                  <Icon className="h-4 w-4 text-blue-400" />
+                  <span className="text-2xl font-light tracking-tight text-white">{count}</span>
                 </div>
                 <div className="mt-1 truncate text-[10px] uppercase tracking-wider text-zinc-500">{provider}</div>
               </Card>
@@ -133,11 +136,11 @@ export function Vault() {
       )}
 
       {/* Secrets list */}
-      <Card className="border-white/5 bg-[#0d1218] p-5">
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-emerald-400" />
-            <h3 className="font-mono text-sm font-semibold text-white">Vaulted Secrets ({secrets.length})</h3>
+            <KeyRound className="h-4 w-4 text-blue-400" />
+            <h3 className="text-sm font-medium tracking-tight text-white">Vaulted Secrets ({secrets.length})</h3>
           </div>
           <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px] text-zinc-400">
             <Lock className="mr-1 h-2.5 w-2.5" />encrypted at rest
@@ -159,7 +162,7 @@ export function Vault() {
               const isRevealed = revealed.has(s.id)
               return (
                 <div key={s.id} className="group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-3 transition-all hover:border-white/10 hover:bg-white/[0.04]">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/5 text-emerald-400">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500/15 to-sky-500/5 text-blue-400">
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -170,7 +173,7 @@ export function Vault() {
                     <div className="mt-0.5 flex items-center gap-2 font-mono text-[11px] text-zinc-500">
                       <Fingerprint className="h-3 w-3" />
                       <span className="truncate">{isRevealed ? s.masked : `${s.fingerprint.slice(0, 16)}…`}</span>
-                      <button onClick={() => setRevealed((r) => { const n = new Set(r); if (n.has(s.id)) { n.delete(s.id) } else { n.add(s.id) } return n })} className="text-zinc-500 hover:text-emerald-400">
+                      <button onClick={() => setRevealed((r) => { const n = new Set(r); if (n.has(s.id)) { n.delete(s.id) } else { n.add(s.id) } return n })} className="text-zinc-500 hover:text-blue-400">
                         {isRevealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       </button>
                     </div>
@@ -206,14 +209,14 @@ function AddSecretDialog({ onAdd }: { onAdd: (d: { raw: string; name: string; co
   const [name, setName] = useState("")
   const [contextHint, setContextHint] = useState("")
   return (
-    <DialogContent className="border-white/10 bg-[#0d1218]">
+    <DialogContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl">
       <DialogHeader>
         <DialogTitle className="font-mono text-white">Vault a Secret</DialogTitle>
       </DialogHeader>
       <div className="space-y-3">
         <div>
           <Label className="text-xs text-zinc-400">Secret Value</Label>
-          <Textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={3} className="mt-1 border-white/10 bg-[#070a0f] font-mono text-xs text-emerald-300" placeholder="ghp_... / sk_live_... / AKIA..." />
+          <Textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={3} className="mt-1 border-white/10 bg-[#070a0f] font-mono text-xs text-blue-300" placeholder="ghp_... / sk_live_... / AKIA..." />
         </div>
         <div>
           <Label className="text-xs text-zinc-400">Name (optional)</Label>
@@ -223,10 +226,10 @@ function AddSecretDialog({ onAdd }: { onAdd: (d: { raw: string; name: string; co
           <Label className="text-xs text-zinc-400">Context Hint (optional)</Label>
           <Input value={contextHint} onChange={(e) => setContextHint(e.target.value)} className="mt-1 border-white/10 bg-white/[0.03]" placeholder="github" />
         </div>
-        <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.05] p-2.5 text-[11px] text-emerald-300/70">
+        <div className="rounded-lg border border-blue-500/15 bg-blue-500/[0.05] p-2.5 text-[11px] text-blue-300/70">
           <Lock className="mb-1 inline h-3 w-3" /> Encrypted with AES-GCM-256 before storage. Provider auto-detected. Never returned in plaintext.
         </div>
-        <Button className="w-full bg-emerald-600 text-white hover:bg-emerald-500" disabled={!raw} onClick={() => onAdd({ raw, name, contextHint })}>
+        <Button className="w-full bg-blue-600 text-white hover:bg-blue-500" disabled={!raw} onClick={() => onAdd({ raw, name, contextHint })}>
           <Lock className="mr-1.5 h-4 w-4" />Encrypt & Vault
         </Button>
       </div>

@@ -80,15 +80,15 @@ export function McpGateway() {
   return (
     <div className="space-y-6">
       {/* Architecture diagram */}
-      <Card className="border-white/5 bg-[#0d1218] p-5">
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
         <div className="mb-4 flex items-center gap-2">
-          <Network className="h-4 w-4 text-emerald-400" />
-          <h3 className="font-mono text-sm font-semibold text-white">Zero-Trust MCP Gateway Flow</h3>
+          <Network className="h-4 w-4 text-blue-400" />
+          <h3 className="text-sm font-medium tracking-tight text-white">Zero-Trust MCP Gateway Flow</h3>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           {["AI Agent", "ShadowPaste Gateway", "Policy Engine", "Secure Execution", "Audit Record"].map((step, i, arr) => (
             <div key={step} className="flex items-center gap-2">
-              <div className={`rounded-lg border px-3 py-1.5 font-mono ${i === 1 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>
+              <div className={`rounded-lg border px-3 py-1.5 font-mono ${i === 1 ? "border-blue-500/40 bg-blue-500/10 text-blue-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>
                 {step}
               </div>
               {i < arr.length - 1 && <ArrowRight className="h-3 w-3 text-zinc-600" />}
@@ -100,21 +100,21 @@ export function McpGateway() {
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Left: invocation console */}
         <div className="space-y-4 lg:col-span-3">
-          <Card className="border-white/5 bg-[#0d1218] p-5">
+          <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
             <div className="mb-4 flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-emerald-400" />
-              <h3 className="font-mono text-sm font-semibold text-white">Tool Invocation Console</h3>
+              <Cpu className="h-4 w-4 text-blue-400" />
+              <h3 className="text-sm font-medium tracking-tight text-white">Tool Invocation Console</h3>
             </div>
             <div className="space-y-4">
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-zinc-400">AI Agent</Label>
                 <Select value={agentId} onValueChange={setAgentId}>
                   <SelectTrigger className="mt-1 border-white/10 bg-white/[0.03] font-mono text-sm"><SelectValue placeholder="Select agent" /></SelectTrigger>
-                  <SelectContent className="border-white/10 bg-[#0d1218]">
+                  <SelectContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl">
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id} className="font-mono">
                         <span className="flex items-center gap-2">
-                          <span className={`h-1.5 w-1.5 rounded-full ${a.status === "active" ? "bg-emerald-400" : "bg-red-400"}`} />
+                          <span className={`h-1.5 w-1.5 rounded-full ${a.status === "active" ? "bg-blue-400" : "bg-red-400"}`} />
                           {a.name} · trust {a.trustScore}
                         </span>
                       </SelectItem>
@@ -126,7 +126,7 @@ export function McpGateway() {
                 <Label className="text-[11px] uppercase tracking-wider text-zinc-400">MCP Tool</Label>
                 <Select value={toolName} onValueChange={onToolChange}>
                   <SelectTrigger className="mt-1 border-white/10 bg-white/[0.03] font-mono text-sm"><SelectValue placeholder="Select tool" /></SelectTrigger>
-                  <SelectContent className="border-white/10 bg-[#0d1218] max-h-72">
+                  <SelectContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl max-h-72">
                     {categories.map((cat) => (
                       <div key={cat}>
                         <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-zinc-500">{cat}</div>
@@ -154,9 +154,9 @@ export function McpGateway() {
               )}
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-zinc-400">Input Payload (JSON)</Label>
-                <Textarea value={input} onChange={(e) => setInput(e.target.value)} rows={5} className="mt-1 border-white/10 bg-[#070a0f] font-mono text-xs text-emerald-300" />
+                <Textarea value={input} onChange={(e) => setInput(e.target.value)} rows={5} className="mt-1 border-white/10 bg-[#070a0f] font-mono text-xs text-blue-300" />
               </div>
-              <Button onClick={call} disabled={calling} className="w-full bg-emerald-600 text-white hover:bg-emerald-500">
+              <Button onClick={call} disabled={calling} className="w-full bg-blue-600 text-white hover:bg-blue-500">
                 {calling ? <><Clock className="mr-2 h-4 w-4 animate-spin" /> Routing through gateway…</> : <><Play className="mr-2 h-4 w-4" /> Invoke Through Gateway</>}
               </Button>
             </div>
@@ -164,18 +164,18 @@ export function McpGateway() {
 
           {/* Result */}
           {result && (
-            <Card className="border-white/5 bg-[#0d1218] p-5">
+            <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-emerald-400" />
-                  <h3 className="font-mono text-sm font-semibold text-white">Gateway Decision</h3>
+                  <Shield className="h-4 w-4 text-blue-400" />
+                  <h3 className="text-sm font-medium tracking-tight text-white">Gateway Decision</h3>
                 </div>
                 <DecisionBadge decision={result.decision} />
               </div>
               <div className="space-y-3">
-                <div className={`rounded-lg border p-3 ${result.decision === "deny" ? "border-red-500/30 bg-red-500/[0.07]" : result.decision === "sandbox" ? "border-violet-500/30 bg-violet-500/[0.07]" : result.decision === "ask" ? "border-amber-500/30 bg-amber-500/[0.07]" : "border-emerald-500/30 bg-emerald-500/[0.07]"}`}>
+                <div className={`rounded-lg border p-3 ${result.decision === "deny" ? "border-red-500/30 bg-red-500/[0.07]" : result.decision === "sandbox" ? "border-violet-500/30 bg-violet-500/[0.07]" : result.decision === "ask" ? "border-amber-500/30 bg-amber-500/[0.07]" : "border-blue-500/30 bg-blue-500/[0.07]"}`}>
                   <div className="flex items-center gap-2">
-                    {result.decision === "deny" ? <XCircle className="h-4 w-4 text-red-400" /> : result.decision === "sandbox" ? <Boxes className="h-4 w-4 text-violet-400" /> : result.decision === "ask" ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                    {result.decision === "deny" ? <XCircle className="h-4 w-4 text-red-400" /> : result.decision === "sandbox" ? <Boxes className="h-4 w-4 text-violet-400" /> : result.decision === "ask" ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-blue-400" />}
                     <span className="text-sm font-semibold text-white">{result.reason}</span>
                   </div>
                 </div>
@@ -200,7 +200,7 @@ export function McpGateway() {
                       {result.factors.map((f, i) => (
                         <div key={i} className="flex items-center justify-between rounded bg-white/[0.02] px-2 py-1 text-[11px]">
                           <span className="text-zinc-300">{f.factor}</span>
-                          <span className={`font-mono ${f.weight > 0 ? "text-red-400" : "text-emerald-400"}`}>{f.weight > 0 ? "+" : ""}{f.weight}</span>
+                          <span className={`font-mono ${f.weight > 0 ? "text-red-400" : "text-blue-400"}`}>{f.weight > 0 ? "+" : ""}{f.weight}</span>
                         </div>
                       ))}
                     </div>
@@ -209,7 +209,7 @@ export function McpGateway() {
                 {result.output && (
                   <div>
                     <div className="mb-1 text-[10px] uppercase tracking-wider text-zinc-500">Execution Output</div>
-                    <pre className="overflow-x-auto rounded-lg border border-white/5 bg-[#070a0f] p-3 font-mono text-[11px] text-emerald-300">{JSON.stringify(result.output, null, 2)}</pre>
+                    <pre className="overflow-x-auto rounded-lg border border-white/5 bg-[#070a0f] p-3 font-mono text-[11px] text-blue-300">{JSON.stringify(result.output, null, 2)}</pre>
                   </div>
                 )}
               </div>
@@ -219,13 +219,13 @@ export function McpGateway() {
 
         {/* Right: tool registry + call history */}
         <div className="space-y-4 lg:col-span-2">
-          <Card className="border-white/5 bg-[#0d1218] p-5">
+          <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2"><Zap className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Quick Test Scenarios</h3></div>
+              <div className="flex items-center gap-2"><Zap className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Quick Test Scenarios</h3></div>
             </div>
             <div className="space-y-2">
               {[
-                { label: "Safe read (low risk)", tool: "fs.read", agent: true, color: "emerald" },
+                { label: "Safe read (low risk)", tool: "fs.read", agent: true, color: "blue" },
                 { label: "Open a PR (medium)", tool: "github.pr.create", agent: true, color: "amber" },
                 { label: "DROP TABLE (critical)", tool: "db.schema.drop", agent: true, color: "red" },
                 { label: "Delete prod repo (critical)", tool: "github.repo.delete", agent: true, color: "red" },
@@ -243,8 +243,8 @@ export function McpGateway() {
             </div>
           </Card>
 
-          <Card className="border-white/5 bg-[#0d1218] p-5">
-            <div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Session Call History</h3></div>
+          <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
+            <div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Session Call History</h3></div>
             <div className="max-h-96 space-y-1.5 overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
               {history.length === 0 && <div className="rounded-lg border border-dashed border-white/5 py-6 text-center text-xs text-zinc-500">No calls in this session yet.</div>}
               {history.map((h, i) => (

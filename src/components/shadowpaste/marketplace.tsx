@@ -32,12 +32,12 @@ export function Marketplace() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-mono text-lg font-bold text-white">MCP Marketplace — Safe MCP Store</h2>
+        <h2 className="text-2xl font-light tracking-tight text-white">MCP Marketplace — Safe MCP Store</h2>
         <p className="text-xs text-zinc-400">Every MCP tool runs through the ShadowPaste Policy Layer. Verified packages only touch scoped resources.</p>
       </div>
 
       {/* Search + filters */}
-      <Card className="border-white/5 bg-[#0d1218] p-4">
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -46,7 +46,7 @@ export function Marketplace() {
           <div className="flex items-center gap-2 overflow-x-auto">
             <Filter className="h-4 w-4 text-zinc-500" />
             {categories.map((c) => (
-              <button key={c} onClick={() => setCat(c)} className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors ${cat === c ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"}`}>{c}</button>
+              <button key={c} onClick={() => setCat(c)} className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors ${cat === c ? "border-blue-500/30 bg-blue-500/10 text-blue-300" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"}`}>{c}</button>
             ))}
           </div>
         </div>
@@ -58,10 +58,10 @@ export function Marketplace() {
           const Icon = p.icon ? (Icons as unknown as Record<string, Icons.LucideIcon>)[p.icon] || Icons.Box : Icons.Box
           const isInstalled = installed.has(p.id)
           return (
-            <Card key={p.id} className="group flex flex-col border-white/5 bg-[#0d1218] p-5 transition-all hover:border-emerald-500/20">
+            <Card key={p.id} className="group flex flex-col border-white/5 bg-white/[0.02] backdrop-blur-xl p-5 transition-all hover:border-blue-500/20">
               <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 text-emerald-400"><Icon className="h-5 w-5" /></div>
-                {p.verified ? <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400"><BadgeCheck className="mr-1 h-3 w-3" />Verified</Badge> : <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px] text-zinc-400">Community</Badge>}
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-sky-500/10 text-blue-400"><Icon className="h-5 w-5" /></div>
+                {p.verified ? <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-400"><BadgeCheck className="mr-1 h-3 w-3" />Verified</Badge> : <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px] text-zinc-400">Community</Badge>}
               </div>
               <div className="mt-3 flex-1">
                 <div className="font-semibold text-white">{p.displayName}</div>
@@ -75,7 +75,7 @@ export function Marketplace() {
                 </div>
                 <span className="font-mono text-[10px] text-zinc-500">{p.installs.toLocaleString()} installs</span>
               </div>
-              <Button size="sm" onClick={() => install(p)} disabled={isInstalled} className={`mt-3 w-full ${isInstalled ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "bg-emerald-600 text-white hover:bg-emerald-500"}`}>
+              <Button size="sm" onClick={() => install(p)} disabled={isInstalled} className={`mt-3 w-full ${isInstalled ? "border border-blue-500/30 bg-blue-500/10 text-blue-300" : "bg-blue-600 text-white hover:bg-blue-500"}`}>
                 {isInstalled ? <><BadgeCheck className="mr-1.5 h-3.5 w-3.5" />Installed</> : <><Download className="mr-1.5 h-3.5 w-3.5" />Install</>}
               </Button>
             </Card>
@@ -84,11 +84,11 @@ export function Marketplace() {
       </div>
 
       {/* Policy layer banner */}
-      <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.05] to-[#0d1218] p-5">
+      <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/[0.05] to-[#0d1218] p-5">
         <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-emerald-400" />
+          <Shield className="h-8 w-8 text-blue-400" />
           <div>
-            <div className="font-mono text-sm font-semibold text-white">Every tool runs through the ShadowPaste Policy Layer</div>
+            <div className="text-sm font-medium tracking-tight text-white">Every tool runs through the ShadowPaste Policy Layer</div>
             <div className="text-xs text-zinc-400">Risk scoring → permission check → sandbox-default → full audit. No MCP tool executes directly.</div>
           </div>
         </div>

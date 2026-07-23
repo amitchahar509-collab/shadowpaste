@@ -29,17 +29,17 @@ interface AuditData {
 }
 
 const ACTOR_META: Record<string, { icon: typeof User; color: string; bg: string; label: string }> = {
-  user: { icon: User, color: "text-emerald-400", bg: "bg-emerald-500/10", label: "User" },
+  user: { icon: User, color: "text-blue-400", bg: "bg-blue-500/10", label: "User" },
   agent: { icon: Bot, color: "text-amber-400", bg: "bg-amber-500/10", label: "AI Agent" },
-  system: { icon: Server, color: "text-cyan-400", bg: "bg-cyan-500/10", label: "System" },
+  system: { icon: Server, color: "text-sky-400", bg: "bg-sky-500/10", label: "System" },
 }
 
 const ACTION_META: Record<string, { icon: typeof KeyRound; color: string; label: string }> = {
   "vault.store": { icon: Lock, color: "text-violet-400", label: "Secret Vaulted" },
   "vault.delete": { icon: KeyRound, color: "text-red-400", label: "Secret Revoked" },
-  "agent.create": { icon: Bot, color: "text-emerald-400", label: "Agent Created" },
-  "tool.invoke": { icon: Zap, color: "text-cyan-400", label: "Tool Invoked" },
-  "scan.run": { icon: ScanLine, color: "text-teal-400", label: "Repo Scanned" },
+  "agent.create": { icon: Bot, color: "text-blue-400", label: "Agent Created" },
+  "tool.invoke": { icon: Zap, color: "text-sky-400", label: "Tool Invoked" },
+  "scan.run": { icon: ScanLine, color: "text-sky-400", label: "Repo Scanned" },
   "agent.update": { icon: ShieldCheck, color: "text-amber-400", label: "Agent Updated" },
 }
 
@@ -84,38 +84,38 @@ export function AuditTrail() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <ScrollText className="h-5 w-5 text-emerald-400" />
-            <h2 className="font-mono text-lg font-bold text-white">Compliance Audit Trail</h2>
+            <ScrollText className="h-5 w-5 text-blue-400" />
+            <h2 className="text-2xl font-light tracking-tight text-white">Compliance Audit Trail</h2>
           </div>
           <p className="mt-1 text-xs text-zinc-400">Immutable record of every security-relevant action across the organization. Exportable for SOC2 / compliance audits.</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={load} className="border-white/10"><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Refresh</Button>
-          <Button size="sm" onClick={exportCsv} className="bg-emerald-600 text-white hover:bg-emerald-500"><Download className="mr-1.5 h-3.5 w-3.5" />Export CSV</Button>
+          <Button size="sm" onClick={exportCsv} className="bg-blue-600 text-white hover:bg-blue-500"><Download className="mr-1.5 h-3.5 w-3.5" />Export CSV</Button>
         </div>
       </div>
 
       {/* Summary cards */}
       {data && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard icon={Activity} label="Total Events" value={data.counts.total} color="text-emerald-400" />
+          <SummaryCard icon={Activity} label="Total Events" value={data.counts.total} color="text-blue-400" />
           <SummaryCard icon={Bot} label="Agent Actions" value={data.counts.byActor.agent || 0} color="text-amber-400" />
-          <SummaryCard icon={User} label="User Actions" value={data.counts.byActor.user || 0} color="text-cyan-400" />
+          <SummaryCard icon={User} label="User Actions" value={data.counts.byActor.user || 0} color="text-sky-400" />
           <SummaryCard icon={Server} label="System Actions" value={data.counts.byActor.system || 0} color="text-violet-400" />
         </div>
       )}
 
       {/* Action distribution */}
       {data && Object.keys(data.counts.byAction).length > 0 && (
-        <Card className="border-white/5 bg-[#0d1218] p-5">
-          <div className="mb-3 flex items-center gap-2"><Filter className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Action Distribution</h3></div>
+        <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
+          <div className="mb-3 flex items-center gap-2"><Filter className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Action Distribution</h3></div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(data.counts.byAction).sort((a, b) => b[1] - a[1]).map(([action, count]) => {
               const meta = ACTION_META[action] || { icon: Activity, color: "text-zinc-400", label: action }
               const Icon = meta.icon
               const pct = data.counts.total ? Math.round((count / data.counts.total) * 100) : 0
               return (
-                <button key={action} onClick={() => setFilterAction(filterAction === action ? "all" : action)} className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${filterAction === action ? "border-emerald-500/30 bg-emerald-500/[0.05]" : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"}`}>
+                <button key={action} onClick={() => setFilterAction(filterAction === action ? "all" : action)} className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${filterAction === action ? "border-blue-500/30 bg-blue-500/[0.05]" : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"}`}>
                   <Icon className={`h-4 w-4 shrink-0 ${meta.color}`} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium text-zinc-200">{meta.label}</div>
@@ -133,9 +133,9 @@ export function AuditTrail() {
       )}
 
       {/* Filters + timeline */}
-      <Card className="border-white/5 bg-[#0d1218] p-5">
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Event Timeline</h3></div>
+          <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Event Timeline</h3></div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
@@ -143,7 +143,7 @@ export function AuditTrail() {
             </div>
             <Select value={filterActor} onValueChange={setFilterActor}>
               <SelectTrigger className="w-32 border-white/10 bg-white/[0.03] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#0d1218]">
+              <SelectContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl">
                 <SelectItem value="all">All Actors</SelectItem>
                 <SelectItem value="user">Users</SelectItem>
                 <SelectItem value="agent">Agents</SelectItem>
@@ -208,8 +208,8 @@ export function AuditTrail() {
       </Card>
 
       {/* Compliance note */}
-      <Card className="border-emerald-500/20 bg-emerald-500/[0.03] p-4">
-        <div className="flex items-start gap-2 text-[11px] text-emerald-200/80">
+      <Card className="border-blue-500/20 bg-blue-500/[0.03] p-4">
+        <div className="flex items-start gap-2 text-[11px] text-blue-200/80">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div>
             <span className="font-semibold">Compliance-ready:</span> Every security-relevant action (secret vaulting, agent creation, tool invocation, repo scanning) is written to an immutable audit log scoped to your organization. Export as CSV for SOC2 / ISO 27001 / GDPR evidence. Logs are never deleted — only appended.
@@ -222,7 +222,7 @@ export function AuditTrail() {
 
 function SummaryCard({ icon: Icon, label, value, color }: { icon: typeof User; label: string; value: number; color: string }) {
   return (
-    <Card className="border-white/5 bg-[#0d1218] p-4">
+    <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-4">
       <div className="flex items-center justify-between">
         <Icon className={`h-4 w-4 ${color}`} />
         <span className="font-mono text-2xl font-bold text-white">{value.toLocaleString()}</span>

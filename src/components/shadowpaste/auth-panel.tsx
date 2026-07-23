@@ -47,10 +47,10 @@ export function AuthPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-white/10 bg-[#0d1218] text-zinc-200 sm:max-w-md">
+      <DialogContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl text-zinc-200 sm:max-w-md">
         <DialogHeader>
           <div className="mb-1 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-sky-600">
               <ShieldCheck className="h-4 w-4 text-white" />
             </div>
             <DialogTitle className="font-mono text-white">
@@ -80,14 +80,14 @@ export function AuthPanel({
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="••••••••" className="border-white/10 bg-white/[0.03]" />
           </div>
 
-          <Button onClick={submit} disabled={busy} className="w-full bg-emerald-600 text-white hover:bg-emerald-500">
+          <Button onClick={submit} disabled={busy} className="w-full bg-blue-600 text-white hover:bg-blue-500">
             {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : mode === "signup" ? <UserPlus className="mr-1.5 h-4 w-4" /> : <LogIn className="mr-1.5 h-4 w-4" />}
             {mode === "signup" ? "Create account & sign in" : "Sign in"}
           </Button>
 
           <button
             onClick={() => setMode(mode === "signup" ? "login" : "signup")}
-            className="w-full text-center text-[11px] text-zinc-400 hover:text-emerald-300"
+            className="w-full text-center text-[11px] text-zinc-400 hover:text-blue-300"
           >
             {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Create one"}
           </button>

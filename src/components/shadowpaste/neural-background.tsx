@@ -8,7 +8,7 @@ import * as THREE from "three"
 // Central glowing core + neural network + color-coded pulses (blue=safe, white=trust, red=blocked)
 
 function palette(t: number): [number, number, number] {
-  // Emerald (0.0) → cyan (0.3) → white (0.5) → amber (0.7) → red (1.0)
+  // Emerald (0.0) → sky (0.3) → white (0.5) → amber (0.7) → red (1.0)
   const u = Math.min(1, Math.max(0, t))
   if (u < 0.3) { const k = u / 0.3; return [0.0 + k * 0.06, 0.72 + k * 0.18, 0.52 + k * 0.42] }
   if (u < 0.5) { const k = (u - 0.3) / 0.2; return [0.06 + k * 0.9, 0.9 + k * 0.1, 0.94 + k * 0.06] }
@@ -81,17 +81,17 @@ function CentralCore() {
       {/* Inner core */}
       <mesh ref={coreRef}>
         <icosahedronGeometry args={[1.2, 2]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.9} wireframe />
+        <meshBasicMaterial color="#3b6dff" transparent opacity={0.9} wireframe />
       </mesh>
       {/* Solid core glow */}
       <mesh scale={0.8}>
         <sphereGeometry args={[1.2, 24, 24]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.15} />
+        <meshBasicMaterial color="#3b6dff" transparent opacity={0.15} />
       </mesh>
       {/* Outer glow halo */}
       <mesh ref={glowRef} scale={2.5}>
         <sphereGeometry args={[1.2, 16, 16]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.04} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <meshBasicMaterial color="#3b6dff" transparent opacity={0.04} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
       {/* Rotating ring */}
       <mesh ref={ringRef} scale={3}>

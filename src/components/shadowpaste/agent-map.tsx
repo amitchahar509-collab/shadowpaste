@@ -22,17 +22,17 @@ interface MapEdge {
 
 const NODES: MapNode[] = [
   // Core
-  { id: "core", label: "ShadowPaste", position: [0, 0, 0], color: "#10b981", size: 1.6, type: "core" },
+  { id: "core", label: "ShadowPaste", position: [0, 0, 0], color: "#3b6dff", size: 1.6, type: "core" },
   // Agents (left side)
   { id: "claude", label: "Claude", position: [-8, 3, 2], color: "#d97706", size: 0.9, type: "agent" },
-  { id: "gpt", label: "GPT-4o", position: [-9, 0, -1], color: "#10b981", size: 0.9, type: "agent" },
+  { id: "gpt", label: "GPT-4o", position: [-9, 0, -1], color: "#3b6dff", size: 0.9, type: "agent" },
   { id: "cursor", label: "Cursor", position: [-8, -3, 2], color: "#0ea5e9", size: 0.9, type: "agent" },
   { id: "gemini", label: "Gemini", position: [-7, -1, -3], color: "#8b5cf6", size: 0.9, type: "agent" },
   // Tools (right side)
   { id: "github", label: "GitHub", position: [8, 3, 2], color: "#f59e0b", size: 0.9, type: "tool" },
-  { id: "db", label: "Database", position: [9, 0, -1], color: "#06b6d4", size: 0.9, type: "tool" },
+  { id: "db", label: "Database", position: [9, 0, -1], color: "#38bdf8", size: 0.9, type: "tool" },
   { id: "stripe", label: "Stripe", position: [8, -3, 2], color: "#8b5cf6", size: 0.9, type: "tool" },
-  { id: "fs", label: "Filesystem", position: [7, -1, -3], color: "#14b8a6", size: 0.9, type: "tool" },
+  { id: "fs", label: "Filesystem", position: [7, -1, -3], color: "#3b6dff", size: 0.9, type: "tool" },
 ]
 
 const EDGES: MapEdge[] = [
@@ -82,7 +82,7 @@ function EdgeLine({ from, to, pulseType }: { from: [number, number, number]; to:
         from[1] + (to[1] - from[1]) * t,
         from[2] + (to[2] - from[2]) * t,
       )
-      const colors = ["#10b981", "#f59e0b", "#ef4444"]
+      const colors = ["#3b6dff", "#f59e0b", "#ef4444"]
       const c = new THREE.Color(colors[pulseType % 3])
       ;(pulseRef.current.material as THREE.MeshBasicMaterial).color = c
     }
@@ -93,11 +93,11 @@ function EdgeLine({ from, to, pulseType }: { from: [number, number, number]; to:
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[new Float32Array([...from, ...to]), 3]} />
         </bufferGeometry>
-        <lineBasicMaterial color="#10b981" transparent opacity={0.15} />
+        <lineBasicMaterial color="#3b6dff" transparent opacity={0.15} />
       </line>
       <mesh ref={pulseRef}>
         <sphereGeometry args={[0.12, 8, 8]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.9} blending={THREE.AdditiveBlending} />
+        <meshBasicMaterial color="#3b6dff" transparent opacity={0.9} blending={THREE.AdditiveBlending} />
       </mesh>
     </>
   )

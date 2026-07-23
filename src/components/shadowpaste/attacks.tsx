@@ -51,7 +51,7 @@ export function Attacks() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2"><Flame className="h-5 w-5 text-red-400" /><h2 className="font-mono text-lg font-bold text-white">Red Team Lab</h2></div>
+          <div className="flex items-center gap-2"><Flame className="h-5 w-5 text-red-400" /><h2 className="text-2xl font-light tracking-tight text-white">Red Team Lab</h2></div>
           <p className="text-xs text-zinc-400">Simulated attacks: prompt injection, malicious MCP, stolen token, rogue agent. Verify the gateway blocks them all.</p>
         </div>
         <Button onClick={runAll} disabled={!!running} className="bg-red-600 text-white hover:bg-red-500"><Play className="mr-1.5 h-4 w-4" />Run All Attacks</Button>
@@ -59,9 +59,9 @@ export function Attacks() {
 
       {/* Summary */}
       {ranCount > 0 && (
-        <Card className="border-white/5 bg-[#0d1218] p-5">
+        <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-4"><div className="font-mono text-3xl font-bold text-emerald-400">{blockedCount}</div><div className="text-[11px] text-zinc-400">Blocked</div></div>
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/[0.05] p-4"><div className="font-mono text-3xl font-bold text-blue-400">{blockedCount}</div><div className="text-[11px] text-zinc-400">Blocked</div></div>
             <div className="rounded-lg border border-red-500/20 bg-red-500/[0.05] p-4"><div className="font-mono text-3xl font-bold text-red-400">{ranCount - blockedCount}</div><div className="text-[11px] text-zinc-400">Slipped Through</div></div>
             <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4"><div className="font-mono text-3xl font-bold text-white">{ranCount}</div><div className="text-[11px] text-zinc-400">Total Run</div></div>
           </div>
@@ -75,7 +75,7 @@ export function Attacks() {
           const Icon = meta.icon
           const r = results[s.id]
           return (
-            <Card key={s.id} className="border-white/5 bg-[#0d1218] p-5">
+            <Card key={s.id} className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
               <div className="flex items-start gap-3">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${meta.color}`}><Icon className="h-5 w-5" /></div>
                 <div className="min-w-0 flex-1">
@@ -87,15 +87,15 @@ export function Attacks() {
                 <div className="mb-1 text-[10px] uppercase tracking-wider text-zinc-500">Payload</div>
                 <pre className="overflow-x-auto font-mono text-[11px] text-red-300">{s.payload}</pre>
               </div>
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.03] p-2.5 text-[11px] text-emerald-300/80">
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-blue-500/15 bg-blue-500/[0.03] p-2.5 text-[11px] text-blue-300/80">
                 <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><span className="font-semibold">Expected defense:</span> {s.expectedDefense}</span>
               </div>
 
               {r && (
-                <div className={`mt-3 rounded-lg border p-3 ${r.blocked ? "border-emerald-500/30 bg-emerald-500/[0.07]" : "border-red-500/30 bg-red-500/[0.07]"}`}>
+                <div className={`mt-3 rounded-lg border p-3 ${r.blocked ? "border-blue-500/30 bg-blue-500/[0.07]" : "border-red-500/30 bg-red-500/[0.07]"}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {r.blocked ? <ShieldCheck className="h-4 w-4 text-emerald-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
+                      {r.blocked ? <ShieldCheck className="h-4 w-4 text-blue-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
                       <span className="font-mono text-sm font-bold text-white">{r.blocked ? "BLOCKED" : "BREACHED"}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -117,8 +117,8 @@ export function Attacks() {
       </div>
 
       {/* History */}
-      <Card className="border-white/5 bg-[#0d1218] p-5">
-        <div className="mb-4 flex items-center gap-2"><Activity className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Attack History</h3></div>
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
+        <div className="mb-4 flex items-center gap-2"><Activity className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Attack History</h3></div>
         <div className="max-h-96 space-y-1.5 overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
           {history.map((t) => {
             const meta = TYPE_META[t.type] || TYPE_META.prompt_injection
@@ -127,7 +127,7 @@ export function Attacks() {
               <div key={t.id} className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
                 <Icon className={`h-3.5 w-3.5 ${meta.color.split(" ")[0]}`} />
                 <div className="min-w-0 flex-1"><div className="truncate font-mono text-[11px] text-zinc-200">{t.description}</div><div className="truncate text-[10px] text-zinc-500">{t.defense || "—"}</div></div>
-                <Badge variant="outline" className={`text-[9px] uppercase ${t.result === "blocked" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>{t.result}</Badge>
+                <Badge variant="outline" className={`text-[9px] uppercase ${t.result === "blocked" ? "border-blue-500/30 bg-blue-500/10 text-blue-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>{t.result}</Badge>
               </div>
             )
           })}

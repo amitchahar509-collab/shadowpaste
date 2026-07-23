@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import path from "path"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { analyzeProject } from "@/lib/project-intelligence"
 
 // POST /api/workspace/create — scan a project folder + create AI-safe workspace copy
 // Body: { sourcePath: string, projectName?: string }
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "authentication required" }, { status: 401 })
   }
 
-  const { sourcePath, projectName } = await req.json()
+  const { sourcePath, projectName } = await req.json().catch(() => ({}))
   if (!sourcePath) return NextResponse.json({ error: "sourcePath required" }, { status: 400 })
 
   // Confine to the configured project roots — path.resolve() alone would
@@ -42,9 +43,12 @@ export async function POST(req: NextRequest) {
   }
 
   const name = projectName || path.basename(resolved)
+  const intelligence = await analyzeProject(resolved).catch(() => null)
+  const stack = intelligence?.stack || null
 
   // Find or create project record
   let project = await db.project.findFirst({ where: { orgId: ctx.orgId, name } })
+  const duplicate = !!project
   if (!project) {
     project = await db.project.create({ data: { orgId: ctx.orgId, name, repoUrl: null, description: `Local project: ${resolved}` } })
   }
@@ -70,6 +74,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      source: "path",
+      duplicate,
+      stack,
+      intelligence,
       workspace: {
         id: workspace.id,
         projectId: workspace.projectId,

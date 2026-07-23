@@ -26,10 +26,6 @@ import { AuditTrail } from "@/components/shadowpaste/audit-trail"
 import { AiSafeWorkspace } from "@/components/shadowpaste/ai-safe-workspace"
 import { AuthPanel, type AuthUser } from "@/components/shadowpaste/auth-panel"
 import { toast } from "sonner"
-import dynamic from "next/dynamic"
-
-// 3D neural background — loaded dynamically (client-only, no SSR)
-const NeuralBackground3D = dynamic(() => import("@/components/shadowpaste/neural-background"), { ssr: false })
 
 type ModuleId =
   | "dashboard" | "workspace" | "gateway" | "agents" | "permissions" | "recorder"
@@ -89,32 +85,29 @@ export default function Home() {
   const activeItem = NAV.find((n) => n.id === active)!
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070a0f] text-zinc-200 selection:bg-emerald-500/30">
-      {/* Live 3D neural universe background */}
-      <NeuralBackground3D />
-      {/* Subtle vignette for readability */}
-      <div className="pointer-events-none fixed inset-0 z-[1]" style={{
-        background: "radial-gradient(80% 80% at 50% 50%, transparent 30%, rgba(7,10,15,0.7) 100%)",
-      }} />
+    <div className="min-h-screen flex flex-col text-zinc-200 selection:bg-blue-500/30">
+      {/* Immersive OS backdrop is mounted globally in layout.tsx
+          (FuturisticBackground): aurora + blueprint grid + particle network +
+          mouse parallax, GPU-light and reduced-motion aware. */}
 
       <div className="relative flex flex-1">
         {/* Sidebar */}
-        <aside className={`${mobileNav ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:sticky top-0 z-40 h-screen w-72 shrink-0 border-r border-white/5 bg-[#0d1218]/95 backdrop-blur transition-transform`}>
+        <aside className={`${mobileNav ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:sticky top-0 z-40 h-screen w-72 shrink-0 border-r border-white/5 bg-[#080b12]/60 backdrop-blur-2xl transition-transform duration-300`}>
           <div className="flex h-full flex-col">
             {/* Brand */}
             <div className="flex items-center gap-3 border-b border-white/5 px-5 py-5">
               <div className="relative">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-sky-600 shadow-lg shadow-blue-500/20">
                   <Shield className="h-5 w-5 text-white" strokeWidth={2.5} />
                 </div>
                 <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500" />
                 </span>
               </div>
               <div>
                 <div className="font-mono text-sm font-bold tracking-tight text-white">SHADOWPASTE</div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400/80">AI Security OS · v19</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-blue-400/80">AI Security OS · v19</div>
               </div>
             </div>
 
@@ -134,12 +127,14 @@ export default function Home() {
                           <button
                             key={item.id}
                             onClick={() => { setActive(item.id); setMobileNav(false) }}
-                            className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
-                              isActive ? "bg-emerald-500/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                            className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200 ${
+                              isActive
+                                ? "bg-blue-500/[0.12] text-white shadow-[0_0_24px_-8px_rgba(59,109,255,0.6)] ring-1 ring-inset ring-blue-500/20"
+                                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
                             }`}
                           >
-                            {isActive && <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-emerald-400" />}
-                            <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"}`} />
+                            {isActive && <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-blue-400 shadow-[0_0_10px_rgba(59,109,255,0.9)]" />}
+                            <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-blue-400" : "text-zinc-500 group-hover:text-zinc-300"}`} />
                             <span className="flex-1 text-left font-medium">{item.label}</span>
                             <span className="font-mono text-[9px] text-zinc-600">{item.phase}</span>
                           </button>
@@ -155,10 +150,10 @@ export default function Home() {
             <div className="border-t border-white/5 p-4">
               <div className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Activity className="h-3.5 w-3.5 text-emerald-400" />
+                  <Activity className="h-3.5 w-3.5 text-blue-400" />
                   <span className="text-[11px] text-zinc-400">Gateway</span>
                 </div>
-                <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">ONLINE</Badge>
+                <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-400">ONLINE</Badge>
               </div>
               {stats && (
                 <div className="mt-2 grid grid-cols-2 gap-1.5 text-center">
@@ -171,7 +166,7 @@ export default function Home() {
                     <div className="text-[9px] uppercase text-zinc-500">Calls</div>
                   </div>
                   <div className="rounded bg-white/[0.02] py-1.5">
-                    <div className="font-mono text-xs font-bold text-emerald-400">{stats.vaultEntries ?? 0}</div>
+                    <div className="font-mono text-xs font-bold text-blue-400">{stats.vaultEntries ?? 0}</div>
                     <div className="text-[9px] uppercase text-zinc-500">Vaulted</div>
                   </div>
                   <div className="rounded bg-white/[0.02] py-1.5">
@@ -189,33 +184,33 @@ export default function Home() {
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Topbar */}
-          <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/5 bg-[#0a0e14]/80 px-4 backdrop-blur-md lg:px-8">
+          <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/5 bg-[#05070d]/50 px-4 backdrop-blur-2xl lg:px-8">
             <button onClick={() => setMobileNav(true)} className="lg:hidden text-zinc-400 hover:text-white">
               <Menu className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <activeItem.icon className="h-4 w-4 text-emerald-400" />
+              <activeItem.icon className="h-4 w-4 text-blue-400" />
               <h1 className="font-mono text-sm font-semibold text-white">{activeItem.label}</h1>
               <Badge variant="outline" className="ml-1 border-white/10 bg-white/[0.03] text-[9px] text-zinc-400">{activeItem.phase}</Badge>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="hidden items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 md:flex">
-                <Cpu className="h-3.5 w-3.5 text-emerald-400" />
+                <Cpu className="h-3.5 w-3.5 text-blue-400" />
                 <span className="font-mono text-[11px] text-zinc-400">policy-engine</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               </div>
               {/* Auth control */}
               {authUser ? (
                 <button
                   onClick={logout}
                   title="Sign out"
-                  className="group flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 hover:border-emerald-500/40"
+                  className="group flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 hover:border-blue-500/40"
                 >
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px] font-bold text-emerald-300">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-300">
                     {(authUser.name || authUser.email).charAt(0).toUpperCase()}
                   </div>
-                  <span className="hidden font-mono text-[11px] text-emerald-300 sm:inline">{authUser.name || authUser.email}</span>
-                  <LogOut className="h-3.5 w-3.5 text-emerald-400/60 group-hover:text-emerald-300" />
+                  <span className="hidden font-mono text-[11px] text-blue-300 sm:inline">{authUser.name || authUser.email}</span>
+                  <LogOut className="h-3.5 w-3.5 text-blue-400/60 group-hover:text-blue-300" />
                 </button>
               ) : (
                 <Button
@@ -243,7 +238,7 @@ export default function Home() {
                   }
                 }}
                 disabled={seeding}
-                className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200"
+                className="border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:text-blue-200"
               >
                 <Zap className="mr-1.5 h-3.5 w-3.5" />
                 {seeding ? "Syncing…" : seeded ? "Reseed Data" : "Init Demo"}
@@ -287,14 +282,14 @@ export default function Home() {
           <footer className="mt-auto border-t border-white/5 bg-[#0a0e14]/80 px-4 py-4 lg:px-8">
             <div className="flex flex-col items-center justify-between gap-2 text-[11px] text-zinc-500 sm:flex-row">
               <div className="flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5 text-emerald-500/70" />
+                <Shield className="h-3.5 w-3.5 text-blue-500/70" />
                 <span className="font-mono">ShadowPaste V18 · The security layer every AI agent needs before touching real systems.</span>
               </div>
               <div className="flex items-center gap-3 font-mono">
                 <span>MCP</span><span className="text-zinc-700">·</span>
                 <span>Zero-Trust</span><span className="text-zinc-700">·</span>
                 <span>Audit-First</span><span className="text-zinc-700">·</span>
-                <span className="text-emerald-500/70">Sandbox-Default</span>
+                <span className="text-blue-500/70">Sandbox-Default</span>
               </div>
             </div>
           </footer>

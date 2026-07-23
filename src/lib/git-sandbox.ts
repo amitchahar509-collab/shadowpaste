@@ -24,22 +24,33 @@ export async function initSandbox(projectId: string, projectName: string): Promi
   const repoPath = path.join(SANDBOX_ROOT, `${slug}-${projectId.slice(-6)}`)
   await fs.mkdir(repoPath, { recursive: true })
 
-  // Initialize git repo if not exists
-  const { execSync } = await import("child_process")
+  // Initialize git repo if not exists. Every git invocation in this module
+  // shells out through execFileSync with an argument array — never a single
+  // interpolated string — so nothing (branch names, filenames from the repo)
+  // is ever interpreted by a shell. Interpolating a repo filename into a
+  // shelled `git diff ... "${file}"` was a command-injection sink on POSIX
+  // hosts (a file named `` `id`.txt `` would execute).
+  const { execFileSync } = await import("child_process")
+  const git = (args: string[]) => execFileSync("git", args, { cwd: repoPath, stdio: "pipe" })
   try {
-    execSync("git init", { cwd: repoPath, stdio: "pipe" })
-    execSync('git config user.email "sandbox@shadowpaste.io"', { cwd: repoPath, stdio: "pipe" })
-    execSync('git config user.name "ShadowPaste Sandbox"', { cwd: repoPath, stdio: "pipe" })
+    git(["init"])
+    git(["config", "user.email", "sandbox@shadowpaste.io"])
+    git(["config", "user.name", "ShadowPaste Sandbox"])
     // Create initial commit if empty
     const files = await fs.readdir(repoPath)
     if (files.filter((f) => f !== ".git").length === 0) {
       await fs.writeFile(path.join(repoPath, "README.md"), `# ${projectName}\n\nSandbox workspace for ShadowPaste.\n`)
-      execSync("git add -A", { cwd: repoPath, stdio: "pipe" })
-      execSync('git commit -m "Initial sandbox commit"', { cwd: repoPath, stdio: "pipe" })
+      git(["add", "-A"])
+      git(["commit", "-m", "Initial sandbox commit"])
     }
+    // Normalise the base branch to "main" regardless of the host's
+    // init.defaultBranch (git may create "master"). Without this, the hardcoded
+    // baseBranch below never matches, and diff/merge/reject all fail with
+    // "pathspec 'main' did not match".
+    git(["branch", "-M", "main"])
     // Create sandbox branch
     const branch = `ai/sandbox-${Date.now().toString(36)}`
-    execSync(`git checkout -b ${branch}`, { cwd: repoPath, stdio: "pipe" })
+    git(["checkout", "-b", branch])
     await db.project.update({ where: { id: projectId }, data: { sandboxStatus: "created" } })
     return { projectId, repoPath, branch, baseBranch: "main" }
   } catch (e) {
@@ -72,17 +83,20 @@ export async function writeSandboxFile(repoPath: string, filePath: string, conte
 
 // Generate real git diff between base and sandbox branch
 export async function getSandboxDiff(repoPath: string, baseBranch: string, sandboxBranch: string): Promise<Array<{ filePath: string; changeType: "created" | "modified" | "deleted"; diff: string; riskLevel: string; riskReason: string }>> {
-  const { execSync } = await import("child_process")
+  const { execFileSync } = await import("child_process")
+  const range = `${baseBranch}...${sandboxBranch}`
   try {
     // Get list of changed files
-    const filesOutput = execSync(`git diff --name-status ${baseBranch}...${sandboxBranch}`, { cwd: repoPath, encoding: "utf-8" }).trim()
+    const filesOutput = execFileSync("git", ["diff", "--name-status", range], { cwd: repoPath, encoding: "utf-8" }).trim()
     if (!filesOutput) return []
     const changes: Array<{ filePath: string; changeType: "created" | "modified" | "deleted"; diff: string; riskLevel: string; riskReason: string }> = []
     for (const line of filesOutput.split("\n")) {
       const [status, file] = line.split("\t")
       if (!file) continue
       const changeType = status === "A" ? "created" : status === "D" ? "deleted" : "modified"
-      const diff = execSync(`git diff ${baseBranch}...${sandboxBranch} -- "${file}"`, { cwd: repoPath, encoding: "utf-8" })
+      // `file` comes from the repo (user-controllable filename) — passed as a
+      // standalone argv entry after `--`, so it is never shell-interpreted.
+      const diff = execFileSync("git", ["diff", range, "--", file], { cwd: repoPath, encoding: "utf-8" })
       const analyzed = analyzeDiff(diff)
       changes.push({ filePath: file, changeType, diff, riskLevel: analyzed.riskLevel, riskReason: analyzed.riskReason })
     }
@@ -94,11 +108,12 @@ export async function getSandboxDiff(repoPath: string, baseBranch: string, sandb
 
 // Merge sandbox branch to base (approve)
 export async function mergeSandbox(repoPath: string, baseBranch: string, sandboxBranch: string): Promise<{ ok: boolean; message: string }> {
-  const { execSync } = await import("child_process")
+  const { execFileSync } = await import("child_process")
+  const git = (args: string[]) => execFileSync("git", args, { cwd: repoPath, stdio: "pipe" })
   try {
-    execSync(`git checkout ${baseBranch}`, { cwd: repoPath, stdio: "pipe" })
-    execSync(`git merge ${sandboxBranch} --no-ff -m "Approved: merge AI sandbox changes"`, { cwd: repoPath, stdio: "pipe" })
-    execSync(`git branch -d ${sandboxBranch}`, { cwd: repoPath, stdio: "pipe" })
+    git(["checkout", baseBranch])
+    git(["merge", sandboxBranch, "--no-ff", "-m", "Approved: merge AI sandbox changes"])
+    git(["branch", "-d", sandboxBranch])
     return { ok: true, message: `Merged ${sandboxBranch} into ${baseBranch}` }
   } catch (e) {
     return { ok: false, message: `Merge failed: ${(e as Error).message}` }
@@ -107,10 +122,11 @@ export async function mergeSandbox(repoPath: string, baseBranch: string, sandbox
 
 // Reject: delete sandbox branch
 export async function rejectSandbox(repoPath: string, sandboxBranch: string): Promise<{ ok: boolean; message: string }> {
-  const { execSync } = await import("child_process")
+  const { execFileSync } = await import("child_process")
+  const git = (args: string[]) => execFileSync("git", args, { cwd: repoPath, stdio: "pipe" })
   try {
-    execSync("git checkout main", { cwd: repoPath, stdio: "pipe" })
-    execSync(`git branch -D ${sandboxBranch}`, { cwd: repoPath, stdio: "pipe" })
+    git(["checkout", "main"])
+    git(["branch", "-D", sandboxBranch])
     return { ok: true, message: `Rejected and deleted ${sandboxBranch}` }
   } catch (e) {
     return { ok: false, message: `Reject failed: ${(e as Error).message}` }

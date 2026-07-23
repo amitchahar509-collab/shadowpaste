@@ -3,7 +3,8 @@ import { getContext } from "@/lib/auth"
 import { createSafeWorkspace } from "@/lib/workspace"
 import { db } from "@/lib/db"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { extractZip, ZipError } from "@/lib/zip"
+import { extractArchive, classifyArchive, ZipError } from "@/lib/archive"
+import { analyzeProject } from "@/lib/project-intelligence"
 import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
@@ -24,7 +25,7 @@ export const runtime = "nodejs"
 // Authenticated only: scanning extracts the secrets it finds, so it must never
 // be reachable anonymously.
 
-const MAX_ZIP_BYTES = 100 * 1024 * 1024 // 100 MB compressed upload cap
+const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024 // 200 MB compressed upload cap
 // Never extract these into the temp source tree — keeps imports small and fast.
 // (createSafeWorkspace skips them again when copying, but skipping here avoids
 // writing them to disk at all.)
@@ -57,27 +58,24 @@ export async function POST(req: NextRequest) {
   }
   const upload = file as File
 
-  const nameLower = (upload.name || "").toLowerCase()
-  if (!nameLower.endsWith(".zip")) {
-    return NextResponse.json({ error: "file must be a .zip archive" }, { status: 400 })
-  }
   if (upload.size === 0) {
-    return NextResponse.json({ error: "uploaded ZIP is empty" }, { status: 400 })
+    return NextResponse.json({ error: "uploaded archive is empty" }, { status: 400 })
   }
-  if (upload.size > MAX_ZIP_BYTES) {
+  if (upload.size > MAX_ARCHIVE_BYTES) {
     return NextResponse.json(
-      { error: `ZIP too large (max ${Math.round(MAX_ZIP_BYTES / 1048576)} MB)` },
+      { error: `archive too large (max ${Math.round(MAX_ARCHIVE_BYTES / 1048576)} MB)` },
       { status: 413 }
     )
   }
 
   const buf = Buffer.from(await upload.arrayBuffer())
-  // ZIP magic: local-file-header "PK\x03\x04" or empty-archive EOCD "PK\x05\x06".
-  if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
-    return NextResponse.json({ error: "not a valid ZIP file" }, { status: 400 })
+  // Accept .zip / .tar / .tar.gz / .tgz — validated by extension + magic bytes.
+  const kind = classifyArchive(upload.name || "", buf)
+  if (!kind) {
+    return NextResponse.json({ error: "unsupported archive — use .zip, .tar, .tar.gz, or .tgz" }, { status: 400 })
   }
 
-  const projectName = sanitizeName(upload.name.replace(/\.zip$/i, "")) || "imported-project"
+  const projectName = sanitizeName(upload.name.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, "")) || "imported-project"
   const tmpDir = path.join(
     os.tmpdir(),
     `shadowpaste-import-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -86,20 +84,26 @@ export async function POST(req: NextRequest) {
   try {
     let extracted
     try {
-      extracted = await extractZip(buf, tmpDir, { skipDirs: SKIP_DIRS })
+      extracted = await extractArchive(buf, upload.name || "", tmpDir, { skipDirs: SKIP_DIRS })
     } catch (e) {
       if (e instanceof ZipError) return NextResponse.json({ error: e.message }, { status: 400 })
       throw e
     }
     if (extracted.files === 0) {
-      return NextResponse.json({ error: "ZIP contained no importable files" }, { status: 400 })
+      return NextResponse.json({ error: "archive contained no importable files" }, { status: 400 })
     }
 
-    // Find or create the project record (same behaviour as /create).
+    // Detect the project stack from the extracted tree (framework/git/deps).
+    const intelligence = await analyzeProject(tmpDir).catch(() => null)
+    const stack = intelligence?.stack || null
+
+    // Find or create the project record. `duplicate` tells the UI this name
+    // already existed so it can warn instead of silently re-importing.
     let project = await db.project.findFirst({ where: { orgId: ctx.orgId, name: projectName } })
+    const duplicate = !!project
     if (!project) {
       project = await db.project.create({
-        data: { orgId: ctx.orgId, name: projectName, repoUrl: null, description: `Imported from ZIP: ${upload.name}` },
+        data: { orgId: ctx.orgId, name: projectName, repoUrl: null, description: `Imported from ${kind}: ${upload.name}` },
       })
     }
 
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
         action: "workspace.import",
         target: workspace.id,
         metadata: JSON.stringify({
-          source: "zip",
+          source: kind,
           fileName: upload.name,
           files: workspace.fileCount,
           secrets: workspace.secretCount,
@@ -129,7 +133,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      source: "zip",
+      source: kind,
+      duplicate,
+      stack,
+      intelligence,
       workspace: {
         id: workspace.id,
         projectId: workspace.projectId,

@@ -12,8 +12,8 @@ interface Permission { id: string; toolName: string; scope: string; decision: st
 interface Agent { id: string; name: string; provider: string; avatarColor: string }
 
 const DECISION_META: Record<string, { label: string; icon: typeof Check; color: string; bg: string }> = {
-  allow_always: { label: "Allow Always", icon: CheckCircle2, color: "text-emerald-400", bg: "border-emerald-500/30 bg-emerald-500/10" },
-  allow_once: { label: "Allow Once", icon: Check, color: "text-teal-400", bg: "border-teal-500/30 bg-teal-500/10" },
+  allow_always: { label: "Allow Always", icon: CheckCircle2, color: "text-blue-400", bg: "border-blue-500/30 bg-blue-500/10" },
+  allow_once: { label: "Allow Once", icon: Check, color: "text-sky-400", bg: "border-sky-500/30 bg-sky-500/10" },
   ask: { label: "Ask", icon: HelpCircle, color: "text-amber-400", bg: "border-amber-500/30 bg-amber-500/10" },
   deny: { label: "Deny", icon: XCircle, color: "text-red-400", bg: "border-red-500/30 bg-red-500/10" },
 }
@@ -41,18 +41,18 @@ export function Permissions() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-mono text-lg font-bold text-white">AI Permission Control Center</h2>
+        <h2 className="text-2xl font-light tracking-tight text-white">AI Permission Control Center</h2>
         <p className="text-xs text-zinc-400">Like phone permissions — decide what each AI agent can access. Allow once, allow always, or deny.</p>
       </div>
 
       {/* Permission prompt mockup — phone-style */}
       {selectedAgent && (
-        <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.05] to-[#0d1218] p-6">
+        <Card className="relative overflow-hidden border-blue-500/20 bg-gradient-to-br from-blue-500/[0.05] to-[#0d1218] p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl font-mono text-xl font-bold text-white shadow-lg" style={{ background: selectedAgent.avatarColor }}>{selectedAgent.name.charAt(0)}</div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-emerald-400" />
+                <Bot className="h-4 w-4 text-blue-400" />
                 <span className="font-semibold text-white">{selectedAgent.name}</span>
                 <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px] text-zinc-400">{selectedAgent.provider}</Badge>
               </div>
@@ -71,10 +71,10 @@ export function Permissions() {
             ].map((p) => (
               <div key={p.tool} className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2">
-                  {p.allowed ? <Check className="h-4 w-4 text-emerald-400" /> : <X className="h-4 w-4 text-zinc-500" />}
+                  {p.allowed ? <Check className="h-4 w-4 text-blue-400" /> : <X className="h-4 w-4 text-zinc-500" />}
                   <span className="text-xs text-zinc-200">{p.label}</span>
                 </div>
-                <span className={`font-mono text-[10px] ${p.allowed ? "text-emerald-400" : "text-zinc-500"}`}>{p.allowed ? "ALLOWED" : "BLOCKED"}</span>
+                <span className={`font-mono text-[10px] ${p.allowed ? "text-blue-400" : "text-zinc-500"}`}>{p.allowed ? "ALLOWED" : "BLOCKED"}</span>
               </div>
             ))}
           </div>
@@ -82,13 +82,13 @@ export function Permissions() {
       )}
 
       {/* Agent selector + permission table */}
-      <Card className="border-white/5 bg-[#0d1218] p-5">
+      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-xl p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-emerald-400" /><h3 className="font-mono text-sm font-semibold text-white">Permission Grants</h3></div>
+          <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-blue-400" /><h3 className="text-sm font-medium tracking-tight text-white">Permission Grants</h3></div>
           <div className="flex items-center gap-2">
             <Select value={agentId} onValueChange={(v) => { setAgentId(v); loadPerms(v) }}>
               <SelectTrigger className="w-56 border-white/10 bg-white/[0.03] font-mono text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#0d1218]">{agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent className="border-white/10 bg-white/[0.02] backdrop-blur-xl">{agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
             </Select>
             <Button size="sm" variant="outline" onClick={() => agentId && loadPerms(agentId)} className="border-white/10"><RefreshCw className="h-3.5 w-3.5" /></Button>
           </div>

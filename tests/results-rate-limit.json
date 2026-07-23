@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-21T11:35:47.196Z",
-  "runTag": "mrukurbq",
+  "timestamp": "2026-07-22T18:58:40.293Z",
+  "runTag": "mrwg44yj",
   "spoofIps": {
-    "mcp": "203.0.113.32",
-    "auth": "198.51.100.32"
+    "mcp": "203.0.113.53",
+    "auth": "198.51.100.53"
   },
   "mcp": {
     "limit": 60,
@@ -12,9 +12,10 @@
       "401": 60
     },
     "overflowStatuses": {
-      "429": 5
+      "401": 2,
+      "429": 3
     },
-    "overflow429Count": 5,
+    "overflow429Count": 3,
     "sample429Error": "rate limit exceeded"
   },
   "auth": {
@@ -37,7 +38,7 @@
       "id": "T2",
       "description": "Calls 61..65 return 429 (allowing bounded refill trickle)",
       "passed": true,
-      "detail": "5/5 returned 429; required >= 4 (burst 906ms → up to 1 refilled token(s)). Statuses: [object Object]"
+      "detail": "3/5 returned 429; required >= 2 (burst 2057ms → up to 3 refilled token(s)). Statuses: [object Object]"
     },
     {
       "id": "T3",
