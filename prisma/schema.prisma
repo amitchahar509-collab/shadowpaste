@@ -7,7 +7,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  // Cloud target is managed PostgreSQL (Render PG / Supabase / Neon / Railway).
+  // The connection string comes entirely from DATABASE_URL, so the same schema
+  // deploys anywhere. For local dev, run `docker compose up -d db` (Postgres) or
+  // point DATABASE_URL at any Postgres instance — see DEPLOYMENT.md.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getContext } from "@/lib/auth"
 import { PLANS } from "@/lib/billing"
 import { db } from "@/lib/db"
+import { getAppUrl } from "@/lib/app-url"
 
 // POST /api/billing/checkout — create a Stripe Checkout session for a plan
 // Body: { plan: "PRO" | "TEAM" | "ENTERPRISE" }
@@ -32,7 +33,9 @@ export async function POST(req: NextRequest) {
 
   // Real Stripe Checkout
   try {
-    const origin = req.headers.get("origin") || "http://localhost:3000"
+    // Resolve the public origin from NEXT_PUBLIC_APP_URL / forwarded headers so
+    // Stripe redirects land on the deployed domain, not localhost.
+    const origin = getAppUrl(req)
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {

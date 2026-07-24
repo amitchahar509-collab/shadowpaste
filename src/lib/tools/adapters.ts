@@ -213,7 +213,9 @@ export async function stripeSubscription(input: { subscriptionId: string }, opts
 export async function dbSchemaInspect(_input: Record<string, unknown>): Promise<ExecResult> {
   const start = Date.now();
   try {
-    const rows = await (db as unknown as { $queryRawUnsafe: (sql: string) => Promise<Array<{ name: string; type?: string } & Record<string, unknown>>> }).$queryRawUnsafe("SELECT name, type FROM sqlite_master WHERE type IN ('table','index','view') ORDER BY type, name");
+    // Postgres catalog (the app's DB is PostgreSQL). information_schema is the
+    // portable, read-only source of table/view names in the public schema.
+    const rows = await (db as unknown as { $queryRawUnsafe: (sql: string) => Promise<Array<{ name: string; type?: string } & Record<string, unknown>>> }).$queryRawUnsafe("SELECT table_name AS name, table_type AS type FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_type, table_name");
     return { ok: true, output: { tables: rows, count: rows.length }, redactedOutput: JSON.stringify({ count: rows.length, tables: rows.slice(0, 50) }), adapter: "database", durationMs: Date.now() - start };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "database", durationMs: Date.now() - start, error: (e as Error).message };

@@ -7,22 +7,30 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMcpAgent, handleMcpRequest, MCP_SERVER_NAME, MCP_SERVER_VERSION, MCP_PROTOCOL_VERSION, type JsonRpcRequest } from "@/lib/mcp/server";
+import { corsHeaders } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
+// CORS preflight — cross-origin browser MCP clients / the extension. No-op for
+// same-origin and non-browser clients (Claude Desktop, curl) which send no Origin.
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
+}
+
 // POST /api/mcp — single JSON-RPC request (or batch)
 export async function POST(req: NextRequest) {
+  const cors = corsHeaders(req);
   const auth = req.headers.get("authorization");
   const agentId = await resolveMcpAgent(auth);
   let body: JsonRpcRequest | JsonRpcRequest[];
-  try { body = await req.json(); } catch { return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 }); }
+  try { body = await req.json(); } catch { return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400, headers: cors }); }
 
   if (Array.isArray(body)) {
     const results = await Promise.all(body.map((r) => handleMcpRequest(r, agentId, "default")));
-    return NextResponse.json(results, { headers: { "Mcp-Session-Id": agentId } });
+    return NextResponse.json(results, { headers: { "Mcp-Session-Id": agentId, ...cors } });
   }
   const res = await handleMcpRequest(body, agentId, "default");
-  return NextResponse.json(res, { headers: { "Mcp-Session-Id": agentId } });
+  return NextResponse.json(res, { headers: { "Mcp-Session-Id": agentId, ...cors } });
 }
 
 // GET /api/mcp — SSE endpoint for server-to-client notifications

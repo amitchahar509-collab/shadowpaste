@@ -1,0 +1,86 @@
+# ShadowPaste — Render Blueprint (recommended 24/7 home for the FULL product)
+#
+# Why Render (or Railway) and not Vercel for the primary deploy:
+#   ShadowPaste is filesystem-stateful. The AI-Safe Workspace core writes real
+#   directories (.workspaces/), shells out to `git clone`, and persists the vault
+#   master key. Those need a long-running container with a real filesystem — which
+#   this Docker web service provides, and which Vercel serverless does not.
+#
+# This blueprint provisions:
+#   - a Docker web service (uses the repo Dockerfile), and
+#   - a free managed PostgreSQL database, wired into DATABASE_URL automatically.
+#
+# ── FREE-TIER LIMITATIONS (be honest) ─────────────────────────────────────────
+#   • Free web services SPIN DOWN after ~15 min of inactivity and cold-start on
+#     the next request — so "24/7 always-warm" needs the paid Starter plan.
+#   • Free instances have an EPHEMERAL filesystem: .workspaces/ created during a
+#     session are lost on restart/redeploy. For durable workspaces, upgrade to a
+#     paid instance and attach a Disk (see the commented `disk:` block below).
+#   • The Postgres data itself IS persistent on the free DB plan.
+#
+# Deploy: push this file to GitHub → Render Dashboard → New → Blueprint → pick repo.
+
+services:
+  - type: web
+    name: shadowpaste
+    runtime: docker
+    plan: free                 # change to "starter" for always-on + a persistent disk
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true           # every push to the connected branch redeploys
+    # Apply the Prisma schema to the managed Postgres before each deploy goes live.
+    preDeployCommand: "bunx prisma db push --skip-generate --accept-data-loss"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: HOSTNAME
+        value: "0.0.0.0"
+      # Postgres connection string is injected from the managed DB below.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shadowpaste-db
+          property: connectionString
+      # Secrets: Render generates a strong random value ONCE and keeps it stable
+      # across deploys — exactly what the auth pepper and vault key need.
+      - key: AUTH_PEPPER
+        generateValue: true
+      - key: SHADOWPASTE_MASTER_KEY
+        generateValue: true
+      - key: SHADOWPASTE_VAULT_SALT
+        generateValue: true
+      # Public URL of this service — set to your Render URL after first deploy
+      # (e.g. https://shadowpaste.onrender.com). Used for redirects + MCP config.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      # Behind Render's proxy, trust X-Forwarded-For for rate limiting.
+      - key: TRUST_PROXY
+        value: "true"
+      # Comma-separated origins allowed to call the API cross-origin from a
+      # browser (e.g. the Chrome extension host, a separate dashboard domain).
+      # Leave blank for same-origin only.
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Server-path import is confined to these roots; /tmp is always writable.
+      - key: SHADOWPASTE_PROJECT_ROOTS
+        value: "/tmp"
+      # Optional integrations — set in the dashboard if you use them.
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+    # ── Uncomment on a PAID instance for durable .workspaces/ ──────────────────
+    # disk:
+    #   name: shadowpaste-data
+    #   mountPath: /data
+    #   sizeGB: 1
+    # (then set SHADOWPASTE_PROJECT_ROOTS to /data)
+
+databases:
+  - name: shadowpaste-db
+    plan: free
+    databaseName: shadowpaste
+    user: shadow

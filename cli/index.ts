@@ -20,7 +20,7 @@ program
 program
   .command("init")
   .description("Initialize ShadowPaste in current project")
-  .option("--server <url>", "ShadowPaste server URL", "http://localhost:3000")
+  .option("--server <url>", "ShadowPaste server URL", process.env.SHADOWPASTE_SERVER_URL || "http://localhost:3000")
   .action(async (opts) => {
     console.log("\n  🛡️  ShadowPaste — AI Agent Security Control Plane\n")
     console.log("  Initializing...")
@@ -68,7 +68,7 @@ program
       console.log("    2. shadowpaste open       — open in Cursor/Claude")
       console.log("    3. shadowpaste restore    — restore secrets after AI edits")
       console.log(`\n  Server: ${opts.server}`)
-      console.log("  Dashboard: http://localhost:3000\n")
+      console.log(`  Dashboard: ${opts.server}\n`)
     } catch (e) {
       console.error("  ✗ Init failed:", (e as Error).message)
       process.exit(1)
@@ -180,7 +180,7 @@ program
 program
   .command("status")
   .description("Show ShadowPaste protection status")
-  .option("--server <url>", "ShadowPaste server URL", "http://localhost:3000")
+  .option("--server <url>", "ShadowPaste server URL", process.env.SHADOWPASTE_SERVER_URL || "http://localhost:3000")
   .action(async (opts) => {
     console.log("\n  🛡️  ShadowPaste Status\n")
     const wsRoot = path.resolve(process.cwd(), ".workspaces")
