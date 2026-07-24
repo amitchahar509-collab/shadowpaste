@@ -53,13 +53,42 @@ export async function resolveMcpAgent(authHeader: string | null, orgId = "defaul
   return agent.id;
 }
 
+// The tool registry stores parameter types in shorthand ("string", "number",
+// "object", "string[]"). MCP requires each inputSchema property to be a valid
+// JSON Schema object ({ "type": "string" }), NOT a bare type string. A client
+// that validates the schema (Claude) silently drops any tool whose properties
+// are malformed — which surfaces as "0 tools". This converter expands the
+// shorthand into spec-compliant JSON Schema.
+function toJsonSchema(v: unknown): Record<string, unknown> {
+  if (v && typeof v === "object") return v as Record<string, unknown>; // already a schema
+  const t = String(v ?? "string").trim();
+  if (t.endsWith("[]")) return { type: "array", items: toJsonSchema(t.slice(0, -2)) };
+  switch (t) {
+    case "string": return { type: "string" };
+    case "number": return { type: "number" };
+    case "integer": return { type: "integer" };
+    case "boolean": return { type: "boolean" };
+    case "object": return { type: "object" };
+    case "array": return { type: "array" };
+    default: return { type: "string" };
+  }
+}
+
 export function buildToolList() {
-  return TOOL_REGISTRY.map((t) => ({
-    name: t.name,
-    description: t.description,
-    inputSchema: { type: "object", properties: t.inputSchema, additionalProperties: false },
-    annotations: { riskLevel: t.riskLevel, riskScore: t.riskScore, category: t.category, package: t.packageName },
-  }));
+  return TOOL_REGISTRY.map((t) => {
+    // Always emit a valid object schema. A tool with no params gets
+    // { type: "object", properties: {} } — never undefined/null.
+    const properties: Record<string, Record<string, unknown>> = {};
+    for (const [key, val] of Object.entries(t.inputSchema || {})) {
+      properties[key] = toJsonSchema(val);
+    }
+    return {
+      name: t.name,
+      description: t.description,
+      inputSchema: { type: "object", properties, additionalProperties: false },
+      annotations: { riskLevel: t.riskLevel, riskScore: t.riskScore, category: t.category, package: t.packageName },
+    };
+  });
 }
 
 export async function handleMcpRequest(req: JsonRpcRequest, agentId: string, orgId: string): Promise<JsonRpcResponse> {
