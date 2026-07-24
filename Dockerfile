@@ -24,6 +24,9 @@ ENV PATH="/root/.bun/bin:${PATH}"
 FROM base AS deps
 WORKDIR /app
 COPY package.json bun.lock* ./
+# Copy the Prisma schema BEFORE install: the postinstall hook runs
+# `prisma generate`, which fails without prisma/schema.prisma present.
+COPY prisma ./prisma/
 # Install ALL deps (dev needed for next build + prisma generate)
 RUN bun install --frozen-lockfile || bun install
 
