@@ -82,5 +82,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3000/ || exit 1
 
-# Run the standalone server with Bun (matches package.json `start` script)
-CMD ["bun", "server.js"]
+# Run the Next.js standalone server with Node. `.next/standalone/server.js` is a
+# plain Node HTTP server (honors PORT/HOSTNAME env), so we invoke it directly —
+# no Bun, no shell wrapper — avoiding any host runtime mis-parsing the command.
+CMD ["node", "server.js"]
