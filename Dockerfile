@@ -24,11 +24,11 @@ ENV PATH="/root/.bun/bin:${PATH}"
 FROM base AS deps
 WORKDIR /app
 COPY package.json bun.lock* ./
-# Copy the Prisma schema BEFORE install: the postinstall hook runs
-# `prisma generate`, which fails without prisma/schema.prisma present.
-COPY prisma ./prisma/
-# Install ALL deps (dev needed for next build + prisma generate)
-RUN bun install --frozen-lockfile || bun install
+# Install deps WITHOUT lifecycle scripts. The `postinstall` hook runs
+# `prisma generate`, which needs prisma/schema.prisma — not present in this
+# cache-optimized layer. The schema is copied and the client generated
+# explicitly in the builder stage below.
+RUN bun install --frozen-lockfile --ignore-scripts || bun install --ignore-scripts
 
 # ----------------------------------------------------------------------------
 # Stage 3 — builder: prisma generate + next build
