@@ -19,7 +19,7 @@ import { createHash } from "crypto";
 
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 export const MCP_SERVER_NAME = "shadowpaste";
-export const MCP_SERVER_VERSION = "19.0.0";
+export const MCP_SERVER_VERSION = "1.0.0";
 
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
