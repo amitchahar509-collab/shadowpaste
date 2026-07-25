@@ -469,6 +469,22 @@ export async function dbWrite(input: { query: string }): Promise<ExecResult> {
   }
 }
 
+// ---- AI: generate via the provider abstraction (real, never fabricated) ----
+export async function aiGenerate(input: { prompt: string; model?: string; provider?: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  const { generate, ProviderNotConfiguredError } = await import("@/lib/ai/provider");
+  try {
+    if (!input.prompt || typeof input.prompt !== "string") return structuredError("ai", "VALIDATION", "prompt is required", {}, Date.now() - start);
+    const r = await generate({ prompt: input.prompt, model: input.model, provider: input.provider as never }, { orgId: opts.orgId });
+    // Token/cost accounting is surfaced; the API key never appears in output.
+    const out = { provider: r.provider, model: r.model, text: r.text, usage: r.usage, costUsd: r.costUsd, attempts: r.attempts };
+    return { ok: true, output: out, redactedOutput: JSON.stringify({ provider: r.provider, model: r.model, usage: r.usage, costUsd: r.costUsd }), adapter: "ai", durationMs: Date.now() - start };
+  } catch (e) {
+    if (e instanceof ProviderNotConfiguredError) return structuredError("ai", "PROVIDER_NOT_CONFIGURED", e.message, {}, Date.now() - start);
+    return structuredError("ai", "AI_ERROR", (e as Error).message, {}, Date.now() - start);
+  }
+}
+
 // ---- STRIPE: refund (TEST mode enforced) ----
 export async function stripeRefund(input: { chargeId: string; amount?: number }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
   const start = Date.now();
@@ -552,11 +568,14 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     // exist so a permission-granted call still gets an honest answer, and so the
     // generic NOT_IMPLEMENTED can never surface for a registered tool.
 
-    // No AI provider/abstraction is configured in this codebase (no API key, no
-    // client). Implementing these would be fabrication — see MCP_TOOL_COMPLETION.md.
-    case "ai.generate":
+    // Real provider abstraction (src/lib/ai/provider.ts). Calls OpenAI/Anthropic/
+    // Gemini when a key is configured; returns PROVIDER_NOT_CONFIGURED otherwise.
+    // A successful response is NEVER fabricated.
+    case "ai.generate": return aiGenerate(input as { prompt: string; model?: string; provider?: string }, opts);
+    // Model training is an async, provider-specific job pipeline that does not
+    // exist here — honest, not faked.
     case "ai.train":
-      return structuredError("ai", "PROVIDER_NOT_CONFIGURED", `'${toolName}' needs an AI provider; none is configured (no client, no API key)`, { tool: toolName });
+      return structuredError("ai", "PROVIDER_NOT_CONFIGURED", "'ai.train' needs a training pipeline; none is configured (no client, no API key)", { tool: toolName });
 
     // Arbitrary command execution requires a sandboxed executor that does not
     // exist. Running raw shell would be an RCE surface, contrary to the product.
