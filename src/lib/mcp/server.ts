@@ -74,6 +74,66 @@ function toJsonSchema(v: unknown): Record<string, unknown> {
   }
 }
 
+// tools/list advertises a concrete type per property plus
+// additionalProperties:false, so tools/call has to actually enforce that
+// contract. Without this check a wrong-typed or missing argument reaches the
+// execution adapters and surfaces as a runtime failure (an fs ENOENT, a SQL
+// error) rather than the protocol-level "Invalid params" a client expects.
+function describeType(schema: Record<string, unknown>): string {
+  const t = String(schema.type ?? "string");
+  if (t === "array") {
+    const items = (schema.items as Record<string, unknown>) || {};
+    return `an array of ${String(items.type ?? "string")}`;
+  }
+  if (t === "object") return "an object";
+  // Only strings carry the non-empty requirement; "a non-empty number" is nonsense.
+  return t === "string" ? "a non-empty string" : `a ${t}`;
+}
+
+function matchesType(value: unknown, schema: Record<string, unknown>): boolean {
+  switch (String(schema.type ?? "string")) {
+    case "string":
+      return typeof value === "string" && value.trim() !== "";
+    case "number":
+      return typeof value === "number" && Number.isFinite(value);
+    case "integer":
+      return typeof value === "number" && Number.isInteger(value);
+    case "boolean":
+      return typeof value === "boolean";
+    case "array": {
+      if (!Array.isArray(value)) return false;
+      const items = (schema.items as Record<string, unknown>) || { type: "string" };
+      return value.every((v) => matchesType(v, items));
+    }
+    case "object":
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    default:
+      return true;
+  }
+}
+
+/** Returns a -32602 message when `input` violates the tool's declared schema. */
+export function validateToolInput(
+  inputSchema: Record<string, unknown>,
+  input: Record<string, unknown>
+): string | null {
+  const declared = inputSchema || {};
+  for (const key of Object.keys(input)) {
+    if (!(key in declared)) return `Unknown parameter '${key}'`;
+  }
+  for (const [key, shorthand] of Object.entries(declared)) {
+    const schema = toJsonSchema(shorthand);
+    const value = input[key];
+    if (value === undefined || value === null) {
+      return `Missing required parameter '${key}': must be ${describeType(schema)}`;
+    }
+    if (!matchesType(value, schema)) {
+      return `'${key}' must be ${describeType(schema)}`;
+    }
+  }
+  return null;
+}
+
 export function buildToolList() {
   return TOOL_REGISTRY.map((t) => {
     // Always emit a valid object schema. A tool with no params gets
@@ -114,6 +174,16 @@ export async function handleMcpRequest(req: JsonRpcRequest, agentId: string, org
         const name = params.name as string;
         const input = (params.arguments as Record<string, unknown>) || {};
         if (!name) return { jsonrpc: "2.0", id: req.id, error: { code: -32602, message: "Missing tool name" } };
+        const toolDef = TOOL_REGISTRY.find((t) => t.name === name);
+        if (!toolDef) {
+          return { jsonrpc: "2.0", id: req.id, error: { code: -32602, message: `Unknown tool: ${name}` } };
+        }
+        // Reject malformed arguments before any session, credential or side
+        // effect is created — a protocol error must not cost a DB write.
+        const invalid = validateToolInput(toolDef.inputSchema, input);
+        if (invalid) {
+          return { jsonrpc: "2.0", id: req.id, error: { code: -32602, message: `Invalid params: ${invalid}` } };
+        }
         // Create a session for this MCP call
         const session = await db.session.create({ data: { agentId, status: "active", source: "mcp-sse", context: JSON.stringify({ via: "mcp" }) } });
         const result = await invokeTool({ agentId, sessionId: session.id, toolName: name, input, orgId });

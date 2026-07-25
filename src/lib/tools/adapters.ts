@@ -25,6 +25,20 @@ function safePath(p: string): string {
   return resolved;
 }
 
+// Node's fs errors embed the absolute host path ("ENOENT: no such file or
+// directory, open 'C:\Users\...\.workspace\x'"), which would disclose the
+// server's install location to any MCP client. Keep the real error in the
+// server log and hand the caller a message that reveals nothing about the
+// host layout. Sandbox denials are reported distinctly so a caller can tell
+// "you may not read there" from "it isn't there".
+function sanitizeFsError(e: unknown, op: string): string {
+  console.error(`[INTERNAL FS ERROR] ${op}:`, e);
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.startsWith("Path escape attempt")) return "Access denied: path escapes the workspace sandbox.";
+  if (msg === "Invalid path") return "Invalid path.";
+  return "File or directory not found within workspace.";
+}
+
 export interface ExecResult {
   ok: boolean;
   output: Record<string, unknown>;
@@ -44,7 +58,8 @@ export async function fsRead(input: { path: string }): Promise<ExecResult> {
     const content = await fs.readFile(full, "utf8");
     return { ok: true, output: { path: input.path, bytes: content.length, content }, redactedOutput: JSON.stringify({ path: input.path, bytes: content.length, content }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "filesystem", durationMs: Date.now() - start, error: (e as Error).message };
+    const error = sanitizeFsError(e, "fs.read");
+    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
@@ -57,7 +72,8 @@ export async function fsWrite(input: { path: string; content: string }): Promise
     await fs.writeFile(full, input.content, "utf8");
     return { ok: true, output: { path: input.path, bytes: input.content.length, written: true }, redactedOutput: JSON.stringify({ path: input.path, bytes: input.content.length, written: true }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "filesystem", durationMs: Date.now() - start, error: (e as Error).message };
+    const error = sanitizeFsError(e, "fs.write");
+    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
@@ -70,7 +86,8 @@ export async function fsList(input: { path?: string }): Promise<ExecResult> {
     const listing = entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { ok: true, output: { path: input.path || "/", entries: listing }, redactedOutput: JSON.stringify({ path: input.path || "/", entries: listing }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "filesystem", durationMs: Date.now() - start, error: (e as Error).message };
+    const error = sanitizeFsError(e, "fs.list");
+    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
