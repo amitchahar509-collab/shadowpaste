@@ -101,22 +101,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Temporary discovery diagnostics — logs the tools/list handshake so we can
-  // confirm the client is receiving all 28 tool definitions.
-  const isToolsList = !Array.isArray(body) && !!body && (body as JsonRpcRequest).method === "tools/list";
-  if (isToolsList) console.log("[MCP DEBUG] tools/list request", JSON.stringify(body), "agent=", agentId);
-
   const sse = wantsEventStream(req);
   try {
     const payload = Array.isArray(body)
       ? await Promise.all(body.map((r) => handleMcpRequest(r, agentId, "default")))
       : await handleMcpRequest(body, agentId, "default");
-
-    if (isToolsList) {
-      const tools = (payload as { result?: { tools?: unknown[] } })?.result?.tools;
-      console.log("[MCP DEBUG] tools/list response — tool count:", Array.isArray(tools) ? tools.length : "n/a");
-      console.log("[MCP DEBUG] tools/list payload:", JSON.stringify(payload).slice(0, 4000));
-    }
 
     return sse
       ? sseJson(payload, agentId, cors)

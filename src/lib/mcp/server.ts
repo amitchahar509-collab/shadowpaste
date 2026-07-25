@@ -12,8 +12,9 @@
 // real execution -> audit. The agent identity is derived from the MCP client
 // token (Bearer) or a default demo agent for local development.
 
-import { db } from "@/lib/db";
+import { db, dbReady } from "@/lib/db";
 import { TOOL_REGISTRY } from "@/lib/tool-registry";
+import { isToolImplemented } from "@/lib/tools/adapters";
 import { invokeTool } from "@/lib/gateway";
 import { createHash } from "crypto";
 
@@ -39,6 +40,9 @@ export interface JsonRpcResponse {
 // a per-client API key to an Agent row. For local dev, we use a hash of the
 // bearer token to find or create a "Claude Desktop" agent.
 export async function resolveMcpAgent(authHeader: string | null, orgId = "default"): Promise<string> {
+  // Ensure the Prisma engine is connected before the first query. Without this
+  // the very first tool call after a cold start could fail transiently.
+  await dbReady();
   const token = (authHeader || "").replace(/^Bearer\s+/i, "") || "local-dev";
   const tokenHash = createHash("sha256").update(token).digest("hex").slice(0, 32);
   // Look for an agent with this apiKeyHash
@@ -112,10 +116,18 @@ function matchesType(value: unknown, schema: Record<string, unknown>): boolean {
   }
 }
 
-/** Returns a -32602 message when `input` violates the tool's declared schema. */
+/**
+ * Returns a -32602 message when `input` violates the tool's declared schema.
+ *
+ * `required` comes from ToolDef.required — the SAME array that buildToolList()
+ * publishes as the JSON Schema `required` field, so the advertised contract and
+ * the runtime check can never drift. Parameters not in `required` are optional:
+ * omitting them is accepted, but supplying them still type-checks.
+ */
 export function validateToolInput(
   inputSchema: Record<string, unknown>,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  required: string[] = []
 ): string | null {
   const declared = inputSchema || {};
   for (const key of Object.keys(input)) {
@@ -125,6 +137,8 @@ export function validateToolInput(
     const schema = toJsonSchema(shorthand);
     const value = input[key];
     if (value === undefined || value === null) {
+      // Optional parameter: absence is fine. Required: reject.
+      if (!required.includes(key)) continue;
       return `Missing required parameter '${key}': must be ${describeType(schema)}`;
     }
     if (!matchesType(value, schema)) {
@@ -145,8 +159,12 @@ export function buildToolList() {
     return {
       name: t.name,
       description: t.description,
-      inputSchema: { type: "object", properties, additionalProperties: false },
-      annotations: { riskLevel: t.riskLevel, riskScore: t.riskScore, category: t.category, package: t.packageName },
+      // `required` is published straight from ToolDef.required — the same array
+      // validateToolInput() enforces, so schema and validator cannot drift.
+      inputSchema: { type: "object", properties, required: [...t.required], additionalProperties: false },
+      // `implemented: false` tells a client the tool is registered but has no
+      // execution adapter — calling it returns a structured NOT_IMPLEMENTED error.
+      annotations: { riskLevel: t.riskLevel, riskScore: t.riskScore, category: t.category, package: t.packageName, implemented: isToolImplemented(t.name) },
     };
   });
 }
@@ -180,7 +198,7 @@ export async function handleMcpRequest(req: JsonRpcRequest, agentId: string, org
         }
         // Reject malformed arguments before any session, credential or side
         // effect is created — a protocol error must not cost a DB write.
-        const invalid = validateToolInput(toolDef.inputSchema, input);
+        const invalid = validateToolInput(toolDef.inputSchema, input, toolDef.required);
         if (invalid) {
           return { jsonrpc: "2.0", id: req.id, error: { code: -32602, message: `Invalid params: ${invalid}` } };
         }

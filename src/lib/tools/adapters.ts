@@ -308,6 +308,24 @@ async function shadowpasteAudit(input: { limit?: number; action?: string }, opts
 }
 
 // ---- Dispatcher ----
+
+/**
+ * Tools that have a real execution adapter below. Anything registered in
+ * TOOL_REGISTRY but absent here returns a structured NOT_IMPLEMENTED error
+ * instead of silently succeeding. Keep in sync with the switch statement.
+ */
+export const IMPLEMENTED_TOOLS: ReadonlySet<string> = new Set([
+  "fs.read", "fs.write", "fs.list",
+  "github.read", "github.branch.create", "github.commit", "github.pr.create",
+  "db.read", "db.schema.inspect",
+  "stripe.read", "stripe.subscription",
+  "shadowpaste.scan", "shadowpaste.protect", "shadowpaste.audit",
+]);
+
+export function isToolImplemented(toolName: string): boolean {
+  return IMPLEMENTED_TOOLS.has(toolName);
+}
+
 export async function executeTool(toolName: string, input: Record<string, unknown>, opts: { sessionId: string; orgId?: string; _tokenOverride?: string }): Promise<ExecResult> {
   switch (toolName) {
     case "fs.read": return fsRead(input as { path: string });
@@ -325,6 +343,17 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "shadowpaste.scan": return shadowpasteScan(input as { repo: string; token?: string }, opts);
     case "shadowpaste.protect": return shadowpasteProtect(input as { text: string; name?: string }, opts);
     case "shadowpaste.audit": return shadowpasteAudit(input as { limit?: number; action?: string }, opts);
-    default: return { ok: false, output: { error: `No real adapter for ${toolName}` }, redactedOutput: JSON.stringify({ error: `No real adapter for ${toolName}` }), adapter: "none", durationMs: 0 };
+    // No adapter is implemented for this tool. Return a STRUCTURED error rather
+    // than a soft "ok" — a caller that was allowed by policy must be able to
+    // tell "ran and did nothing" apart from "not implemented".
+    default: {
+      const err = {
+        code: "NOT_IMPLEMENTED",
+        error: `Tool '${toolName}' is registered but has no execution adapter`,
+        tool: toolName,
+        implemented: false,
+      };
+      return { ok: false, output: err, redactedOutput: JSON.stringify(err), adapter: "none", durationMs: 0, error: `NOT_IMPLEMENTED: ${toolName}` };
+    }
   }
 }
