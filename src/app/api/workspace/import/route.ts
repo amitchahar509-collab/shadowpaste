@@ -8,6 +8,7 @@ import { analyzeProject } from "@/lib/project-intelligence"
 import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
+import { internalError } from "@/lib/api-error"
 
 // This route uses node:fs / node:zlib and reads a multipart body — force the
 // Node runtime (not edge).
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.import")
   } finally {
     // The AI-safe copy lives in .workspaces/; the raw extracted source is
     // disposable — remove it so uploads don't accumulate on disk.

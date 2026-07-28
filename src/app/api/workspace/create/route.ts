@@ -6,6 +6,7 @@ import path from "path"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { analyzeProject } from "@/lib/project-intelligence"
+import { internalError } from "@/lib/api-error"
 
 // POST /api/workspace/create — scan a project folder + create AI-safe workspace copy
 // Body: { sourcePath: string, projectName?: string }
@@ -90,6 +91,6 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.create")
   }
 }

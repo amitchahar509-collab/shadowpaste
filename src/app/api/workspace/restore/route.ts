@@ -4,6 +4,7 @@ import { restoreSecrets, restoreFromMeta, type WorkspaceSecret } from "@/lib/wor
 import { db } from "@/lib/db"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { internalError } from "@/lib/api-error"
 
 // POST /api/workspace/restore — restore real secrets back into the source project.
 //
@@ -79,6 +80,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result, sourcePath: target })
   } catch (e) {
     if (e instanceof PathNotAllowedError) return NextResponse.json({ error: e.message }, { status: 400 })
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.restore")
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { seedDatabase } from "@/lib/seed"
+import { internalError } from "@/lib/api-error"
 
 // POST|GET /api/seed — (re)seed demo data.
 //
@@ -22,7 +23,7 @@ async function handle(req: NextRequest) {
     const result = await seedDatabase()
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 })
+    return internalError(e, "seed")
   }
 }
 

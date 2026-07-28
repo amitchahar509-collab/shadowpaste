@@ -307,6 +307,64 @@ model AttackTest {
 }
 
 // ============================================================
+// OAuth 2.1 Authorization Server
+// ============================================================
+// Real persistence for the authorization-code + PKCE flow. Secrets and tokens
+// are stored ONLY as SHA-256 hashes — a database read cannot recover a usable
+// credential. Authorization codes are single-use; refresh tokens rotate.
+
+model OAuthClient {
+  id                String   @id @default(cuid())
+  clientId          String   @unique
+  // NULL for public clients (PKCE-only, no secret). Hashed for confidential ones.
+  clientSecretHash  String?
+  clientName        String
+  redirectUris      String   // JSON array — exact-match validated at /authorize
+  grantTypes        String   // JSON array
+  scope             String   @default("mcp")
+  tokenEndpointAuthMethod String @default("none")
+  codes             OAuthCode[]
+  tokens            OAuthToken[]
+  createdAt         DateTime @default(now())
+}
+
+model OAuthCode {
+  id                  String   @id @default(cuid())
+  codeHash            String   @unique
+  clientId            String
+  client              OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId              String
+  orgId               String
+  redirectUri         String
+  scope               String
+  codeChallenge       String   // PKCE — S256 only
+  codeChallengeMethod String   @default("S256")
+  expiresAt           DateTime
+  consumedAt          DateTime? // single-use enforcement
+  createdAt           DateTime @default(now())
+}
+
+model OAuthToken {
+  id            String   @id @default(cuid())
+  tokenHash     String   @unique
+  // "access" | "refresh"
+  type          String
+  clientId      String
+  client        OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId        String
+  orgId         String
+  scope         String
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  // Links a refresh token to the access token it minted, so rotation can revoke
+  // the whole family when a consumed refresh token is replayed.
+  familyId      String
+  createdAt     DateTime @default(now())
+
+  @@index([familyId])
+}
+
+// ============================================================
 // PHASE 10 — PUBLIC SCANNER (no login)
 // ============================================================
 model PublicScan {

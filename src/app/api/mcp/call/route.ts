@@ -3,6 +3,7 @@ import { invokeTool } from "@/lib/gateway"
 import { db } from "@/lib/db"
 import { getContext } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { internalError } from "@/lib/api-error"
 
 // POST /api/mcp/call — invoke a tool through the zero-trust gateway (REAL execution)
 export async function POST(req: NextRequest) {
@@ -32,6 +33,6 @@ export async function POST(req: NextRequest) {
     const result = await invokeTool({ agentId, sessionId: sid, toolName, input: input || {}, orgId: ctx.orgId, _tokenOverride })
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 })
+    return internalError(e, "mcp.call")
   }
 }

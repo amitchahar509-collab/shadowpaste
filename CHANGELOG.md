@@ -45,12 +45,22 @@ All notable changes to this project are documented here. The format is based on
   regenerated per process, which previously destroyed all vaulted secrets on restart.
 
 ### Security
+- **Real OAuth 2.1 Authorization Server replaces the previous stubs.** The old
+  `/oauth/authorize` auto-approved every request and `/oauth/token` returned a
+  fixed string to any caller — anyone could obtain a working token. Now:
+  authorization-code grant with **mandatory PKCE (S256 only; `plain` rejected)`,
+  exact-match `redirect_uri` validation (no open redirect), single-use
+  short-lived codes, **rotating refresh tokens with family revocation on replay**,
+  RFC 7009 revocation, and RFC 6749-compliant errors. Client secrets and every
+  token are stored as SHA-256 hashes only. The implicit and
+  resource-owner-password grants are not offered (removed in OAuth 2.1).
+  `/authorize` now requires a genuine authenticated ShadowPaste session.
+- `REQUIRE_OAUTH=true` makes a valid OAuth access token mandatory on `/api/mcp`,
+  answering `401` with a `WWW-Authenticate` challenge. Recommended for any
+  publicly reachable deployment.
 - Verified live: prompt injection (50/50 payloads caught), tenant isolation (10/10),
   replay/stolen-token (6/6), rate limiting (6/6), billing enforcement (6/6),
   SSRF blocking, SQL validation, and shell-injection rejection.
-- **Known limitation:** the `/oauth/*` endpoints are non-authenticating stubs —
-  they complete the connector registration handshake but do not verify identity.
-  Do not expose a public instance holding real secrets until real OAuth lands.
 
 ## [1.0.0] — 2026-07-21
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { initSandbox, getSandboxDiff, mergeSandbox, rejectSandbox, writeSandboxFile, type SandboxRepo } from "@/lib/git-sandbox"
+import { internalError } from "@/lib/api-error"
 
 // In-memory registry of active sandboxes (per project). Production would persist this.
 const activeSandboxes = new Map<string, SandboxRepo>()
@@ -89,6 +90,6 @@ export async function POST(req: Request) {
     activeSandboxes.set(projectId, sandbox)
     return NextResponse.json({ ok: true, sandbox: { branch: sandbox.branch, baseBranch: sandbox.baseBranch, repoPath: sandbox.repoPath } })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "sandbox")
   }
 }

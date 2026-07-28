@@ -7,6 +7,7 @@ import { checkRateLimit } from "@/lib/rate-limit"
 import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
+import { internalError } from "@/lib/api-error"
 
 export const runtime = "nodejs"
 
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.clone")
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }

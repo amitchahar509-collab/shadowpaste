@@ -4,6 +4,7 @@ import path from "path"
 import { listWorkspaceFiles, WORKSPACE_ROOT } from "@/lib/workspace"
 import { getContext } from "@/lib/auth"
 import { isWithin } from "@/lib/security/paths"
+import { internalError } from "@/lib/api-error"
 
 // Both handlers take a caller-supplied workspacePath that reaches the
 // filesystem. It is confined to WORKSPACE_ROOT (.workspaces/) — generated
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const files = await listWorkspaceFiles(resolved)
     return NextResponse.json({ files, count: files.length })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.id")
   }
 }
 
@@ -55,6 +56,6 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     await fs.rm(resolved, { recursive: true, force: true })
     return NextResponse.json({ ok: true })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return internalError(e, "workspace.id")
   }
 }

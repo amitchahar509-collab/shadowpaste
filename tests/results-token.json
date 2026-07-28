@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-28T04:16:18.862Z",
+  "timestamp": "2026-07-28T09:47:39.297Z",
   "agents": {
-    "active": "cms4578jt00dxw8e4yby335fj",
-    "suspended": "cms457spl00efw8e4d1pl2jgb",
-    "quarantined": "cms4583bb00epw8e490d1zkm1"
+    "active": "cms4h1yis0042w8tobwm3z67j",
+    "suspended": "cms4h28980058w8to7v1q9oi6",
+    "quarantined": "cms4h2dc8005uw8to2vqi6dfx"
   },
   "checks": [
     {
@@ -16,7 +16,7 @@
       "id": "T1",
       "description": "Revoked agent is denied with 'Agent is revoked' message",
       "passed": true,
-      "detail": "agentStatus=undefined, decision=deny, reason=\"Agent is revoked — all tool calls blocked\""
+      "detail": "agentStatus=revoked, decision=deny, reason=\"Agent is revoked — all tool calls blocked\""
     },
     {
       "id": "T2",

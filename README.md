@@ -160,6 +160,27 @@ negatives on the bundled 1,000-file corpus (`bun run test:unit`).
 Full details and the deployment checklist: **[docs/SECURITY.md](docs/SECURITY.md)**.
 Reporting a vulnerability: **[SECURITY.md](SECURITY.md)**.
 
+## OAuth 2.1 (MCP authorization)
+
+ShadowPaste ships a real OAuth 2.1 authorization server backed by its own user
+accounts — no external identity provider needed. MCP clients that speak OAuth
+(Claude connectors, and any RFC-compliant client) can register and authorize
+against it directly:
+
+| Endpoint | Spec |
+|---|---|
+| `/.well-known/oauth-authorization-server` | RFC 8414 metadata discovery |
+| `/oauth/register` | RFC 7591 dynamic client registration |
+| `/oauth/authorize` | authorization-code grant, **PKCE S256 required** |
+| `/oauth/token` | code exchange + **rotating** refresh tokens |
+| `/oauth/revoke` | RFC 7009 revocation |
+
+Enforced: exact-match `redirect_uri` (no open redirect), single-use short-lived
+codes, refresh-token rotation with **family revocation on replay**, SHA-256-hashed
+client secrets and tokens at rest. The implicit and password grants are not
+offered. Set **`REQUIRE_OAUTH=true`** to require a valid token on `/api/mcp`
+(recommended for any public deployment).
+
 ## Configuration
 
 All configuration is via environment variables — see **[.env.example](.env.example)**

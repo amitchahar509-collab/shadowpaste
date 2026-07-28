@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMcpAgent, handleMcpRequest, MCP_SERVER_NAME, MCP_SERVER_VERSION, MCP_PROTOCOL_VERSION, type JsonRpcRequest } from "@/lib/mcp/server";
 import { allowedOrigins } from "@/lib/app-url";
+import { validateAccessToken } from "@/lib/oauth";
 
 export const runtime = "nodejs";
 
@@ -80,10 +81,31 @@ export async function POST(req: NextRequest) {
 
   // Resolve agent identity (header token → query token → local-dev). Wrapped so
   // a transient DB error becomes a JSON-RPC error, never an unhandled 500.
+  //
+  // If the token is a real OAuth access token it is validated first, and the
+  // resolved user/org becomes the tenant for this call. REQUIRE_OAUTH=true makes
+  // a valid OAuth token mandatory, which is the correct posture for a public
+  // deployment; the default stays permissive for local development.
   let agentId: string;
+  let oauthOrgId: string | null = null;
   try {
     const token = extractToken(req);
-    agentId = await resolveMcpAgent(token ? `Bearer ${token}` : null);
+    if (token) {
+      const grant = await validateAccessToken(token);
+      if (grant) oauthOrgId = grant.orgId;
+      else if (process.env.REQUIRE_OAUTH === "true") {
+        return NextResponse.json(
+          { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: a valid OAuth access token is required" } },
+          { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste", error="invalid_token"` } }
+        );
+      }
+    } else if (process.env.REQUIRE_OAUTH === "true") {
+      return NextResponse.json(
+        { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: authorization required" } },
+        { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste"` } }
+      );
+    }
+    agentId = await resolveMcpAgent(token ? `Bearer ${token}` : null, oauthOrgId || "default");
   } catch (e) {
     return NextResponse.json(
       { jsonrpc: "2.0", id: null, error: { code: -32000, message: `agent resolution failed: ${(e as Error).message}` } },
@@ -104,8 +126,8 @@ export async function POST(req: NextRequest) {
   const sse = wantsEventStream(req);
   try {
     const payload = Array.isArray(body)
-      ? await Promise.all(body.map((r) => handleMcpRequest(r, agentId, "default")))
-      : await handleMcpRequest(body, agentId, "default");
+      ? await Promise.all(body.map((r) => handleMcpRequest(r, agentId, oauthOrgId || "default")))
+      : await handleMcpRequest(body, agentId, oauthOrgId || "default");
 
     return sse
       ? sseJson(payload, agentId, cors)
