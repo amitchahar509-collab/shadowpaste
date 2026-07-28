@@ -243,7 +243,12 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Verify standalone output
-        run: test -f .next/standalone/server.js && echo "OK: .next/standalone/server.js produced"
+        # Block scalar: the inline form was invalid YAML because the unquoted
+        # value contains ": " (inside the echo string), which YAML reads as a
+        # nested mapping. That made the WHOLE workflow unparseable, so no job
+        # ever ran — GitHub reported "failed because of a workflow file issue".
+        run: |
+          test -f .next/standalone/server.js && echo "OK - .next/standalone/server.js produced"
 
   # ---------------------------------------------------------------------------
   # security-scan — grep for common leaked secret patterns in src/ (excluding

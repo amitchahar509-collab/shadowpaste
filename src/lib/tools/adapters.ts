@@ -510,6 +510,124 @@ export async function stripeRefund(input: { chargeId: string; amount?: number },
   }
 }
 
+// ---- STRIPE: delete a customer (TEST mode enforced) ----
+export async function stripeCustomerDelete(input: { customerId: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    if (!input.customerId || typeof input.customerId !== "string") {
+      return structuredError("stripe", "VALIDATION", "customerId is required", {}, Date.now() - start);
+    }
+    const cred = await injectCredential({ sessionId: opts.sessionId, scope: "stripe.charges", orgId: opts.orgId });
+    if (!cred) return structuredError("stripe", "CREDENTIAL_REQUIRED", "No Stripe credential in vault — store a stripe test key first", {}, Date.now() - start);
+    // Deleting a customer is irreversible. Refuse a live key unless explicitly opted in.
+    if (!/^sk_test_|^rk_test_/.test(cred.raw) && process.env.STRIPE_ALLOW_LIVE !== "true") {
+      return structuredError("stripe", "LIVE_KEY_BLOCKED", "customer deletion requires a Stripe TEST key (sk_test_) unless STRIPE_ALLOW_LIVE=true", {}, Date.now() - start);
+    }
+    const res = await fetch(`https://api.stripe.com/v1/customers/${encodeURIComponent(input.customerId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${cred.raw}` },
+    });
+    const data = await res.json().catch(() => null) as { id?: string; deleted?: boolean } | null;
+    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    const out = { customerId: input.customerId, status: res.status, deleted: data?.deleted === true };
+    const redacted = redactSecrets(JSON.stringify(out), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
+    return { ok: res.ok, output: out, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
+  } catch (e) {
+    return structuredError("stripe", "STRIPE_ERROR", (e as Error).message, {}, Date.now() - start);
+  }
+}
+
+// ---- GITHUB: bounded administrative READS ----
+// "Administrative actions" is deliberately restricted to a documented allowlist
+// of NON-MUTATING queries. Anything else is refused with the supported list —
+// a broad, mutating admin surface would be an unbounded privilege grant.
+const GITHUB_ADMIN_ACTIONS: Record<string, (repo: string) => string> = {
+  "list-collaborators": (repo) => `/repos/${repo}/collaborators`,
+  "list-webhooks": (repo) => `/repos/${repo}/hooks`,
+  "list-deploy-keys": (repo) => `/repos/${repo}/keys`,
+  "get-branch-protection": (repo) => `/repos/${repo}/branches/main/protection`,
+  "list-teams": (repo) => `/repos/${repo}/teams`,
+  "get-repo-settings": (repo) => `/repos/${repo}`,
+};
+
+export async function githubAdmin(input: { repo: string; action: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    const build = GITHUB_ADMIN_ACTIONS[input.action];
+    if (!build) {
+      return structuredError("github", "UNSUPPORTED_ACTION",
+        `unsupported admin action '${input.action}'`,
+        { supportedActions: Object.keys(GITHUB_ADMIN_ACTIONS) }, Date.now() - start);
+    }
+    const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
+    if (!cred) return structuredError("github", "CREDENTIAL_REQUIRED", "No GitHub credential in vault — store a token first", {}, Date.now() - start);
+    const { status, data } = await githubRequest("GET", build(input.repo), cred.raw);
+    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    if (status >= 400) throw new Error(`GitHub API ${status}`);
+    const redacted = redactSecrets(JSON.stringify({ repo: input.repo, action: input.action, status }), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_GITHUB}}" }]);
+    return { ok: true, output: { repo: input.repo, action: input.action, status, data }, redactedOutput: redacted, adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
+  } catch (e) {
+    return structuredError("github", "GITHUB_ERROR", (e as Error).message, {}, Date.now() - start);
+  }
+}
+
+// ---- SHELL: allowlisted, non-mutating command reads ----
+// NOT a general shell. Only exact binary+subcommand pairs on this allowlist run,
+// via execFile with an ARGV ARRAY (no shell, so no metacharacter injection),
+// with cwd pinned inside the workspace sandbox, a hard timeout, and a capped
+// output buffer. Arbitrary execution (shell.exec) still requires real container
+// isolation and remains unavailable — see SANDBOX_REQUIRED.
+const SHELL_READ_ALLOWLIST: Record<string, string[][]> = {
+  git: [["status", "--short"], ["log", "--oneline", "-10"], ["branch", "--show-current"], ["diff", "--stat"], ["rev-parse", "HEAD"]],
+  node: [["--version"]],
+  npm: [["--version"]],
+  bun: [["--version"]],
+};
+const SHELL_TIMEOUT_MS = 10_000;
+const SHELL_MAX_OUTPUT = 64 * 1024;
+
+export async function shellRead(input: { command: string }): Promise<ExecResult> {
+  const start = Date.now();
+  try {
+    if (typeof input.command !== "string" || !input.command.trim()) {
+      return structuredError("shell", "VALIDATION", "command is required", {}, Date.now() - start);
+    }
+    // Parse into plain tokens. Any shell metacharacter is rejected outright —
+    // we never hand this to a shell, and their presence signals injection intent.
+    if (/[;&|`$(){}<>\\'"\n\r]/.test(input.command)) {
+      return structuredError("shell", "COMMAND_REJECTED", "shell metacharacters are not permitted", {}, Date.now() - start);
+    }
+    const tokens = input.command.trim().split(/\s+/);
+    const bin = tokens[0];
+    const args = tokens.slice(1);
+    const allowedArgSets = SHELL_READ_ALLOWLIST[bin];
+    if (!allowedArgSets) {
+      return structuredError("shell", "COMMAND_NOT_ALLOWED", `'${bin}' is not on the read-only allowlist`,
+        { allowedCommands: Object.keys(SHELL_READ_ALLOWLIST) }, Date.now() - start);
+    }
+    const matched = allowedArgSets.some((set) => set.length === args.length && set.every((a, i) => a === args[i]));
+    if (!matched) {
+      return structuredError("shell", "COMMAND_NOT_ALLOWED", `arguments not allowed for '${bin}'`,
+        { allowedInvocations: allowedArgSets.map((s) => [bin, ...s].join(" ")) }, Date.now() - start);
+    }
+
+    const cwd = await ensureWorkspace(); // pinned inside .workspace/
+    const { execFile } = await import("child_process");
+    const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
+      execFile(bin, args, { cwd, timeout: SHELL_TIMEOUT_MS, maxBuffer: SHELL_MAX_OUTPUT, shell: false, windowsHide: true },
+        (err, stdout, stderr) => resolve({
+          code: err && typeof (err as { code?: number }).code === "number" ? (err as { code?: number }).code! : err ? 1 : 0,
+          stdout: String(stdout).slice(0, SHELL_MAX_OUTPUT),
+          stderr: String(stderr).slice(0, 2000),
+        }));
+    });
+    const out = { command: `${bin} ${args.join(" ")}`.trim(), exitCode: result.code, stdout: result.stdout, stderr: result.stderr };
+    return { ok: result.code === 0, output: out, redactedOutput: JSON.stringify({ command: out.command, exitCode: out.exitCode, bytes: out.stdout.length }), adapter: "shell", durationMs: Date.now() - start };
+  } catch (e) {
+    return structuredError("shell", "SHELL_ERROR", (e as Error).message, {}, Date.now() - start);
+  }
+}
+
 // ---- Dispatcher ----
 
 /**
@@ -520,10 +638,11 @@ export async function stripeRefund(input: { chargeId: string; amount?: number },
  */
 export const IMPLEMENTED_TOOLS: ReadonlySet<string> = new Set([
   "fs.read", "fs.write", "fs.list", "fs.delete",
-  "github.read", "github.branch.create", "github.commit", "github.pr.create", "github.pr.merge", "github.secret.access",
+  "github.read", "github.branch.create", "github.commit", "github.pr.create", "github.pr.merge", "github.secret.access", "github.admin",
   "db.read", "db.write", "db.schema.inspect",
   "network.fetch", "network.webhook",
-  "stripe.read", "stripe.subscription", "stripe.refund",
+  "shell.read",
+  "stripe.read", "stripe.subscription", "stripe.refund", "stripe.customer.delete",
   // Real adapter backed by src/lib/ai/provider.ts (OpenAI/Anthropic/Gemini).
   // Returns PROVIDER_NOT_CONFIGURED when no API key is set — that is a runtime
   // credential state, not a missing implementation, so it belongs here.
@@ -560,6 +679,11 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "stripe.read": return stripeRead(input as { resource: string; id?: string }, opts);
     case "stripe.subscription": return stripeSubscription(input as { subscriptionId: string }, opts);
     case "stripe.refund": return stripeRefund(input as { chargeId: string; amount?: number }, opts);
+    case "stripe.customer.delete": return stripeCustomerDelete(input as { customerId: string }, opts);
+    // --- GitHub administrative reads (bounded allowlist) ---
+    case "github.admin": return githubAdmin(input as { repo: string; action: string }, opts);
+    // --- Shell (allowlisted, non-mutating reads only) ---
+    case "shell.read": return shellRead(input as { command: string });
     // --- ShadowPaste high-level tools ---
     case "shadowpaste.scan": return shadowpasteScan(input as { repo: string; token?: string }, opts);
     case "shadowpaste.protect": return shadowpasteProtect(input as { text: string; name?: string }, opts);
@@ -581,11 +705,11 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "ai.train":
       return structuredError("ai", "PROVIDER_NOT_CONFIGURED", "'ai.train' needs a training pipeline; none is configured (no client, no API key)", { tool: toolName });
 
-    // Arbitrary command execution requires a sandboxed executor that does not
-    // exist. Running raw shell would be an RCE surface, contrary to the product.
+    // Arbitrary command execution needs real container/cgroup isolation
+    // (memory, CPU and PID caps) which this runtime cannot provide. shell.read
+    // IS implemented above as a strictly allowlisted, non-mutating reader.
     case "shell.exec":
-    case "shell.read":
-      return structuredError("shell", "SANDBOX_REQUIRED", `'${toolName}' needs a sandboxed command executor, which is not available`, { tool: toolName });
+      return structuredError("shell", "SANDBOX_REQUIRED", "'shell.exec' needs container-level isolation (memory/CPU/PID limits) which is not available; use shell.read for allowlisted read-only commands", { tool: toolName });
 
     // Runtime schema migration needs a migration runner; not exposed as a tool.
     case "db.migrate":
@@ -600,10 +724,7 @@ export async function executeTool(toolName: string, input: Record<string, unknow
     case "stripe.charge":
       return structuredError(toolName.split(".")[0], "POLICY_DENIED", `'${toolName}' is permanently denied by global policy and has no adapter`, { tool: toolName });
 
-    // No concrete, safe operation is defined for these.
-    case "github.admin":
-    case "stripe.customer.delete":
-      return structuredError(toolName.split(".")[0], "UNSUPPORTED_OPERATION", `'${toolName}' has no concrete supported operation in this build`, { tool: toolName });
+    // (github.admin and stripe.customer.delete are implemented above.)
 
     // Truly unknown (unregistered) tool name.
     default:

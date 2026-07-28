@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-28T03:29:38.833Z",
-  "runTag": "ms43k7v3",
+  "timestamp": "2026-07-28T04:16:33.169Z",
+  "runTag": "ms458lmo",
   "spoofIps": {
-    "mcp": "203.0.113.29",
-    "auth": "198.51.100.29"
+    "mcp": "203.0.113.26",
+    "auth": "198.51.100.26"
   },
   "mcp": {
     "limit": 60,
@@ -38,7 +38,7 @@
       "id": "T2",
       "description": "Calls 61..65 return 429 (allowing bounded refill trickle)",
       "passed": true,
-      "detail": "2/5 returned 429; required >= 1 (burst 3173ms → up to 4 refilled token(s)). Statuses: [object Object]"
+      "detail": "2/5 returned 429; required >= 1 (burst 3154ms → up to 4 refilled token(s)). Statuses: [object Object]"
     },
     {
       "id": "T3",

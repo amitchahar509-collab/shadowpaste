@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-28T03:30:40.508Z",
+  "timestamp": "2026-07-28T04:17:28.521Z",
   "scan": {
     "validRepo": {
       "status": 200,
@@ -20,7 +20,7 @@
     "publicScan": {
       "status": 200,
       "ok": true,
-      "shareId": "share-550bcc0f",
+      "shareId": "share-271b45a4",
       "score": 100,
       "rateLimited": false
     }
@@ -46,13 +46,13 @@
       "id": "T3",
       "description": "Public scan returns ok:true + shareId, no DEMO_REPO",
       "passed": true,
-      "detail": "status=200, ok=true, shareId=share-550bcc0f, DEMO_REPO present=false"
+      "detail": "status=200, ok=true, shareId=share-271b45a4, DEMO_REPO present=false"
     },
     {
       "id": "T4",
       "description": "GET /api/public-scan?shareId returns the saved scan record",
       "passed": true,
-      "detail": "status=200, shareId=share-550bcc0f, score=100, DEMO_REPO present=false"
+      "detail": "status=200, shareId=share-271b45a4, score=100, DEMO_REPO present=false"
     }
   ],
   "summary": {

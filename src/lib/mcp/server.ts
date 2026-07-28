@@ -19,6 +19,25 @@ import { invokeTool } from "@/lib/gateway";
 import { createHash } from "crypto";
 
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
+
+// Protocol revisions this server speaks, newest first. The tools surface
+// (initialize / tools/list / tools/call / ping) is stable across all three; the
+// newer revisions differ in transport framing, which /api/mcp already supports
+// (Streamable HTTP + HTTP+SSE).
+export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
+
+/**
+ * MCP version negotiation. Per spec the server echoes the client's requested
+ * version when it supports it, otherwise it answers with a version it does
+ * support. A client that sends nothing gets the conservative baseline, which
+ * preserves behaviour for existing older clients.
+ */
+export function negotiateProtocolVersion(requested: unknown): string {
+  if (typeof requested !== "string" || !requested) return MCP_PROTOCOL_VERSION;
+  return (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(requested)
+    ? requested
+    : SUPPORTED_PROTOCOL_VERSIONS[0];
+}
 export const MCP_SERVER_NAME = "shadowpaste";
 export const MCP_SERVER_VERSION = "1.0.0";
 
@@ -176,7 +195,11 @@ export async function handleMcpRequest(req: JsonRpcRequest, agentId: string, org
         return {
           jsonrpc: "2.0", id: req.id,
           result: {
-            protocolVersion: MCP_PROTOCOL_VERSION,
+            // Echo the client's protocol version when we support it. Previously
+            // this was hardcoded, so a client speaking 2025-03-26 / 2025-06-18
+            // (Claude connectors, Cursor, ChatGPT) was always answered
+            // "2024-11-05" and had to downgrade — strict clients reject that.
+            protocolVersion: negotiateProtocolVersion(req.params?.protocolVersion),
             serverInfo: { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
             capabilities: { tools: { listChanged: false }, resources: {}, prompts: {}, logging: {} },
           },

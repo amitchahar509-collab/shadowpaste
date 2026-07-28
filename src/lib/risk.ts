@@ -43,6 +43,12 @@ const TOOL_RISK: Record<string, { score: number; level: RiskLevel }> = {
   // AI / External calls
   "ai.generate": { score: 20, level: "low" },
   "ai.train": { score: 70, level: "high" },
+  // ShadowPaste control-plane tools. Without these entries the engine fell
+  // through to the generic default (15), which contradicted the riskScore the
+  // registry advertises in tools/list annotations. Keep both in sync.
+  "shadowpaste.scan": { score: 10, level: "low" },
+  "shadowpaste.protect": { score: 5, level: "low" },
+  "shadowpaste.audit": { score: 5, level: "low" },
 }
 
 export function getToolBaseRisk(toolName: string): { score: number; level: RiskLevel } {

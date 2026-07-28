@@ -51,7 +51,11 @@ export async function GET() {
       uptime: process.uptime(),
       totalLatencyMs: totalLatency,
       checks,
-      version: "20.0.0",
+      // Keep in sync with package.json "version" and MCP_SERVER_VERSION.
+      // Previously reported "20.0.0" (an internal phase number) while the
+      // package and the MCP handshake both said 1.0.0 — public consumers of
+      // /api/health were reading a version that matched nothing.
+      version: "1.0.0",
       timestamp: new Date().toISOString(),
     },
     { status: allOk ? 200 : 503 }

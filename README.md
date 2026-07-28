@@ -18,8 +18,11 @@ secrets when you are ready to commit.
 # 1. Install dependencies (Bun ≥ 1.3, Node ≥ 20)
 bun install
 
-# 2. Set up the local database
+# 2. Set up the database (PostgreSQL is required — the Prisma provider is
+#    "postgresql", so DATABASE_URL must be a postgresql:// URL)
 cp .env.example .env
+docker compose up -d db     # …or point DATABASE_URL at any Postgres
+                            #    (Neon / Supabase / Render all work)
 bun run db:push
 
 # 3a. Use the CLI on any project
@@ -156,6 +159,31 @@ negatives on the bundled 1,000-file corpus (`bun run test:unit`).
 
 Full details and the deployment checklist: **[docs/SECURITY.md](docs/SECURITY.md)**.
 Reporting a vulnerability: **[SECURITY.md](SECURITY.md)**.
+
+## Configuration
+
+All configuration is via environment variables — see **[.env.example](.env.example)**
+for the annotated list. The ones that matter most:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | **yes** | PostgreSQL connection string (the only DB setting) |
+| `AUTH_PEPPER` | **yes in production** | Keys password hashes + session HMAC. Auth refuses to start in production without a unique value. |
+| `SHADOWPASTE_MASTER_KEY` / `_VAULT_SALT` | **yes in production** | Derive the AES-GCM-256 vault key. Losing them makes vaulted secrets unrecoverable. |
+| `NEXT_PUBLIC_APP_URL` | recommended | Public URL, used for redirects and the MCP config handed to clients |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` | optional | Enables the `ai.generate` MCP tool |
+| `NETWORK_ALLOWED_HOSTS` | optional | Extra hosts the network tools may reach (allowlist-only) |
+
+## Deployment
+
+Container-first: the repo ships a multi-stage **[Dockerfile](Dockerfile)**,
+**[render.yaml](render.yaml)** blueprint, **[vercel.json](vercel.json)** and a
+**[docker-compose.yml](docker-compose.yml)**. Step-by-step instructions, the full
+environment manifest, and the honest per-host caveats are in
+**[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+> Note: the AI-Safe Workspace features write to disk and shell out to `git`, so they
+> need a persistent container (Render/Railway/Fly), not a serverless runtime.
 
 ## Tech Stack
 
