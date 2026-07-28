@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getContext } from "@/lib/auth"
 import { scanGitHubRepo } from "@/lib/github-scanner"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/github/scan-real — REAL GitHub scan (delegates to shared scanner)
 // Requires authentication — anonymous users should use /api/public-scan (which doesn't auto-vault).
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const ctx = await getContext(req);
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required — use /api/public-scan for anonymous scans" }, { status: 401 });
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/github/scan-real"); return NextResponse.json({ error: "authentication required — use /api/public-scan for anonymous scans" }, { status: 401 }); }
 
   const { repo, token } = await req.json().catch(() => ({}));
   if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 });

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext } from "@/lib/auth"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/marketplace/[id]/install — install an MCP package (increments installs).
 // Authenticated only: prevents anonymous install-count inflation.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const authCtx = await getContext(req)
-  if (!authCtx || !authCtx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!authCtx || !authCtx.user) { await auditUnauthorized(req, "/api/marketplace/[id]/install"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const pkg = await db.mcpPackage.findUnique({ where: { id } })
   if (!pkg) return NextResponse.json({ error: "not found" }, { status: 404 })

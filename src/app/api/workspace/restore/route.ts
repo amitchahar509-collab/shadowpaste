@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/workspace/restore — restore real secrets back into the source project.
 //
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) {
-    return NextResponse.json({ error: "authentication required" }, { status: 401 })
+    { await auditUnauthorized(req, "/api/workspace/restore"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
   }
 
   const { workspacePath, sourcePath, secrets } = await req.json().catch(() => ({}))

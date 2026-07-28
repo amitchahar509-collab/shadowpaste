@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { checkUsageLimit } from "@/lib/billing"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/agents — list agents in the caller's org
 export async function GET(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
 // Authenticated only: writes org-scoped state.
 export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/agents"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
   const body = await req.json().catch(() => ({}))
   const { name, provider, description, trustScore, modelVersion, avatarColor } = body
   if (!name || !provider) return NextResponse.json({ error: "name and provider required" }, { status: 400 })

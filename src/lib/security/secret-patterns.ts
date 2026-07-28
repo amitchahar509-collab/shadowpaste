@@ -343,7 +343,13 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("youtube_api", "YouTube", "api", "\\bAIza[0-9A-Za-z_-]{35}\\b", "high", 0.85),
   P("vimeo", "Vimeo", "video", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("twilio_subaccount", "Twilio", "sms", "\\bSK[a-z0-9]{32}\\b", "high", 0.9),
-  P("messagebird", "MessageBird", "sms", "\\b[A-Za-z0-9_-]{25}\\b", "medium", 0.5),
+  // MessageBird access keys are 25 alphanumeric chars with NO distinctive prefix,
+  // so the old pattern was a bare `\b[A-Za-z0-9_-]{25}\b`. That matched any
+  // 25-character run — including the base64 chunks inside an OpenSSH PRIVATE KEY
+  // block (base64's `+` and `/` act as word boundaries), producing a flood of
+  // false "MessageBird" hits on every PEM file. Require the identifying key name,
+  // exactly as aws_secret_key does, and drop `_-` from the value charset.
+  P("messagebird", "MessageBird", "sms", "\\bmessagebird[_-]?(?:access[_-]?key|api[_-]?key|key|token)?['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9]{25}\\b", "medium", 0.9),
   P("vonage", "Vonage", "sms", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("plivo", "Plivo", "sms", "\\b[A-Za-z0-9_-]{40}\\b", "medium", 0.4),
   P("bandwidth", "Bandwidth", "sms", "\\b[A-Za-z0-9_-]{40}\\b", "medium", 0.4),

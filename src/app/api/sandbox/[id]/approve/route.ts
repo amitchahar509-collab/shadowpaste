@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext } from "@/lib/auth"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/sandbox/[id]/approve — approve a sandbox change (merge into "main").
 // Authenticated + tenant-scoped: this is the human gate that lets AI changes
@@ -8,7 +9,7 @@ import { getContext } from "@/lib/auth"
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const authCtx = await getContext(req)
-  if (!authCtx || !authCtx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!authCtx || !authCtx.user) { await auditUnauthorized(req, "/api/sandbox/[id]/approve"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const existing = await db.sandboxChange.findFirst({ where: { id, project: { orgId: authCtx.orgId } } })
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 })
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const authCtx = await getContext(req)
-  if (!authCtx || !authCtx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!authCtx || !authCtx.user) { await auditUnauthorized(req, "/api/sandbox/[id]/approve"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const res = await db.sandboxChange.deleteMany({ where: { id, project: { orgId: authCtx.orgId } } })
   if (res.count === 0) return NextResponse.json({ error: "not found" }, { status: 404 })

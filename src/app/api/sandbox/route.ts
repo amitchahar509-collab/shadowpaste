@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { initSandbox, getSandboxDiff, mergeSandbox, rejectSandbox, writeSandboxFile, type SandboxRepo } from "@/lib/git-sandbox"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // In-memory registry of active sandboxes (per project). Production would persist this.
 const activeSandboxes = new Map<string, SandboxRepo>()
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 // the server for a project, so the project must belong to the caller's org.
 export async function POST(req: Request) {
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/sandbox"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const body = await req.json().catch(() => ({}))
   const { projectId, action } = body

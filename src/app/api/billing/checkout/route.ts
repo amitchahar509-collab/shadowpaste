@@ -3,12 +3,13 @@ import { getContext } from "@/lib/auth"
 import { PLANS } from "@/lib/billing"
 import { db } from "@/lib/db"
 import { getAppUrl } from "@/lib/app-url"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/billing/checkout — create a Stripe Checkout session for a plan
 // Body: { plan: "PRO" | "TEAM" | "ENTERPRISE" }
 export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/billing/checkout"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const { plan } = await req.json().catch(() => ({}))
   const planConfig = PLANS[plan as keyof typeof PLANS]

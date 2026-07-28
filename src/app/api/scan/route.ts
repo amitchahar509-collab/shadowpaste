@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { scanGitHubRepo } from "@/lib/github-scanner"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/scan?projectId=... — fetch project + latest scan
 // Every query is org-scoped: without the orgId filter this listed and returned
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     )
   }
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/scan"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
   const body = await req.json().catch(() => ({}))
   const repo = body.repo || (body.repoUrl ? body.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : "")
   if (!repo) return NextResponse.json({ error: "repo required (owner/name)" }, { status: 400 })

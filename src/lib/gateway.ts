@@ -3,7 +3,7 @@
 // Replaces V18 simulateExecution with real adapters from src/lib/tools/adapters.
 
 import { db } from "@/lib/db";
-import { assessRisk } from "@/lib/risk";
+import { assessRisk, type RiskLevel } from "@/lib/risk";
 import { evaluatePolicy } from "@/lib/policy";
 import { executeTool, type ExecResult } from "@/lib/tools/adapters";
 import { redactSecrets } from "@/lib/security/vault";
@@ -66,6 +66,30 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
     executed = execResult.ok;
   }
 
+  // ---- Post-execution risk escalation -------------------------------------
+  // Some threats are only detectable INSIDE the adapter, after policy has already
+  // scored the call. An SSRF attempt is the clearest case: `network.fetch` scores
+  // 25/low on its tool identity, so a request aimed at 169.254.169.254 (cloud
+  // metadata), 127.0.0.1 or 10.0.0.0/8 was blocked correctly but recorded as a
+  // low-risk event — the audit trail disagreed with the defence that fired.
+  // Escalate the RECORDED score so telemetry matches reality.
+  const adapterCode = (execResult?.output as { code?: string } | undefined)?.code;
+  const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: string }> = {
+    SSRF_BLOCKED: { score: 95, level: "critical", reason: "SSRF attempt blocked — request targeted a private/loopback/metadata address or a non-allowlisted host" },
+    COMMAND_REJECTED: { score: 90, level: "critical", reason: "command injection attempt blocked — shell metacharacters in input" },
+    SQL_VALIDATION_FAILED: { score: 85, level: "critical", reason: "unsafe SQL blocked by the write validator" },
+  };
+  const escalation = adapterCode ? ESCALATIONS[adapterCode] : undefined;
+  const recordedScore = escalation ? escalation.score : risk.finalScore;
+  const recordedLevel: string = escalation ? escalation.level : risk.finalLevel;
+  const recordedReason = escalation ? `${escalation.reason} (policy: ${policy.reason})` : policy.reason;
+  // A blocked attack is never an "allowed" outcome in the audit trail.
+  const recordedDecision = escalation
+    ? "blocked"
+    : policy.decision === "allow_always" || policy.decision === "allow_once"
+      ? "allowed"
+      : policy.decision === "ask" ? "pending" : policy.decision;
+
   // Record audit (always). Input/output are REDACTED of any secrets.
   const redactedInput = redactSecrets(JSON.stringify(req.input), []);
   const redactedOutput = execResult ? execResult.redactedOutput : JSON.stringify({ status: "not_executed", decision: policy.decision });
@@ -75,9 +99,9 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
       agentId: req.agentId, sessionId: req.sessionId || null,
       toolName: req.toolName,
       input: redactedInput, output: redactedOutput,
-      riskScore: risk.finalScore, riskLevel: risk.finalLevel,
-      decision: policy.decision === "allow_always" || policy.decision === "allow_once" ? "allowed" : policy.decision === "ask" ? "pending" : policy.decision,
-      reason: policy.reason, duration: Date.now() - start,
+      riskScore: recordedScore, riskLevel: recordedLevel,
+      decision: recordedDecision,
+      reason: recordedReason, duration: Date.now() - start,
       capabilityToken: execResult?.capabilityNonce,
       executed,
     },
@@ -98,7 +122,11 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
     data: {
       orgId: agent.orgId, actorType: "agent", actorId: req.agentId,
       action: "tool.invoke", target: req.toolName,
-      metadata: JSON.stringify({ decision: policy.decision, riskScore: risk.finalScore, executed }),
+      metadata: JSON.stringify({
+        decision: recordedDecision, riskScore: recordedScore, riskLevel: recordedLevel,
+        executed, policy: policy.policy,
+        ...(escalation ? { escalatedFrom: risk.finalScore, escalationCode: adapterCode } : {}),
+      }),
     },
   });
 
@@ -113,8 +141,8 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
   });
 
   return {
-    decision: policy.decision, reason: policy.reason, policy: policy.policy,
-    riskScore: risk.finalScore, riskLevel: risk.finalLevel, auditRequired: policy.auditRequired,
+    decision: escalation ? "blocked" : policy.decision, reason: recordedReason, policy: policy.policy,
+    riskScore: recordedScore, riskLevel: recordedLevel, auditRequired: policy.auditRequired || !!escalation,
     toolCallId: toolCall.id, output: execResult?.output ?? null, executed,
     adapter: execResult?.adapter, factors: risk.factors, inputFlags: risk.inputFlags,
     durationMs: Date.now() - start,

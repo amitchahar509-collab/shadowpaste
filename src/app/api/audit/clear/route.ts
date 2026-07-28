@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getContext } from "@/lib/auth";
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/audit/clear — clear seeded/demo attack-test history, keep only real tool calls.
 // Authenticated only: this deletes rows, and was previously anonymous.
 export async function POST(req: NextRequest) {
   const ctx = await getContext(req);
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 });
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/audit/clear"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) };
 
   const { keepOnlyReal } = await req.json().catch(() => ({ keepOnlyReal: true }));
   if (keepOnlyReal) {

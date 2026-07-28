@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const authCtx = await getContext(req)
-  if (!authCtx || !authCtx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!authCtx || !authCtx.user) { await auditUnauthorized(req, "/api/agents/[id]"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const agent = await db.agent.findFirst({ where: { id, orgId: authCtx.orgId } })
   if (!agent) return NextResponse.json({ error: "not found" }, { status: 404 })

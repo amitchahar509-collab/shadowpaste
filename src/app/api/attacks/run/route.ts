@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext } from "@/lib/auth"
 import { runAttack, ATTACK_SCENARIOS } from "@/lib/attacks"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/attacks/run — { scenarioId, agentId }
 // Authenticated + tenant-scoped: runs a red-team scenario against one of the
 // caller's own agents.
 export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/attacks/run"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const body = await req.json().catch(() => ({}))
   const scenario = ATTACK_SCENARIOS.find((s) => s.id === body.scenarioId)

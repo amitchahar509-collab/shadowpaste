@@ -8,6 +8,7 @@ import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 export const runtime = "nodejs"
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     )
   }
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/workspace/clone"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const { repoUrl, projectName } = await req.json().catch(() => ({}))
   if (!repoUrl || typeof repoUrl !== "string") {

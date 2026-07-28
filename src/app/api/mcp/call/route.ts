@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { getContext } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/mcp/call — invoke a tool through the zero-trust gateway (REAL execution)
 export async function POST(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   // Authenticated only: the gateway executes real side effects (filesystem
   // writes, GitHub mutations) on behalf of the caller's org.
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/mcp/call"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const body = await req.json().catch(() => ({}))
   const { agentId, sessionId, toolName, input, _tokenOverride } = body

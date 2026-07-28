@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/auth";
 import { deleteSecret } from "@/lib/security/vault";
 import { db } from "@/lib/db";
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // DELETE /api/vault/[id] — remove a vaulted secret.
 // Authenticated + tenant-scoped: previously any caller could delete any org's
@@ -9,7 +10,7 @@ import { db } from "@/lib/db";
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const authCtx = await getContext(req);
-  if (!authCtx || !authCtx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 });
+  if (!authCtx || !authCtx.user) { await auditUnauthorized(req, "/api/vault/[id]"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) };
 
   const deleted = await deleteSecret(id, authCtx.orgId);
   if (!deleted) return NextResponse.json({ error: "not found" }, { status: 404 });

@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveMcpAgent, handleMcpRequest, MCP_SERVER_NAME, MCP_SERVER_VERSION, MCP_PROTOCOL_VERSION, type JsonRpcRequest } from "@/lib/mcp/server";
 import { allowedOrigins } from "@/lib/app-url";
 import { validateAccessToken } from "@/lib/oauth";
+import { auditRequest } from "@/lib/audit-request";
 
 export const runtime = "nodejs";
 
@@ -94,12 +95,22 @@ export async function POST(req: NextRequest) {
       const grant = await validateAccessToken(token);
       if (grant) oauthOrgId = grant.orgId;
       else if (process.env.REQUIRE_OAUTH === "true") {
+        // A presented-but-invalid token is a stronger signal than no token at
+        // all: it means someone is replaying an expired/revoked/forged bearer.
+        await auditRequest(req, {
+          action: "mcp.token_invalid", target: "/api/mcp",
+          decision: "BLOCKED", riskScore: 75, detail: { reason: "invalid or expired OAuth access token" },
+        });
         return NextResponse.json(
           { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: a valid OAuth access token is required" } },
           { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste", error="invalid_token"` } }
         );
       }
     } else if (process.env.REQUIRE_OAUTH === "true") {
+      await auditRequest(req, {
+        action: "mcp.unauthenticated", target: "/api/mcp",
+        decision: "BLOCKED", riskScore: 60, detail: { reason: "no bearer token presented" },
+      });
       return NextResponse.json(
         { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: authorization required" } },
         { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste"` } }

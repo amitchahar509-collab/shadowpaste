@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword, createSession, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { auditRequest } from "@/lib/audit-request"
 
 export async function POST(req: NextRequest) {
   // Rate limit: 10 auth attempts per 15min (brute-force protection)
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!email || !password) return NextResponse.json({ error: "email and password required" }, { status: 400 });
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
+    { await auditRequest(req, { action: "auth.login_failed", target: "/api/auth/login", decision: "BLOCKED", riskScore: 70, detail: { reason: "invalid credentials" } }); return NextResponse.json({ error: "invalid credentials" }, { status: 401 }); }
   }
   const { token, expiresAt } = await createSession(user.id);
   const membership = await db.membership.findFirst({ where: { userId: user.id }, include: { org: true } });

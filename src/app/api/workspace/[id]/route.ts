@@ -5,6 +5,7 @@ import { listWorkspaceFiles, WORKSPACE_ROOT } from "@/lib/workspace"
 import { getContext } from "@/lib/auth"
 import { isWithin } from "@/lib/security/paths"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // Both handlers take a caller-supplied workspacePath that reaches the
 // filesystem. It is confined to WORKSPACE_ROOT (.workspaces/) — generated
@@ -25,7 +26,7 @@ async function resolveWorkspacePath(raw: string | null): Promise<string | null> 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   await ctx.params
   const auth = await getContext(req)
-  if (!auth || !auth.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!auth || !auth.user) { await auditUnauthorized(req, "/api/workspace/[id]"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const { searchParams } = new URL(req.url)
   const resolved = await resolveWorkspacePath(searchParams.get("workspacePath"))
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   await ctx.params
   const auth = await getContext(req)
-  if (!auth || !auth.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!auth || !auth.user) { await auditUnauthorized(req, "/api/workspace/[id]"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const { searchParams } = new URL(req.url)
   const resolved = await resolveWorkspacePath(searchParams.get("workspacePath"))

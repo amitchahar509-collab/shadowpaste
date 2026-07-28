@@ -4,6 +4,7 @@ import { storeSecret, listSecrets } from "@/lib/security/vault";
 import { db } from "@/lib/db";
 import { checkUsageLimit } from "@/lib/billing";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/vault — list vaulted secrets (masked only, never raw)
 // Zero-trust: even the masked list + metadata (names, providers, fingerprints)
@@ -11,7 +12,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 // the caller's org.
 export async function GET(req: NextRequest) {
   const ctx = await getContext(req);
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 });
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/vault"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) };
   const secrets = await listSecrets(ctx.orgId);
   return NextResponse.json({ secrets, count: secrets.length });
 }
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const ctx = await getContext(req);
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required to store secrets" }, { status: 401 });
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/vault"); return NextResponse.json({ error: "authentication required to store secrets" }, { status: 401 }); }
 
   let body: { raw?: string; name?: string; contextHint?: string; projectId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid JSON body" }, { status: 400 }); }

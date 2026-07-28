@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/permissions?agentId=... — list permission decisions, tenant-scoped.
 export async function GET(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 // so it must not be reachable anonymously or for another org's agent.
 export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/permissions"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   const body = await req.json().catch(() => ({}))
   const { agentId, toolName, scope, decision, riskLevel, grantedBy } = body

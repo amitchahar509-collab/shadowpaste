@@ -9,6 +9,7 @@ import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 // This route uses node:fs / node:zlib and reads a multipart body — force the
 // Node runtime (not edge).
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) {
-    return NextResponse.json({ error: "authentication required" }, { status: 401 })
+    { await auditUnauthorized(req, "/api/workspace/import"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
   }
 
   let form: FormData

@@ -8,6 +8,7 @@ import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
+import { auditUnauthorized } from "@/lib/audit-request"
 
 export const runtime = "nodejs"
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     )
   }
   const ctx = await getContext(req)
-  if (!ctx || !ctx.user) return NextResponse.json({ error: "authentication required" }, { status: 401 })
+  if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/workspace/upload"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
   let form: FormData
   try { form = await req.formData() } catch { return NextResponse.json({ error: "expected a multipart/form-data upload" }, { status: 400 }) }
