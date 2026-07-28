@@ -6,7 +6,13 @@
 //   1. NEXT_PUBLIC_APP_URL  — explicit canonical URL (set in the host dashboard)
 //   2. the request's forwarded proto + host  — works behind Vercel/Render proxies
 //   3. the request Origin header  — last resort for same-origin browser calls
-//   4. http://localhost:3000  — local-dev fallback only
+//   4. DEFAULT_PUBLIC_APP_URL — the known production deployment, used when no
+//      request context exists (build-time/CLI callers) so OAuth discovery and
+//      dynamic client registration never advertise a localhost issuer.
+//
+// The forwarded host deliberately outranks the default: a Render deployment must
+// advertise its OWN origin, not the Vercel one, or clients would be redirected
+// to the wrong host after authorization.
 //
 // CORS is OPT-IN: cross-origin browser callers (the Chrome extension, a hosted
 // dashboard on a different domain) are only allowed when their origin appears in
@@ -14,6 +20,19 @@
 // (Claude Desktop, curl) are unaffected — CORS is a browser mechanism.
 
 const LOCAL_FALLBACK = "http://localhost:3000";
+
+/**
+ * Last-resort public URL when nothing else can be derived. Override with
+ * DEFAULT_PUBLIC_APP_URL if you deploy somewhere else; it is only consulted
+ * when there is no explicit env var AND no request to read a host from.
+ */
+const DEFAULT_PUBLIC_APP_URL =
+  process.env.DEFAULT_PUBLIC_APP_URL?.trim() || "https://shadowpaste-xi.vercel.app";
+
+/** True for hosts that are not a reachable public origin. */
+function isLocalHost(host: string): boolean {
+  return host.startsWith("localhost") || host.startsWith("127.0.0.1") || host.startsWith("[::1]");
+}
 
 /** Resolve the public base URL for building absolute links (redirects, configs). */
 export function getAppUrl(req?: Request): string {
@@ -24,15 +43,17 @@ export function getAppUrl(req?: Request): string {
     const h = req.headers;
     const host = h.get("x-forwarded-host") || h.get("host");
     if (host) {
-      const proto =
-        h.get("x-forwarded-proto") ||
-        (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+      const proto = h.get("x-forwarded-proto") || (isLocalHost(host) ? "http" : "https");
       return `${proto}://${host}`;
     }
     const origin = h.get("origin");
     if (origin) return origin.replace(/\/+$/, "");
+    // A request with no Host/Origin header at all can't identify its own origin.
+    return DEFAULT_PUBLIC_APP_URL.replace(/\/+$/, "");
   }
-  return LOCAL_FALLBACK;
+  // No request context (build step, CLI, scheduled job): prefer the known public
+  // deployment over localhost so generated OAuth metadata is externally valid.
+  return (DEFAULT_PUBLIC_APP_URL || LOCAL_FALLBACK).replace(/\/+$/, "");
 }
 
 /** Origins explicitly permitted for cross-origin browser requests. */

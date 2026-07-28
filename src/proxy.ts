@@ -1,9 +1,13 @@
-// ShadowPaste V20 — Security headers middleware
+// ShadowPaste V20 — Security headers proxy
 // Adds security headers to all responses. Runs before route handlers.
+//
+// Uses Next.js 16's `proxy` file convention. The previous `middleware.ts` /
+// `export function middleware` naming is deprecated and logged a warning on
+// every boot; the behaviour and the `config.matcher` below are unchanged.
 
 import { NextRequest, NextResponse } from "next/server"
 
-export function middleware(_req: NextRequest) {
+export function proxy(_req: NextRequest) {
   const res = NextResponse.next()
   // Security headers
   res.headers.set("X-Content-Type-Options", "nosniff")
