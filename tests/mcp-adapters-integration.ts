@@ -79,8 +79,10 @@ async function agentId(): Promise<string> {
   // distinct code path — verified structurally via tools/list.
   const listRes = await fetch(M, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "tools/list" }) })
   const list = await listRes.json() as { result: { tools: Array<{ name: string; annotations: { implemented: boolean } }> } }
+  // 17 = 16 real adapters + ai.generate (real provider abstraction; returns
+  // PROVIDER_NOT_CONFIGURED at runtime when no API key is present).
   const impl = list.result.tools.filter((t) => t.annotations.implemented).length
-  check("tools/list reports 16 of 28 registered tools implemented", impl === 16, `${impl} implemented`)
+  check("tools/list reports 17 of 28 registered tools implemented", impl === 17, `${impl} implemented`)
   check("tools/list still has all 28 tools", list.result.tools.length === 28)
 
   console.log(`\nRESULT ${pass} passed, ${fail} failed`)

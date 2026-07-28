@@ -80,7 +80,10 @@ jobs:
       - name: Generate Prisma client
         run: bunx prisma generate
         env:
-          DATABASE_URL: "file:./db/custom.db"
+          # prisma/schema.prisma declares provider = "postgresql", so the URL must
+          # use the postgresql:// protocol or `prisma generate` aborts with P1012.
+          # No live connection is made by `generate` — a protocol-valid URL is enough.
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/shadowpaste"
 
       - name: Run typecheck (app + node)
         run: bun run typecheck
@@ -92,7 +95,29 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true  # tests are environment-dependent (sandbox SQLite etc.)
+    continue-on-error: true  # tests are environment-dependent (external creds etc.)
+
+    # `prisma db push` and the app both need a REAL PostgreSQL server (the schema
+    # declares provider = "postgresql"). A service container gives CI an ephemeral
+    # one on localhost:5432 — no external database is required.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shadowpaste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/shadowpaste"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -117,13 +142,9 @@ jobs:
 
       - name: Generate Prisma client
         run: bunx prisma generate
-        env:
-          DATABASE_URL: "file:./db/custom.db"
 
-      - name: Push SQLite schema
-        run: bunx prisma db push --skip-generate
-        env:
-          DATABASE_URL: "file:./db/custom.db"
+      - name: Push schema to PostgreSQL service
+        run: bunx prisma db push --skip-generate --accept-data-loss
 
       - name: Start dev server (background)
         run: |
@@ -208,14 +229,16 @@ jobs:
       - name: Generate Prisma client
         run: bunx prisma generate
         env:
-          DATABASE_URL: "file:./db/custom.db"
+          # Protocol-valid postgresql:// URL — `generate` and `next build` do not
+          # open a connection, but Prisma rejects a `file:` URL for this provider.
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/shadowpaste"
 
       # next.config.ts enforces type checking during the build
       # (typescript.ignoreBuildErrors: false), so a type error fails this job.
       - name: Next.js production build
         run: bun run build
         env:
-          DATABASE_URL: "file:./db/custom.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/shadowpaste"
           AUTH_PEPPER: "ci-build-pepper"
           NEXT_TELEMETRY_DISABLED: "1"
 

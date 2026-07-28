@@ -32,13 +32,21 @@ const RUN_TAG = Date.now().toString(36);
 const SPOOF_IP_MCP = `203.0.113.${10 + (parseInt(RUN_TAG.slice(-2), 36) % 100)}`;
 const SPOOF_IP_AUTH = `198.51.100.${10 + (parseInt(RUN_TAG.slice(-2), 36) % 100)}`;
 
+// Readiness probe. A single 2s timeout produced false "server not running"
+// skips: /api/dashboard issues many queries and measured 4-6s against a remote
+// (Neon) database, and Next dev compiles the route on first hit. We retry with a
+// realistic per-attempt budget so the suite EXECUTES instead of silently skipping.
 async function checkServer(): Promise<boolean> {
-  try {
-    const res = await fetch(`${BASE}/api/dashboard`, { signal: AbortSignal.timeout(2000) });
-    return res.ok || res.status < 500;
-  } catch {
-    return false;
+  const ATTEMPTS = 10;
+  const PER_ATTEMPT_MS = 15_000;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(`${BASE}/api/dashboard`, { signal: AbortSignal.timeout(PER_ATTEMPT_MS) });
+      if (res.ok || res.status < 500) return true;
+    } catch { /* server still warming — retry below */ }
+    if (attempt < ATTEMPTS) await new Promise((r) => setTimeout(r, 1000));
   }
+  return false;
 }
 
 interface ApiResult {

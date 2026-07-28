@@ -524,6 +524,10 @@ export const IMPLEMENTED_TOOLS: ReadonlySet<string> = new Set([
   "db.read", "db.write", "db.schema.inspect",
   "network.fetch", "network.webhook",
   "stripe.read", "stripe.subscription", "stripe.refund",
+  // Real adapter backed by src/lib/ai/provider.ts (OpenAI/Anthropic/Gemini).
+  // Returns PROVIDER_NOT_CONFIGURED when no API key is set — that is a runtime
+  // credential state, not a missing implementation, so it belongs here.
+  "ai.generate",
   "shadowpaste.scan", "shadowpaste.protect", "shadowpaste.audit",
 ]);
 
