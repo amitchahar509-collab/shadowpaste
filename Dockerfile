@@ -64,6 +64,12 @@ COPY --from=builder --chown=sp:sp /app/public ./public
 COPY --from=builder --chown=sp:sp /app/prisma ./prisma
 COPY --from=builder --chown=sp:sp /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=sp:sp /app/node_modules/@prisma ./node_modules/@prisma
+# The Prisma CLI itself — required by the deploy-time `prisma db push` that
+# applies the schema before the new instance goes live. Without it the command
+# would try to fetch the CLI from npm at deploy time as a non-root user, which
+# is slow and fails on a locked-down or offline runner, leaving the app pointed
+# at an unmigrated database.
+COPY --from=builder --chown=sp:sp /app/node_modules/prisma ./node_modules/prisma
 
 USER sp
 
