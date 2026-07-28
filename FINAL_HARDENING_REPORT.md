@@ -9,6 +9,57 @@ AI-client compatibility, deployment prep, security re-verification, release chec
 
 ---
 
+## FINAL PASS ADDENDUM — real OAuth 2.1 + error sanitization
+
+Two further defects were closed after the sections below were written. Both were
+the top-listed blockers in every earlier report.
+
+### BUG F — **Critical** — OAuth endpoints were non-authenticating stubs
+`/oauth/authorize` auto-approved *every* request and `/oauth/token` returned the
+fixed string `"shadowpaste-access-token"` to any caller. Anyone who pointed a
+client at the server obtained a working token; the "authorization" step verified
+nothing.
+
+**Fixed** with a real OAuth 2.1 authorization server built on ShadowPaste's own
+user accounts (no external IdP required), backed by three new tables
+(`OAuthClient`, `OAuthCode`, `OAuthToken`):
+
+- authorization-code grant with **mandatory PKCE, S256 only** (`plain` rejected)
+- **exact-match** `redirect_uri` (no prefix/wildcard) — closes the open-redirect
+  and code-theft vector; errors *before* the redirect_uri is trusted return 400
+  rather than redirecting (RFC 6749 §4.1.2.1)
+- `/authorize` now demands a **genuine authenticated session**; an anonymous
+  caller is sent to sign in and receives **no code**
+- single-use, 60-second authorization codes; replay revokes issued tokens
+- **rotating refresh tokens with family revocation on replay** (RFC 9700)
+- RFC 7009 revocation endpoint; RFC 6749 error envelopes
+- client secrets **and every token stored as SHA-256 hashes only**
+- implicit and resource-owner-password grants not offered (removed in OAuth 2.1)
+- `REQUIRE_OAUTH=true` makes a valid token mandatory on `/api/mcp`, answering
+  `401` with a `WWW-Authenticate` challenge
+
+**Evidence:** `tests/oauth-flow.ts` — **18/18**, including the two assertions that
+directly disprove the old behaviour: *"UNAUTHENTICATED user gets NO authorization
+code"* and *"NO hardcoded token is ever returned"*.
+
+### BUG G — **Medium** — API routes leaked internals in 500 responses
+Ten routes returned raw `(e as Error).message`. Node `fs` errors embed absolute
+host paths (`ENOENT ... 'C:\Users\...'`) and Prisma errors quote schema internals
+— information disclosure that helps an attacker map the host.
+
+**Fixed** with `internalError()` (`src/lib/api-error.ts`): the true error is
+logged server-side, the caller gets a generic message plus a correlation id.
+**Verified: 0 raw-message 500s remain.**
+
+### Post-change regression check
+A batch run showed `attack-stolen-token` at 4/6, which I investigated rather than
+dismissed. **Root cause: test isolation, not a code regression** — the suites share
+the 60/min MCP rate-limit bucket, so running five back-to-back exhausts it and two
+calls receive 429 instead of the expected deny. Standalone re-run: **6/6 PASS**.
+Recorded as TECHNICAL_DEBT (suites must be spaced, or made 429-tolerant).
+
+---
+
 ## 0. Correction to the previous pass (important)
 
 The previous report claimed the CI failure was caused solely by the SQLite
