@@ -34,10 +34,42 @@ function isLocalHost(host: string): boolean {
   return host.startsWith("localhost") || host.startsWith("127.0.0.1") || host.startsWith("[::1]");
 }
 
+/**
+ * Normalize a configured URL into a valid absolute origin, or null if it cannot
+ * be salvaged.
+ *
+ * A value copied out of a hosting dashboard often arrives malformed — carrying a
+ * label and a newline ("Deployment\nmyapp.vercel.app") or missing the scheme.
+ * A bad value must NOT be trusted verbatim: it would be published as the OAuth
+ * `issuer` and as every endpoint URL in the discovery document, breaking every
+ * client that reads it. We recover what we can and otherwise fall through to the
+ * next resolution step.
+ */
+export function normalizeAppUrl(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  for (const line of raw.split(/[\r\n]+/)) {
+    const candidate = line.trim();
+    if (!candidate || /\s/.test(candidate)) continue; // labels / prose: skip
+    const withScheme = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+    try {
+      const u = new URL(withScheme);
+      // Require a real hostname: either a dotted public name or a loopback host.
+      if (!u.hostname.includes(".") && !isLocalHost(u.hostname)) continue;
+      return `${u.protocol}//${u.host}`.replace(/\/+$/, "");
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** Resolve the public base URL for building absolute links (redirects, configs). */
 export function getAppUrl(req?: Request): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.APP_URL?.trim();
-  if (explicit) return explicit.replace(/\/+$/, "");
+  // Validate rather than trust: a malformed dashboard value must not become the
+  // published OAuth issuer. An unusable value falls through to the request host.
+  const explicit =
+    normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL) || normalizeAppUrl(process.env.APP_URL);
+  if (explicit) return explicit;
 
   if (req) {
     const h = req.headers;

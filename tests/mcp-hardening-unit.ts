@@ -60,6 +60,24 @@ check("refusal lists the supported actions", Array.isArray((badAction.output as 
 const goodAction = await githubAdmin({ repo: "a/b", action: "list-collaborators" }, { sessionId: "t" })
 check("supported action passes allowlist (reaches credential step)", (goodAction.output as { code?: string }).code !== "UNSUPPORTED_ACTION", String((goodAction.output as { code?: string }).code))
 
+console.log("\n=== app URL normalization (regression: malformed dashboard value) ===")
+// Production served issuer "Deployment\nshadowpaste-...vercel.app" — a pasted
+// dashboard label plus a scheme-less host — because the env value was trusted
+// verbatim. That poisoned the OAuth issuer and every discovery endpoint.
+const { normalizeAppUrl } = await import("../src/lib/app-url")
+check("recovers URL from label + newline + no scheme",
+  normalizeAppUrl("Deployment\nshadowpaste-rj2yham8x-shadow-94a2.vercel.app") === "https://shadowpaste-rj2yham8x-shadow-94a2.vercel.app",
+  String(normalizeAppUrl("Deployment\nshadowpaste-rj2yham8x-shadow-94a2.vercel.app")))
+check("adds https:// to a bare host", normalizeAppUrl("shadowpaste-xi.vercel.app") === "https://shadowpaste-xi.vercel.app")
+check("strips trailing slashes", normalizeAppUrl("https://a.example.com///") === "https://a.example.com")
+check("keeps localhost scheme for dev", normalizeAppUrl("http://localhost:3000") === "http://localhost:3000")
+check("rejects unsalvageable prose", normalizeAppUrl("Deployment Ready") === null)
+check("rejects empty / undefined", normalizeAppUrl("") === null && normalizeAppUrl(undefined) === null)
+check("never returns a value containing whitespace",
+  ["Deployment\nx.example.com", " https://y.example.com ", "a b c"].every((v) => {
+    const r = normalizeAppUrl(v); return r === null || !/\s/.test(r)
+  }))
+
 console.log("\n=== registry <-> risk engine alignment (no metadata drift) ===")
 let drift = 0
 for (const t of TOOL_REGISTRY) {
