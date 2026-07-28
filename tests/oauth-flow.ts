@@ -96,10 +96,17 @@ async function ready() {
     method: "POST", headers: { "content-type": "application/json", authorization: "Bearer shadowpaste-access-token" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
   })
-  const mcpBody = await mcpBad.json() as { result?: { tools?: unknown[] } }
-  // Default (local-dev) posture still serves tools; the point is the old fixed
-  // stub token carries no special power any more.
-  check("old stub token grants no OAuth session", Array.isArray(mcpBody.result?.tools))
+  const mcpBody = await mcpBad.json() as { result?: { tools?: unknown[] }; error?: { message?: string } }
+  // The assertion must hold under BOTH postures, so it checks the invariant
+  // rather than one deployment's configuration:
+  //   REQUIRE_OAUTH=true  (production) -> 401 invalid_token
+  //   REQUIRE_OAUTH unset (local dev)  -> request proceeds as the local-dev agent
+  // Either way the old hardcoded stub string must confer no OAuth session.
+  const rejected = mcpBad.status === 401 && /invalid_token/.test(mcpBody.error?.message || "")
+  const localDevServed = mcpBad.status === 200 && Array.isArray(mcpBody.result?.tools)
+  check("old stub token grants no OAuth session",
+    rejected || localDevServed,
+    rejected ? "REQUIRE_OAUTH=true -> 401 invalid_token" : `local-dev posture, http ${mcpBad.status}`)
 
   console.log(`\nRESULT ${pass} passed, ${fail} failed`)
   process.exit(fail === 0 ? 0 : 1)
