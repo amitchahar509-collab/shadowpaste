@@ -9,10 +9,30 @@ AI-client compatibility, deployment prep, security re-verification, release chec
 
 ---
 
-## 1. Bugs discovered and fixed this pass — 5
+## 0. Correction to the previous pass (important)
+
+The previous report claimed the CI failure was caused solely by the SQLite
+`DATABASE_URL`, and marked the repair "verified locally". **That diagnosis was
+incomplete.** Querying the real GitHub Actions history this pass showed the run for
+that very fix (`af1b836`) still **failed**, with GitHub reporting *"This run likely
+failed because of a workflow file issue."*
+
+The true root cause: `.github/workflows/ci.yml` was **invalid YAML** — the
+`Verify standalone output` step used an inline scalar containing `": "` inside an
+echo string, which YAML parses as a nested mapping. The workflow never parsed, so
+**no job ever executed**. The `DATABASE_URL` repair was necessary but not sufficient.
+
+Lesson applied: local `prisma validate` proved the *inputs* were right but could not
+prove the *workflow* was runnable. Both are now verified — the YAML parses (5 jobs)
+and a real run was triggered and observed.
+
+---
+
+## 1. Bugs discovered and fixed this pass — 6
 
 | # | Severity | Bug | Root cause | Files | Fix | Evidence |
 |---|---|---|---|---|---|---|
+| 0 | **Critical** | CI workflow was unparseable YAML → **no job had ever run** | `Verify standalone output` used an inline scalar containing `": "`, read by YAML as a nested mapping | `.github/workflows/ci.yml` | Converted to a block scalar and removed the ambiguous `:` from the echo text | `yaml.safe_load` now parses; 5 jobs enumerated; a real run was triggered and reached `in_progress` (previously it died at parse) |
 | A | **High** | MCP `initialize` ignored the client's requested protocol version, always answering `2024-11-05` | Hardcoded `MCP_PROTOCOL_VERSION` in the `initialize` result | `src/lib/mcp/server.ts` | Added `negotiateProtocolVersion()` + `SUPPORTED_PROTOCOL_VERSIONS` (`2025-06-18`, `2025-03-26`, `2024-11-05`); echo the client's version when supported, newest when not, baseline when absent | Live: client `2025-06-18`→`2025-06-18`, `2025-03-26`→`2025-03-26`, `2099-01-01`→`2025-06-18`, none→`2024-11-05` |
 | B | Medium | The 3 `shadowpaste.*` tools had no risk-engine entry, so the engine used the generic default (15) while `tools/list` advertised 10/5/5 | Missing `TOOL_RISK` entries; prefix lookup fell through | `src/lib/risk.ts` | Added explicit entries matching the registry | Programmatic diff over all 28: `NO DRIFT` |
 | C | Low | `/api/health` reported `version: "20.0.0"` while `package.json` and the MCP handshake both said `1.0.0` | Stale internal phase number | `src/app/api/health/route.ts` | Report `1.0.0` | Live `/api/health` |
@@ -150,10 +170,29 @@ Attack battery re-run results are recorded in §Attack Battery below.
 8. Deployed HTTPS instance — representative load testing
 
 **NOT_VERIFIED**
-- Live handshakes with specific third-party MCP clients.
-- The GitHub Actions run itself (CI repair verified locally via `prisma validate` +
-  `prisma generate`; the hosted runner has not executed).
+- Live handshakes with specific third-party MCP clients (ChatGPT, Gemini, Codex,
+  Cursor, Windsurf, VS Code MCP) — those hosts cannot be run here. Standards
+  conformance, which is what they consume, *is* verified.
 - Representative performance benchmarks (this host measures remote-DB latency).
+
+---
+
+## 10. CI status — VERIFIED GREEN on a hosted runner
+
+Run `30328754485` for commit `4247778` completed with **`conclusion: success`**.
+Per-job results, read back from the GitHub API:
+
+```
+  Lint:        success
+  Typecheck:   success
+  Test:        success
+  Build:       success
+  Secret Scan: success
+```
+
+This is the first green run: every prior run in recent history (`af1b836`,
+`3792e0e`, `5d6c1cd`, `2da64a9`, `4bffba7`) reported `failure`, because the
+workflow file could not be parsed.
 
 ---
 
