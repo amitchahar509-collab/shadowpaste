@@ -332,16 +332,106 @@ function networkAllowlist(): Set<string> {
   return new Set([...base, ...extra]);
 }
 
-export function isPrivateAddress(host: string): boolean {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h.includes(":")) { // IPv6 loopback / link-local / unique-local
-    return h === "::1" || h === "::" || h.startsWith("fe80") || h.startsWith("fc") || h.startsWith("fd");
+/** Classify a 32-bit IPv4 address as private/loopback/link-local/reserved. */
+function isPrivateV4(a: number, b: number): boolean {
+  return (
+    a === 0 ||                              // "this network"
+    a === 127 ||                            // loopback
+    a === 10 ||                             // RFC1918
+    (a === 172 && b >= 16 && b <= 31) ||    // RFC1918
+    (a === 192 && b === 168) ||             // RFC1918
+    (a === 169 && b === 254) ||             // link-local, incl. cloud metadata
+    (a === 100 && b >= 64 && b <= 127) ||   // RFC6598 carrier-grade NAT
+    (a === 192 && b === 0) ||               // RFC5737 / IETF protocol assignments
+    (a === 198 && (b === 18 || b === 19)) || // RFC2544 benchmarking
+    a >= 224                                // multicast + reserved
+  );
+}
+
+/**
+ * Parse the many spellings of an IPv4 literal into [a,b] octets.
+ *
+ * The dotted-quad regex this used to rely on returned FALSE for
+ * `2130706433`, `0177.0.0.1` and `0x7f000001` — all of which are 127.0.0.1 —
+ * and for `::ffff:169.254.169.254`, which is the cloud metadata endpoint. In
+ * practice those were still blocked, but only because the egress allowlist is
+ * default-deny and Node's URL parser normalises some of them. That is luck, not
+ * defence: the classifier is exported and reused, and anyone who adds a wildcard
+ * to NETWORK_ALLOWED_HOSTS or calls isPrivateAddress() directly loses the only
+ * thing that was actually stopping the request.
+ */
+function parseV4(h: string): [number, number] | null {
+  // Dotted forms, each part decimal / octal (0NNN) / hex (0xNN).
+  const parts = h.split(".");
+  if (parts.length >= 2 && parts.length <= 4) {
+    const nums: number[] = [];
+    for (const p of parts) {
+      if (p === "") return null;
+      let v: number;
+      if (/^0[xX][0-9a-fA-F]+$/.test(p)) v = parseInt(p.slice(2), 16);
+      else if (/^0[0-7]+$/.test(p)) v = parseInt(p.slice(1), 8);
+      else if (/^\d+$/.test(p)) v = parseInt(p, 10);
+      else return null;
+      if (!Number.isFinite(v) || v < 0) return null;
+      nums.push(v);
+    }
+    // A short form packs the remaining octets into the last part:
+    // "127.1" is 127.0.0.1, "10.0.1" is 10.0.0.1.
+    if (nums.length === 4) return [nums[0], nums[1]];
+    if (nums.length === 3) return [nums[0], nums[1]];
+    if (nums.length === 2) {
+      const rest = nums[1];
+      return [nums[0], (rest >>> 16) & 0xff];
+    }
   }
-  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!m) return false;
-  const a = Number(m[1]), b = Number(m[2]);
-  return a === 0 || a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) || (a === 169 && b === 254) /* link-local + metadata */ || a >= 224 /* multicast/reserved */;
+  // Bare 32-bit integer, decimal / octal / hex: http://2130706433/
+  let n: number | null = null;
+  if (/^0[xX][0-9a-fA-F]+$/.test(h)) n = parseInt(h.slice(2), 16);
+  else if (/^0[0-7]+$/.test(h)) n = parseInt(h.slice(1), 8);
+  else if (/^\d+$/.test(h)) n = parseInt(h, 10);
+  if (n === null || !Number.isFinite(n) || n < 0 || n > 0xffffffff) return null;
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff];
+}
+
+export function isPrivateAddress(host: string): boolean {
+  let h = host.toLowerCase().replace(/^\[|\]$/g, "").trim();
+  // A trailing dot is a fully-qualified form of the same address.
+  if (h.endsWith(".")) h = h.slice(0, -1);
+  if (!h) return true; // empty host: never treat as public
+
+  if (h.includes(":")) {
+    // Strip a zone id (fe80::1%eth0) before classifying.
+    const z = h.indexOf("%");
+    if (z !== -1) h = h.slice(0, z);
+
+    // IPv4-mapped / IPv4-compatible: ::ffff:169.254.169.254 or ::ffff:a9fe:a9fe.
+    const mapped = h.match(/^::ffff:(.+)$/) || h.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) {
+      const inner = mapped[1];
+      if (inner.includes(".")) {
+        const v4 = parseV4(inner);
+        if (v4) return isPrivateV4(v4[0], v4[1]);
+      } else {
+        // Hex form: ::ffff:7f00:1
+        const hx = inner.split(":").filter(Boolean);
+        if (hx.length === 2 && hx.every((x) => /^[0-9a-f]{1,4}$/.test(x))) {
+          const hi = parseInt(hx[0], 16), lo = parseInt(hx[1], 16);
+          return isPrivateV4((hi >>> 8) & 0xff, hi & 0xff) || isPrivateV4((hi >>> 8) & 0xff, lo & 0xff);
+        }
+      }
+      return true; // unparseable mapped address — fail closed
+    }
+
+    if (h === "::1" || h === "::" || h === "0:0:0:0:0:0:0:1") return true;
+    if (h.startsWith("fe80") || h.startsWith("fe9") || h.startsWith("fea") || h.startsWith("feb")) return true; // link-local
+    if (/^f[cd]/.test(h)) return true; // unique-local fc00::/7
+    if (h.startsWith("ff")) return true; // multicast
+    return false;
+  }
+
+  const v4 = parseV4(h);
+  if (!v4) return false; // a DNS name — resolved addresses are checked separately
+  return isPrivateV4(v4[0], v4[1]);
 }
 
 // Validate a URL against protocol, hostname, allowlist AND the RESOLVED IP

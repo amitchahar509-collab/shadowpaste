@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMcpAgent, handleMcpRequest, MCP_SERVER_NAME, MCP_SERVER_VERSION, MCP_PROTOCOL_VERSION, type JsonRpcRequest } from "@/lib/mcp/server";
 import { allowedOrigins } from "@/lib/app-url";
-import { validateAccessToken } from "@/lib/oauth";
+import { validateAccessToken, bearerChallenge } from "@/lib/oauth";
 import { auditRequest } from "@/lib/audit-request";
 import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json(
           { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: a valid OAuth access token is required" } },
-          { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste", error="invalid_token"` } }
+          { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": bearerChallenge(req, "invalid_token", "the supplied access token is expired, revoked or unknown") } }
         );
       }
     } else if (process.env.REQUIRE_OAUTH === "true") {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(
         { jsonrpc: "2.0", id: null, error: { code: -32001, message: "invalid_token: authorization required" } },
-        { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": `Bearer realm="shadowpaste"` } }
+        { status: 401, headers: { ...jsonHeaders, "WWW-Authenticate": bearerChallenge(req) } }
       );
     }
     agentId = await resolveMcpAgent(token ? `Bearer ${token}` : null, oauthOrgId || "default");

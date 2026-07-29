@@ -15,12 +15,13 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "test": "bash tests/run-all.sh",
-    "test:unit": "bun run tests/load-secret-detector.ts",
+    "test:unit": "bun test tests/unit/",
     "test:integration": "bun run tests/mcp-client-integration.ts && bun run tests/attack-prompt-injection.ts && bun run tests/attack-tenant-isolation.ts && bun run tests/attack-stolen-token.ts",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "test:coverage": "node scripts/check-coverage.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

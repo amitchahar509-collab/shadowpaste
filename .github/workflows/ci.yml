@@ -49,6 +49,35 @@ jobs:
         run: bun run lint
 
   # ---------------------------------------------------------------------------
+  # coverage — security-core unit suite with an enforced floor.
+  #
+  # Runs without Postgres or a dev server, so it is fast and cannot flake on
+  # infrastructure. Scoped to the modules where a missed branch is a
+  # vulnerability, NOT a whole-repo figure — see bunfig.toml.
+  #
+  # The gate lives in scripts/check-coverage.mjs rather than bunfig's
+  # coverageThreshold, because Bun 1.3.14 accepts that setting and then does not
+  # fail on it (verified: 0.99 thresholds still exited 0).
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile || bun install
+
+      - name: Security-core coverage gate
+        run: node scripts/check-coverage.mjs
+
+  # ---------------------------------------------------------------------------
   # typecheck — enforced TypeScript checks (app + node/cli/test surfaces)
   # ---------------------------------------------------------------------------
   typecheck:

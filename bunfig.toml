@@ -1,0 +1,26 @@
+[test]
+# Coverage for the security core (tests/unit/**). See tests/unit/security-core.test.ts
+# for why this is a separate, DB-free suite.
+#
+# WHAT THESE NUMBERS MEAN — read before trusting them.
+#
+# Coverage is reported only over the modules this suite imports, NOT the whole
+# repository. It is deliberately scoped to the code where a missed branch is a
+# vulnerability rather than a bug: the detector, the canonicalization ladder,
+# output sanitization, the pattern catalog, risk scoring, the SSRF address
+# classifier, and the pure OAuth primitives.
+#
+# It does NOT cover vault.ts, capability.ts, paths.ts, the tool adapters beyond
+# their SSRF guard, or the DB-backed halves of oauth.ts and rate-limit.ts. Those
+# need Postgres and a live server and are exercised by the integration suites in
+# tests/ instead — which produce no coverage data. So a green number here means
+# "the security core is well covered", never "the codebase is well covered".
+#
+# Thresholds are set just below the measured values so an accidental regression
+# fails CI, while a small refactor does not. Raise them when coverage improves;
+# do not lower them to make a build pass.
+coverageSkipTestFiles = true
+
+[test.coverageThreshold]
+line = 0.50
+function = 0.45

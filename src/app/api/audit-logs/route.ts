@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, requirePermission } from "@/lib/auth"
-import { validateAccessToken } from "@/lib/oauth"
+import { validateAccessToken, bearerChallenge } from "@/lib/oauth"
 import { auditUnauthorized, auditRequest } from "@/lib/audit-request"
 import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     await auditUnauthorized(req, "/api/audit-logs", { reason: "no valid session or bearer token" })
     return NextResponse.json(
       { error: "unauthorized", message: "Authentication required to access audit logs" },
-      { status: 401, headers: { "WWW-Authenticate": `Bearer realm="shadowpaste"` } }
+      { status: 401, headers: { "WWW-Authenticate": bearerChallenge(req) } }
     )
   }
 

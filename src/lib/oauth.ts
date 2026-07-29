@@ -72,6 +72,46 @@ export function authServerMetadata(req: Request) {
   };
 }
 
+/**
+ * RFC 9728 — OAuth 2.0 Protected Resource Metadata.
+ *
+ * The MCP authorization spec requires a resource server to publish this so a
+ * client can discover WHICH authorization server guards it, instead of guessing
+ * that the AS lives on the same origin. Without it, a strict MCP client that
+ * receives a 401 from /api/mcp has no defined way to find the token endpoint and
+ * simply fails the connection — /.well-known/oauth-protected-resource returned
+ * 404 before this existed.
+ */
+export function protectedResourceMetadata(req: Request) {
+  const base = getAppUrl(req);
+  return {
+    // The resource identifier clients request tokens FOR.
+    resource: base,
+    authorization_servers: [base],
+    scopes_supported: SUPPORTED_SCOPES,
+    // Tokens go in the Authorization header, never a query parameter — a token
+    // in a URL leaks into logs, referrers and browser history.
+    bearer_methods_supported: ["header"],
+    resource_documentation: `${base}/docs`,
+  };
+}
+
+/**
+ * RFC 9728 §5.1 — the `WWW-Authenticate` challenge on a 401 SHOULD carry
+ * `resource_metadata` so a client can find the metadata document without
+ * probing well-known paths.
+ */
+export function bearerChallenge(req: Request, error?: string, description?: string): string {
+  const base = getAppUrl(req);
+  const parts = [
+    `Bearer realm="shadowpaste"`,
+    `resource_metadata="${base}/.well-known/oauth-protected-resource"`,
+  ];
+  if (error) parts.push(`error="${error}"`);
+  if (description) parts.push(`error_description="${description.replace(/"/g, "'")}"`);
+  return parts.join(", ");
+}
+
 // ---- RFC 6749 §5.2 error envelope -------------------------------------------
 export interface OAuthError { error: string; error_description?: string }
 export function oauthError(error: string, description?: string): OAuthError {
