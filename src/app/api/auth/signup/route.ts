@@ -6,8 +6,12 @@ import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   // Account creation is unauthenticated and writes User + Org + Membership rows,
-  // so it was a free way to bulk-write to the database. Same preset as login.
-  const rl = await enforceRateLimit(req, "auth");
+  // so it is a free way to bulk-write to the database. Its own bucket, counted
+  // on every attempt: a signup succeeds by design, so success-only counting
+  // would leave mass registration unthrottled. Keeping it separate from the
+  // login bucket means a burst of registrations cannot exhaust the brute-force
+  // budget protecting existing accounts.
+  const rl = await enforceRateLimit(req, "signup");
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded: too many signup attempts, try again later", retryAfterMs: rl.retryAfterMs },
