@@ -179,11 +179,50 @@ export function rateLimitMode(): {
 }
 
 /**
+ * Strip anything config-shaped out of a diagnostic string.
+ *
+ * /api/health is PUBLIC and unauthenticated, so its `detail` field must never
+ * echo raw configuration. A malformed value produces errors like
+ * `Failed to parse URL from UPSTASH_REDIS_REST_TOKEN="AX..."` — which would
+ * publish the token to anyone who curls the endpoint. The diagnosis has to
+ * survive redaction, so shapes are described rather than shown.
+ */
+function redactConfig(s: string): string {
+  return s
+    // A whole KEY="value" / KEY=value pair pasted into a value field.
+    .replace(/\b([A-Z_][A-Z0-9_]{3,})\s*=\s*"?[^"\s]*"?/g, (_m, key) => `<${key}=... (value redacted)>`)
+    // Any bare URL that survived the above.
+    .replace(/https?:\/\/[^\s"']+/g, "<url redacted>")
+    // Long opaque strings are token-shaped by definition.
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "<redacted>")
+}
+
+/** Human-readable diagnosis of a malformed value, without revealing the value. */
+function diagnoseUrl(): string | null {
+  if (!REDIS_URL) return null
+  if (/^[A-Z_][A-Z0-9_]*\s*=/.test(REDIS_URL)) {
+    return "the value looks like a whole `KEY=value` line — set the value to ONLY the URL, with no variable name, no '=' and no quotes"
+  }
+  if (/^["']|["']$/.test(REDIS_URL)) return "the value is wrapped in quotes — remove them"
+  if (/^rediss?:\/\//i.test(REDIS_URL)) {
+    return "the value is a redis:// connection string — this client uses the Upstash REST API, so use the https:// REST endpoint instead"
+  }
+  if (!/^https:\/\//i.test(REDIS_URL)) return "the value is not an https:// URL"
+  return null
+}
+
+/**
  * Actively probe the backend with a real round trip. `/api/health` uses this so
  * "durable" reflects a working Redis, not merely a populated env var.
  */
 export async function probeDurableBackend(): Promise<{ ok: boolean; detail: string; latencyMs: number }> {
   if (!isDurable()) return { ok: false, detail: "not configured", latencyMs: 0 }
+
+  // Catch malformed config before issuing a request, so the operator gets a
+  // precise instruction instead of a generic parse error.
+  const malformed = diagnoseUrl()
+  if (malformed) return { ok: false, detail: `UPSTASH_REDIS_REST_URL is malformed: ${malformed}`, latencyMs: 0 }
+
   const start = Date.now()
   try {
     const res = await fetch(`${REDIS_URL}/ping`, {
@@ -191,11 +230,14 @@ export async function probeDurableBackend(): Promise<{ ok: boolean; detail: stri
       signal: AbortSignal.timeout(4000),
     })
     const latencyMs = Date.now() - start
-    if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${(await res.text()).slice(0, 120)}`, latencyMs }
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, detail: `auth rejected (HTTP ${res.status}) — check UPSTASH_REDIS_REST_TOKEN is the token value only, with no variable name or quotes`, latencyMs }
+    }
+    if (!res.ok) return { ok: false, detail: redactConfig(`HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 120)}`), latencyMs }
     const body = (await res.json()) as { result?: string }
     return { ok: body?.result === "PONG", detail: `PING -> ${body?.result ?? "no result"}`, latencyMs }
   } catch (e) {
-    return { ok: false, detail: (e as Error).message.slice(0, 140), latencyMs: Date.now() - start }
+    return { ok: false, detail: redactConfig((e as Error).message).slice(0, 160), latencyMs: Date.now() - start }
   }
 }
 
@@ -216,7 +258,7 @@ async function redisFixedWindow(key: string, opts: RateLimitOptions): Promise<Ra
     })
     if (!res.ok) {
       redisFail++
-      lastRedisError = `HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 120)}`
+      lastRedisError = redactConfig(`HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 120)}`)
       return null
     }
     const parsed = (await res.json()) as Array<{ result?: number; error?: string }>
@@ -238,7 +280,7 @@ async function redisFixedWindow(key: string, opts: RateLimitOptions): Promise<Ra
     // a persistently unreachable Redis is visible in /api/health rather than
     // presenting as a healthy deployment with limits that never fire.
     redisFail++
-    lastRedisError = (e as Error).message.slice(0, 140)
+    lastRedisError = redactConfig((e as Error).message).slice(0, 140)
     return null
   }
 }
