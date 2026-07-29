@@ -108,7 +108,11 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("render_db", "Render", "database", "\\bpostgresql://[^@]+@dpg-[a-z0-9]+\\.render\\.com[^\\s]*", "high", 0.9),
   P("railway", "Railway", "database", "\\bpostgresql://[^@]+@[^\\.]+\\.railway\\.app[^\\s]*", "high", 0.9),
   P("upstash", "Upstash", "database", "\\bhttps?://[^\\.]+\\.upstash\\.io[^\\s]*", "medium", 0.7),
-  P("upstash_token", "Upstash", "api", "\\b[A-Z0-9]{40,}\\b", "low", 0.3),
+  // Upstash REST tokens have no distinctive prefix, so this was a bare
+  // \b[A-Z0-9]{40,}\b at 0.3 confidence — it matched ANY 40+ char uppercase
+  // alphanumeric run: SHA hashes, base64 blobs, uppercase ids. Require the
+  // identifying key name (same approach as aws_secret_key / messagebird).
+  P("upstash_token", "Upstash", "api", "\\bupstash[_-]?(?:redis[_-]?)?(?:rest[_-]?)?(?:token|key|password)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9+/=_-]{32,}", "medium", 0.9),
 
   // ===== CI/CD & DEPLOY (15+) =====
   P("heroku_api", "Heroku", "api", "\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b", "medium", 0.4),
@@ -287,7 +291,13 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("cloudflare_tunnel", "Cloudflare", "tunnel", "\\b[A-Za-z0-9_-]{40,}\\b", "low", 0.2),
   P("zerotier", "ZeroTier", "vpn", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("tailscale_tailnet", "Tailscale", "vpn", "\\b[A-Za-z0-9_-]{40,}\\b", "low", 0.2),
-  P("wireguard_psk", "WireGuard", "vpn", "\\b[A-Za-z0-9+/]{43,47}=", "medium", 0.5),
+  // WireGuard keys are 32 raw bytes -> 44 base64 chars ending in "=", which is
+  // the shape of ANY base64-encoded 32-byte value. As a bare
+  // \b[A-Za-z0-9+/]{43,47}= this fired on unrelated base64 blobs (it was one of
+  // the detectors mis-attributing an encoded Stripe key as "WireGuard").
+  // Require the config key name; `wireguard` above still covers the full
+  // Interface{...PrivateKey} block.
+  P("wireguard_psk", "WireGuard", "vpn", "\\b(?:PresharedKey|PrivateKey)\\s*=\\s*[A-Za-z0-9+/]{42,46}=", "medium", 0.9),
   P("ipsec", "IPsec", "vpn", "\\b[A-Za-z0-9+/]{40,}={0,2}\\b", "low", 0.2),
   P("openldap", "OpenLDAP", "directory", "ldaps?://[^:\\s]+:[^@\\s]+@[\\w.-]+", "high", 0.9),
   P("active_dir", "Active Directory", "directory", "\\bLDAP://[^\\s]+['\"]?", "medium", 0.5),
