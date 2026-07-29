@@ -118,6 +118,61 @@ describe("secret detection", () => {
   });
 });
 
+describe("hex-valued credentials (allowlist context-sensitivity)", () => {
+  // The allowlist filtered ANY pure-hex value >= 7 chars as a git SHA, and it
+  // applied that to the VALUE half of a key=value match too — so every
+  // hex-format credential was invisible to the whole catalog. The rule is now
+  // skipped when the match carries a credential key name, because a git SHA is
+  // never assigned to LINODE_TOKEN.
+  const hex = (n: number) => "a1b2c3d4e5f60718".repeat(8).slice(0, n);
+
+  const CREDENTIALS: Array<[string, string]> = [
+    ["LINODE_TOKEN", `LINODE_TOKEN=${hex(64)}`],
+    ["linode_object_storage_secret", `linode_object_storage_secret=${hex(64)}`],
+    ["bunny_api_key", `bunny_api_key=${hex(32)}`],
+    ["API_SECRET", `API_SECRET=${hex(40)}`],
+    ["access_key quoted+spaced", `access_key = '${hex(32)}'`],
+    ["AUTH_TOKEN colon form", `AUTH_TOKEN: ${hex(64)}`],
+  ];
+  for (const [name, text] of CREDENTIALS) {
+    test(`detects hex credential: ${name}`, () => {
+      expect(scanForSecrets(text, "hex").length).toBeGreaterThan(0);
+    });
+  }
+
+  // The other half of the contract. Loosening the allowlist is only correct if
+  // genuine hashes stay clean — these key names are NOT credential words.
+  const BENIGN: Array<[string, string]> = [
+    ["bare git SHA", hex(40)],
+    ["commit=", `commit=${hex(40)}`],
+    ["GIT_COMMIT_SHA=", `GIT_COMMIT_SHA=${hex(40)}`],
+    ["etag=", `etag=${hex(32)}`],
+    ["revision:", `revision: ${hex(7)}`],
+    ["checksum=", `checksum=${hex(64)}`],
+    ["integrity=", `integrity=${hex(64)}`],
+    ["docker digest", `image: r.io/app@sha256:${hex(64)}`],
+    ["git log", `commit ${hex(40)}\nAuthor: a <a@b.c>`],
+  ];
+  for (const [name, text] of BENIGN) {
+    test(`does not flag benign hash: ${name}`, () => {
+      expect(scanForSecrets(text, "hex")).toHaveLength(0);
+    });
+  }
+
+  test("access_key is covered across separator and quoting styles", () => {
+    for (const t of [
+      `access_key=${hex(32)}`,
+      `access_key='${hex(32)}'`,
+      `access_key = ${hex(32)}`,
+      `access_key = '${hex(32)}'`,
+      `ACCESS_KEY = '${hex(32)}'`,
+      `secret_access_key = "${hex(40)}"`,
+    ]) {
+      expect(scanForSecrets(t, "hex").length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("tool-output sanitization", () => {
   test("strips secrets from nested structures", () => {
     const r = sanitizeToolOutput({ a: { b: [`key=${STRIPE}`] } });

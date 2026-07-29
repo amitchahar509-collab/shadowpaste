@@ -227,6 +227,12 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("kv_secret", "Generic", "credential", "\\b(?:secret|secret_key|client_secret)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_!@#$%^&*()\\-+=.]{8,128}['\"]?", "high", 0.85),
   P("kv_api_key", "Generic", "credential", "\\b(?:api[_-]?key|apikey|api[_-]?secret)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-]{16,128}['\"]?", "high", 0.85),
   P("kv_access_token", "Generic", "credential", "\\b(?:access[_-]?token|auth[_-]?token|bearer[_-]?token)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-./+=]{16,512}['\"]?", "high", 0.85),
+  // `access_key` / `secret_access_key` — the key name AWS, MinIO, Alibaba,
+  // DigitalOcean Spaces and most S3-compatible services use. It was absent from
+  // this family, so `access_key = '<32 hex>'` matched nothing at all: the value
+  // was too short for entropy_40 and quotes/whitespace put it out of reach of
+  // the no-separator forms. Sibling of kv_api_key, same value class.
+  P("kv_access_key", "Generic", "credential", "\\b(?:access[_-]?key(?:[_-]?id)?|secret[_-]?access[_-]?key)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-/+=]{16,128}['\"]?", "high", 0.85),
   P("kv_private_key", "Generic", "credential", "\\b(?:private[_-]?key|priv[_-]?key)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-+/=]{32,}['\"]?", "critical", 0.9),
   P("kv_db_password", "Generic", "database", "\\b(?:db[_-]?pass(?:word)?|database[_-]?password|mongo[_-]?pass)['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9_!@#$%^&*()\\-+=.]{8,64}['\"]?", "high", 0.85),
   P("kv_aws_secret", "AWS", "iam", "\\baws_secret_access_key['\"]?\\s*[:=]\\s*['\"]?[A-Za-z0-9/+=]{40}['\"]?", "critical", 0.95),

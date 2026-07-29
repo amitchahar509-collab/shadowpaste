@@ -207,10 +207,9 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
   }
   // 2. Expanded 500-pattern catalog (GitGuardian-class coverage)
   // Allowlist: patterns that look like secrets but are safe (UUIDs, git SHAs, example values, versions)
-  const ALLOWLIST = [
+  // Safe regardless of surrounding context — these are never credentials.
+  const ALLOWLIST_ALWAYS = [
     /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i, // UUID
-    /^[\da-f]{40}$/i, // git SHA
-    /^[\da-f]{7,}$/i, // short git SHA (if alone, no key context)
     /^(your|my|example|test|fake|placeholder|changeme|xxx|sample|demo|template|default)[_a-z0-9]*$/i, // example values
     /^(your|my|example|test|fake|placeholder|changeme|xxx|sample|demo|template|default)[_a-z0-9_]+$/i, // example values with underscores
     /^[\d]+\.[\d]+\.[\d]+/, // semver
@@ -219,8 +218,39 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
     /^[\w-]+\/[\w-]+$/, // owner/repo format
     /^[0-9]+$/, // pure numbers
   ]
+
+  // Ambiguous by shape, decided by context.
+  //
+  // A bare 40-character hex string is a git SHA. The SAME string assigned to
+  // LINODE_TOKEN= is a credential. These rules used to apply unconditionally,
+  // including to the VALUE half of a key=value match, which made every
+  // hex-format credential invisible to the entire 500-pattern catalog:
+  //
+  //   LINODE_TOKEN=<64 hex>                  MISSED
+  //   linode_object_storage_secret=<64 hex>  MISSED
+  //   bunny_api_key=<32 hex>                 MISSED
+  //   API_SECRET=<40 hex>                    MISSED
+  //   access_key = '<32 hex>'                MISSED
+  //
+  // They are now skipped when the match carries an explicit credential key
+  // name, because a git SHA is never assigned to LINODE_TOKEN. Checksums,
+  // ETags, commits and integrity hashes keep their key names (`checksum=`,
+  // `commit=`, `etag=`) which are NOT credential words, so they stay filtered.
+  const ALLOWLIST_UNLESS_KEYED = [
+    /^[\da-f]{40}$/i, // git SHA
+    /^[\da-f]{7,}$/i, // short git SHA / bare hex
+  ]
+
+  const ALLOWLIST = [...ALLOWLIST_ALWAYS, ...ALLOWLIST_UNLESS_KEYED]
+
   // Context keywords that indicate a real secret (not an example)
   const SECRET_CONTEXT = /(api[_-]?key|secret|token|password|passwd|credential|private[_-]?key|access[_-]?key|client[_-]?secret|auth[_-]?token|bearer|vault)/i
+
+  /** The identifier half of a `key = value` match, or "" when there is no separator. */
+  const keyPartOf = (s: string): string => {
+    const i = s.search(/[:=]/)
+    return i === -1 ? "" : s.slice(0, i)
+  }
   const seen = new Set(findings.map((f) => f.raw));
   for (const p of SECRET_PATTERNS) {
     if (p.confidence < 0.3) continue; // skip very-low-confidence patterns to reduce FP
@@ -231,16 +261,26 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
     while ((m = re.exec(text)) !== null) {
       const raw = m[0];
       if (raw.length < 12 || seen.has(raw)) { if (raw.length === 0) re.lastIndex++; continue; }
+      // Does the match itself name a credential? `LINODE_TOKEN=…` does;
+      // `checksum=…` does not. This decides whether the hex rules apply.
+      const keyPart = keyPartOf(raw)
+      const keyed = SECRET_CONTEXT.test(keyPart)
+      const activeAllowlist = keyed ? ALLOWLIST_ALWAYS : ALLOWLIST
+
       // Allowlist check: skip known-safe patterns
-      if (ALLOWLIST.some((al) => al.test(raw))) { if (raw.length === 0) re.lastIndex++; continue; }
+      if (activeAllowlist.some((al) => al.test(raw))) { if (raw.length === 0) re.lastIndex++; continue; }
       // Check if the VALUE part (after = or :) is an example value
       const valueMatch = raw.match(/[:=]\s*['"]?([^'"\s]+)['"]?$/)
-      if (valueMatch && ALLOWLIST.some((al) => al.test(valueMatch[1]))) { if (raw.length === 0) re.lastIndex++; continue; }
+      if (valueMatch && activeAllowlist.some((al) => al.test(valueMatch[1]))) { if (raw.length === 0) re.lastIndex++; continue; }
       // Generic patterns: only flag if in a credential context (key=value, "secret", "token", etc.)
       if (isGeneric) {
         const before = text.slice(Math.max(0, m.index - 60), m.index).toLowerCase()
         const after = text.slice(m.index + raw.length, m.index + raw.length + 20).toLowerCase()
-        if (!SECRET_CONTEXT.test(before) && !SECRET_CONTEXT.test(after) && !before.includes("=") && !before.includes(":")) {
+        // `keyed` is checked too. Anchored patterns such as linode_token now
+        // REQUIRE the provider key name, so the credential context lives INSIDE
+        // the match — looking only at the surrounding 60 characters rejected
+        // `LINODE_TOKEN=<64 hex>` when it was the whole input.
+        if (!keyed && !SECRET_CONTEXT.test(before) && !SECRET_CONTEXT.test(after) && !before.includes("=") && !before.includes(":")) {
           if (raw.length === 0) re.lastIndex++
           continue
         }
