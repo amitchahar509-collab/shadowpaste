@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getContext } from "@/lib/auth"
 import { scanGitHubRepo } from "@/lib/github-scanner"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import { auditUnauthorized } from "@/lib/audit-request"
 
 // POST /api/github/scan-real — REAL GitHub scan (delegates to shared scanner)
@@ -9,7 +9,7 @@ import { auditUnauthorized } from "@/lib/audit-request"
 // Body: { repo: "owner/name", token?: "ghp_..." }
 export async function POST(req: NextRequest) {
   // Rate limit: 5 scans per minute
-  const rl = checkRateLimit(req, "scan");
+  const rl = await enforceRateLimit(req, "scan");
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const ctx = await getContext(req);

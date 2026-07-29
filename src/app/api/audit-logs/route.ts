@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getContext, requirePermission } from "@/lib/auth"
 import { validateAccessToken } from "@/lib/oauth"
 import { auditUnauthorized, auditRequest } from "@/lib/audit-request"
+import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 
 // GET /api/audit-logs?limit=100&action=vault.store&actorType=agent
 // Returns org-scoped audit log entries (compliance trail).
@@ -20,6 +21,18 @@ import { auditUnauthorized, auditRequest } from "@/lib/audit-request"
 // The caller must additionally hold the `audit.export` permission, so a VIEWER
 // cannot read the compliance trail. Results stay scoped to the caller's own org.
 export async function GET(req: NextRequest) {
+  // 0. Throttle first. Every rejected request used to write an audit row, so an
+  //    anonymous caller could drive unbounded INSERTs (measured: 30 parallel
+  //    probes -> 30 writes). Limiting before the auth check means a probe flood
+  //    costs zero database work; auditUnauthorized additionally coalesces.
+  const rl = await enforceRateLimit(req, "auth")
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    )
+  }
+
   // 1. OAuth Bearer token takes precedence (MCP clients / integrations).
   let orgId: string | null = null
   let role: string | null = null

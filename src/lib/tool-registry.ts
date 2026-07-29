@@ -53,15 +53,54 @@ export const TOOL_REGISTRY: ToolDef[] = [
   { name: "shadowpaste.audit", category: "shadowpaste", description: "Query the immutable audit trail. Returns recent security events (tool calls, vault ops, scans).", riskLevel: "low", riskScore: 5, packageName: "shadowpaste-core", inputSchema: { limit: "number", action: "string" }, required: [] },
 ]
 
-export const MCP_PACKAGES = [
-  { name: "safe-github-mcp", displayName: "Safe GitHub MCP", description: "Zero-trust GitHub access — read/PR/merge with policy gates", category: "github", icon: "Github", installs: 18420, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "2.4.1", toolCount: 6 },
-  { name: "safe-stripe-mcp", displayName: "Safe Stripe MCP", description: "Payment ops with charge caps & refund approvals", category: "stripe", icon: "CreditCard", installs: 9210, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "1.8.0", toolCount: 4 },
-  { name: "safe-database-mcp", displayName: "Safe Database MCP", description: "SQL gateway with destructive-query blocking", category: "database", icon: "Database", installs: 15300, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "3.1.2", toolCount: 5 },
-  { name: "safe-filesystem-mcp", displayName: "Safe Filesystem MCP", description: "Sandboxed file access with path allowlists", category: "filesystem", icon: "FolderTree", installs: 22100, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "2.0.0", toolCount: 4 },
-  { name: "safe-shell-mcp", displayName: "Safe Shell MCP", description: "Command execution with command allowlist & audit", category: "devops", icon: "Terminal", installs: 7880, verified: false, riskLevel: "medium", publisher: "Community", version: "0.9.4", toolCount: 2 },
-  { name: "safe-network-mcp", displayName: "Safe Network MCP", description: "Egress gateway with domain allowlist", category: "network", icon: "Globe", installs: 6540, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "1.5.0", toolCount: 2 },
-  { name: "safe-ai-mcp", displayName: "Safe AI MCP", description: "LLM calls with prompt-injection filtering", category: "ai", icon: "BrainCircuit", installs: 11200, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "1.2.0", toolCount: 2 },
-  { name: "safe-slack-mcp", displayName: "Safe Slack MCP", description: "Messaging with channel allowlist & rate limit", category: "communication", icon: "MessageSquare", installs: 5430, verified: false, riskLevel: "low", publisher: "Community", version: "0.7.1", toolCount: 3 },
-  { name: "safe-aws-mcp", displayName: "Safe AWS MCP", description: "Cloud ops with IAM-scoped credentials", category: "devops", icon: "Cloud", installs: 8970, verified: true, riskLevel: "medium", publisher: "ShadowPaste", version: "2.1.0", toolCount: 8 },
-  { name: "safe-vercel-mcp", displayName: "Safe Vercel MCP", description: "Deploy & rollback with prod-deploy approval", category: "devops", icon: "Rocket", installs: 4320, verified: true, riskLevel: "low", publisher: "ShadowPaste", version: "1.1.0", toolCount: 4 },
+// Tool bundles exposed through this gateway.
+//
+// EVERY FIELD HERE MUST BE TRUE. An earlier revision shipped invented adoption
+// metrics (`installs: 18420`, `verified: true`) and three bundles — Slack, AWS
+// and Vercel — that had no tools behind them at all. None of that was real, and
+// shipping invented numbers in the source of a security product is its own
+// vulnerability: it tells a reader that nothing else here can be trusted either.
+//
+// Rules for this list:
+//   1. `installs` is NOT declared. It is a database column that starts at 0 and
+//      is incremented only by a genuine install (POST /api/marketplace/:id/install).
+//   2. `verified` is NOT declared. It defaults to false and may only be set by a
+//      real signing/review process, which does not exist yet.
+//   3. `toolCount` is DERIVED from TOOL_REGISTRY, so it can never drift.
+//   4. A bundle appears here only if it actually has tools in TOOL_REGISTRY.
+//   5. `version` tracks the gateway version — these bundles ship with the app
+//      and have no independent release cadence.
+const PACKAGE_VERSION = "1.0.0"
+
+interface McpPackageSeed {
+  name: string
+  displayName: string
+  description: string
+  category: string
+  icon: string
+  riskLevel: string
+  publisher: string
+  version: string
+  toolCount: number
+}
+
+const PACKAGE_DEFS: Array<Omit<McpPackageSeed, "toolCount" | "version">> = [
+  { name: "safe-filesystem-mcp", displayName: "Safe Filesystem MCP", description: "Sandboxed file access confined to the workspace, with path allowlists and traversal blocking", category: "filesystem", icon: "FolderTree", riskLevel: "medium", publisher: "ShadowPaste" },
+  { name: "safe-github-mcp", displayName: "Safe GitHub MCP", description: "GitHub access with policy gates on merge, secret access and admin actions; repo deletion is hard-denied", category: "github", icon: "Github", riskLevel: "medium", publisher: "ShadowPaste" },
+  { name: "safe-database-mcp", displayName: "Safe Database MCP", description: "SQL gateway with a write validator; DROP and full export are hard-denied", category: "database", icon: "Database", riskLevel: "medium", publisher: "ShadowPaste" },
+  { name: "safe-shell-mcp", displayName: "Safe Shell MCP", description: "Read-only command execution against a fixed binary allowlist using argv (no shell interpolation). Arbitrary exec is refused — it needs container isolation this build does not provide", category: "devops", icon: "Terminal", riskLevel: "high", publisher: "ShadowPaste" },
+  { name: "safe-network-mcp", displayName: "Safe Network MCP", description: "Egress gateway: allowlisted hosts only, with private/loopback/metadata IP blocking and DNS-rebinding re-checks", category: "network", icon: "Globe", riskLevel: "medium", publisher: "ShadowPaste" },
+  { name: "safe-stripe-mcp", displayName: "Safe Stripe MCP", description: "Payment operations with capability-scoped credential injection; direct charges are hard-denied", category: "stripe", icon: "CreditCard", riskLevel: "high", publisher: "ShadowPaste" },
+  { name: "safe-ai-mcp", displayName: "Safe AI MCP", description: "LLM calls through a provider registry with timeout, retry and cost accounting", category: "ai", icon: "BrainCircuit", riskLevel: "low", publisher: "ShadowPaste" },
+  { name: "shadowpaste-core", displayName: "ShadowPaste Core", description: "Secret scanning, AES-GCM-256 vaulting and audit-trail queries", category: "security", icon: "ShieldCheck", riskLevel: "low", publisher: "ShadowPaste" },
 ]
+
+/** Real tool count per bundle, computed from the registry — never hand-written. */
+export function toolCountFor(packageName: string): number {
+  return TOOL_REGISTRY.filter((t) => t.packageName === packageName).length
+}
+
+export const MCP_PACKAGES: McpPackageSeed[] = PACKAGE_DEFS
+  .map((p) => ({ ...p, version: PACKAGE_VERSION, toolCount: toolCountFor(p.name) }))
+  // Rule 4: a bundle with no backing tools is not a product.
+  .filter((p) => p.toolCount > 0)

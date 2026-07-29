@@ -37,6 +37,7 @@ curl -s -X POST http://localhost:3000/api/seed > /dev/null 2>&1
 
 declare -a TEST_NAMES=(
   "load-secret-detector"
+  "p0-remediation"
   "attack-prompt-injection"
   "attack-tenant-isolation"
   "attack-stolen-token"

@@ -234,7 +234,17 @@ export async function handleMcpRequest(req: JsonRpcRequest, agentId: string, org
           text: JSON.stringify({
             tool: name, decision: result.decision, reason: result.reason,
             riskScore: result.riskScore, riskLevel: result.riskLevel,
-            executed: result.executed, output: result.output,
+            executed: result.executed,
+            // `result.output` is sanitized by the gateway (see
+            // src/lib/security/sanitize-output.ts). Raw adapter output never
+            // reaches this point, so no secret enters the agent's context.
+            output: result.output,
+            ...(result.secretsRedacted
+              ? {
+                  secretsRedacted: result.secretsRedacted,
+                  notice: `${result.secretsRedacted} secret(s) were detected in this tool result and replaced with {{SHADOW_REDACTED:...}} markers. Use shadowpaste.protect / the vault to work with them; the raw values are not available to the agent.`,
+                }
+              : {}),
           }, null, 2),
         }];
         const isError = result.decision === "deny" || result.decision === "blocked";

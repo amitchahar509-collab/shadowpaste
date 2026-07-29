@@ -1,5 +1,26 @@
-// ShadowPaste V20 — Rate Limiter (in-memory, per-IP)
-// Simple token-bucket rate limiting for API routes. Production would use Redis.
+// ShadowPaste — Rate Limiter (durable when configured, in-memory otherwise)
+//
+// DEPLOYMENT BEHAVIOUR — READ THIS BEFORE TRUSTING A LIMIT
+// -------------------------------------------------------
+// The in-memory token bucket below lives in a single process. On a serverless
+// platform (Vercel, Lambda, Cloud Run) every cold start gets a FRESH Map and
+// concurrent invocations each get their OWN Map, so a per-instance limit of 60
+// req/min is really 60 x xxx(number of live instances) and resets unpredictably.
+// Measured against this app on Vercel before Redis support existed: 90 parallel
+// requests to /api/mcp all returned 200.
+//
+// Therefore:
+//   * Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in any multi-instance
+//     or serverless deployment. Limits then become global and survive cold starts.
+//   * Without those variables the limiter still runs, but it is BEST-EFFORT
+//     per-instance only. `isDurable()` reports which mode is active and
+//     /api/health surfaces it, so the posture is never a surprise.
+//
+// The Redis path uses INCR + EXPIRE (fixed window) via the Upstash REST API —
+// no SDK dependency, works on the edge runtime. If Redis is unreachable the
+// limiter fails OPEN to the in-memory bucket rather than 500-ing the route:
+// availability of the app beats exactness of the limit, and the in-memory
+// bucket still throttles the common single-instance case.
 
 interface Bucket {
   tokens: number
@@ -99,8 +120,93 @@ export const RATE_LIMITS = {
   scan: { windowMs: 60 * 1000, max: 5, keyPrefix: "scan" },            // 5 scans per min
   vault: { windowMs: 60 * 1000, max: 20, keyPrefix: "vault" },         // 20 vault ops per min
   default: { windowMs: 60 * 1000, max: 100, keyPrefix: "api" },        // 100 generic API per min
+  // Backstop applied in the proxy to EVERY /api route, including ones with no
+  // explicit limit of their own. Deliberately loose: it exists to stop floods,
+  // not to shape normal traffic, so per-route presets above stay authoritative.
+  global: { windowMs: 60 * 1000, max: 600, keyPrefix: "global" },
+  // Reads that are cheap but unauthenticated (catalogues, config, discovery).
+  publicRead: { windowMs: 60 * 1000, max: 120, keyPrefix: "pubread" },
 }
 
 export function checkRateLimit(req: Request, preset: keyof typeof RATE_LIMITS = "default"): RateLimitResult {
   return rateLimit(getClientIp(req), RATE_LIMITS[preset])
+}
+
+// ---------------------------------------------------------------------------
+// Durable (Redis-backed) limiting
+// ---------------------------------------------------------------------------
+
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || ""
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || ""
+
+/** True when limits are global across instances; false when best-effort per-instance. */
+export function isDurable(): boolean {
+  return Boolean(REDIS_URL && REDIS_TOKEN)
+}
+
+/** Describes the active posture, for /api/health and operator diagnostics. */
+export function rateLimitMode(): { durable: boolean; backend: string; note: string } {
+  return isDurable()
+    ? { durable: true, backend: "upstash-redis", note: "limits are global across instances and survive cold starts" }
+    : {
+        durable: false,
+        backend: "in-memory",
+        note: "BEST-EFFORT: per-instance only. Each serverless instance keeps its own counters and a cold start resets them. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for global limits.",
+      }
+}
+
+async function redisFixedWindow(key: string, opts: RateLimitOptions): Promise<RateLimitResult | null> {
+  const windowSec = Math.max(1, Math.ceil(opts.windowMs / 1000))
+  // Bucket the window so the key rotates automatically; no cleanup job needed.
+  const slot = Math.floor(Date.now() / opts.windowMs)
+  const k = `sp:rl:${opts.keyPrefix || "default"}:${key}:${slot}`
+  try {
+    // Pipeline INCR + EXPIRE in one round trip.
+    const res = await fetch(`${REDIS_URL}/pipeline`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${REDIS_TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify([["INCR", k], ["EXPIRE", k, String(windowSec)]]),
+      signal: AbortSignal.timeout(1500),
+    })
+    if (!res.ok) return null
+    const parsed = (await res.json()) as Array<{ result?: number; error?: string }>
+    const count = Number(parsed?.[0]?.result)
+    if (!Number.isFinite(count)) return null
+
+    const resetMs = (slot + 1) * opts.windowMs - Date.now()
+    if (count > opts.max) {
+      return { ok: false, remaining: 0, resetMs, retryAfterMs: Math.max(0, resetMs) }
+    }
+    return { ok: true, remaining: Math.max(0, opts.max - count), resetMs, retryAfterMs: 0 }
+  } catch {
+    return null // network/timeout — caller falls back to the in-memory bucket
+  }
+}
+
+/**
+ * Enforce a rate limit, using Redis when configured and the in-memory bucket
+ * otherwise. This is the function routes should call.
+ */
+export async function enforceRateLimit(
+  req: Request,
+  preset: keyof typeof RATE_LIMITS = "default"
+): Promise<RateLimitResult> {
+  const opts = RATE_LIMITS[preset]
+  const id = getClientIp(req)
+  if (isDurable()) {
+    const r = await redisFixedWindow(id, opts)
+    if (r) return r
+    // Redis unavailable: fall through to the local bucket rather than failing
+    // the request outright.
+  }
+  return rateLimit(id, opts)
+}
+
+/** Standard 429 headers for a rejected request. */
+export function rateLimitHeaders(rl: RateLimitResult): Record<string, string> {
+  return {
+    "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)),
+    "X-RateLimit-Remaining": String(rl.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(rl.resetMs / 1000)),
+  }
 }

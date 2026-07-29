@@ -42,7 +42,10 @@ export async function seedDatabase() {
     await db.mcpTool.create({ data: { name: t.name, category: t.category, description: t.description, riskLevel: t.riskLevel, riskScore: t.riskScore, inputSchema: JSON.stringify(t.inputSchema), enabled: true, packageName: t.packageName } })
   }
   for (const p of MCP_PACKAGES) {
-    await db.mcpPackage.create({ data: { name: p.name, displayName: p.displayName, description: p.description, category: p.category, icon: p.icon, installs: p.installs, verified: p.verified, riskLevel: p.riskLevel, publisher: p.publisher, version: p.version, toolCount: p.toolCount } })
+    // `installs` and `verified` are deliberately NOT seeded — they fall through
+    // to the schema defaults (0 / false). Install counts are earned by real
+    // installs; the verified badge needs a review process that does not exist yet.
+    await db.mcpPackage.create({ data: { name: p.name, displayName: p.displayName, description: p.description, category: p.category, icon: p.icon, riskLevel: p.riskLevel, publisher: p.publisher, version: p.version, toolCount: p.toolCount } })
   }
 
   // 3. Sessions

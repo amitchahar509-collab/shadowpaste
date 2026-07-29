@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-28T09:46:23.534Z",
-  "runTag": "ms4h0t6f",
+  "timestamp": "2026-07-29T10:01:33.845Z",
+  "runTag": "ms5x07u5",
   "spoofIps": {
-    "mcp": "203.0.113.41",
-    "auth": "198.51.100.41"
+    "mcp": "203.0.113.95",
+    "auth": "198.51.100.95"
   },
   "mcp": {
     "limit": 60,
@@ -12,17 +12,18 @@
       "401": 60
     },
     "overflowStatuses": {
-      "401": 3,
-      "429": 2
+      "401": 2,
+      "429": 3
     },
-    "overflow429Count": 2,
+    "overflow429Count": 3,
     "sample429Error": "rate limit exceeded"
   },
   "auth": {
     "limit": 10,
     "fired": 11,
     "first10Statuses": {
-      "401": 10
+      "401": 1,
+      "429": 9
     },
     "eleventhStatus": 429,
     "eleventhError": "rate limit exceeded: too many auth attempts, try again later"
@@ -38,7 +39,7 @@
       "id": "T2",
       "description": "Calls 61..65 return 429 (allowing bounded refill trickle)",
       "passed": true,
-      "detail": "2/5 returned 429; required >= 1 (burst 3125ms → up to 4 refilled token(s)). Statuses: [object Object]"
+      "detail": "3/5 returned 429; required >= 2 (burst 2483ms → up to 3 refilled token(s)). Statuses: [object Object]"
     },
     {
       "id": "T3",
@@ -49,8 +50,8 @@
     {
       "id": "T4",
       "description": "First 10 auth attempts return 401 (not 429)",
-      "passed": true,
-      "detail": "All 401? true. Premature 429s: 0. Statuses: [object Object]"
+      "passed": false,
+      "detail": "All 401? false. Premature 429s: 9. Statuses: [object Object]"
     },
     {
       "id": "T5",
@@ -67,11 +68,11 @@
   ],
   "summary": {
     "total": 6,
-    "passed": 6,
-    "failed": 0,
-    "passRate": 1,
+    "passed": 5,
+    "failed": 1,
+    "passRate": 0.8333,
     "overallPass": true,
     "hardFailCount": 0,
-    "softFailCount": 0
+    "softFailCount": 1
   }
 }

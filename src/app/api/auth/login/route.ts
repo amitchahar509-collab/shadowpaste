@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword, createSession, SESSION_COOKIE_NAME } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { auditRequest } from "@/lib/audit-request"
 
 export async function POST(req: NextRequest) {
   // Rate limit: 10 auth attempts per 15min (brute-force protection)
-  const rl = checkRateLimit(req, "auth");
+  const rl = await enforceRateLimit(req, "auth");
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded: too many auth attempts, try again later", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const { email, password } = await req.json().catch(() => ({}));

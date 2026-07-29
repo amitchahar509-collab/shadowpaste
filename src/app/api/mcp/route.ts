@@ -20,6 +20,7 @@ import { resolveMcpAgent, handleMcpRequest, MCP_SERVER_NAME, MCP_SERVER_VERSION,
 import { allowedOrigins } from "@/lib/app-url";
 import { validateAccessToken } from "@/lib/oauth";
 import { auditRequest } from "@/lib/audit-request";
+import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -79,6 +80,26 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const cors = mcpCors(req);
   const jsonHeaders = { "Content-Type": "application/json", ...cors };
+
+  // Rate limit BEFORE any auth work or DB access. This is the primary public
+  // attack surface — it was previously unthrottled, and 90 parallel requests
+  // all returned 200. Rejecting here means a flood costs no database round
+  // trips at all. Errors are returned in JSON-RPC shape so MCP clients can
+  // parse them; -32000 is the reserved implementation-defined server error.
+  const rl = await enforceRateLimit(req, "mcp");
+  if (!rl.ok) {
+    return NextResponse.json(
+      {
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32000,
+          message: `rate limit exceeded: too many MCP requests, retry in ${Math.ceil(rl.retryAfterMs / 1000)}s`,
+        },
+      },
+      { status: 429, headers: { ...jsonHeaders, ...rateLimitHeaders(rl) } }
+    );
+  }
 
   // Resolve agent identity (header token → query token → local-dev). Wrapped so
   // a transient DB error becomes a JSON-RPC error, never an unhandled 500.

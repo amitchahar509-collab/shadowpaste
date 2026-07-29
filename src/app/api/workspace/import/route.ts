@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getContext } from "@/lib/auth"
 import { createSafeWorkspace } from "@/lib/workspace"
 import { db } from "@/lib/db"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import { extractArchive, classifyArchive, ZipError } from "@/lib/archive"
 import { analyzeProject } from "@/lib/project-intelligence"
 import path from "path"
@@ -34,7 +34,7 @@ const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024 // 200 MB compressed upload cap
 const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces"])
 
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, "scan")
+  const rl = await enforceRateLimit(req, "scan")
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },

@@ -3,7 +3,7 @@ import { getContext } from "@/lib/auth"
 import { restoreSecrets, restoreFromMeta, type WorkspaceSecret } from "@/lib/workspace"
 import { db } from "@/lib/db"
 import { resolveWithinRoots, assertDirectory, PathNotAllowedError } from "@/lib/security/paths"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import { internalError } from "@/lib/api-error"
 import { auditUnauthorized } from "@/lib/audit-request"
 
@@ -18,7 +18,7 @@ import { auditUnauthorized } from "@/lib/audit-request"
 // Authenticated only: this writes content into the source project, so an
 // anonymous caller would mean arbitrary file write on the host.
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, "scan")
+  const rl = await enforceRateLimit(req, "scan")
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },

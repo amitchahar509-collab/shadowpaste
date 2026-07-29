@@ -6,8 +6,27 @@
 // every boot; the behaviour and the `config.matcher` below are unchanged.
 
 import { NextRequest, NextResponse } from "next/server"
+import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 
-export function proxy(_req: NextRequest) {
+export async function proxy(req: NextRequest) {
+  // Flood backstop for the whole API surface.
+  //
+  // Individual routes carry their own (much stricter) presets, but only 10 of
+  // 50 routes had one — leaving /api/mcp, /api/audit-logs and /api/auth/signup
+  // completely unthrottled. This guarantees a floor for every route, including
+  // any added later, so "forgot to add a limiter" can no longer mean "no limit".
+  // The threshold is deliberately high: it stops floods without shaping normal
+  // traffic or pre-empting the per-route limits.
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    const rl = await enforceRateLimit(req, "global")
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },
+        { status: 429, headers: rateLimitHeaders(rl) }
+      )
+    }
+  }
+
   const res = NextResponse.next()
   // Security headers
   res.headers.set("X-Content-Type-Options", "nosniff")

@@ -153,9 +153,27 @@ negatives on the bundled 1,000-file corpus (`bun run test:unit`).
 - Multi-tenant isolation — every query is org-scoped
 - Authentication required on all mutating and file-touching endpoints
 - Filesystem confinement for all caller-supplied paths
-- Rate limiting (MCP / auth / scan / vault)
+- Response-side sanitization — tool results are scanned and every detected
+  secret is replaced before it reaches the agent's context **or** the audit trail
+- Rate limiting on every `/api/` route, with per-route presets (MCP / auth /
+  scan / vault / public reads) — see the caveat below
 - Security headers (CSP / HSTS / X-Frame-Options)
-- Immutable audit trail with CSV export
+- Immutable audit trail with CSV export; unauthenticated probe bursts are
+  coalesced so they cannot amplify into unbounded database writes
+
+### Known limitations (read before deploying)
+
+- **Rate limits are per-instance unless Redis is configured.** The default
+  limiter lives in process memory, so on serverless each cold start and each
+  concurrent instance keeps its own counters. Set `UPSTASH_REDIS_REST_URL` and
+  `UPSTASH_REDIS_REST_TOKEN` for global limits. `GET /api/health` reports which
+  mode is active.
+- **The "sandbox" is a policy decision, not an isolated runtime.** Critical-risk
+  calls are routed to an approval queue; they are not executed under container
+  isolation. `shell.exec` therefore refuses outright rather than pretending.
+- **`db.migrate` and `ai.train` are advertised but not implemented** — they
+  return a structured `NOT_IMPLEMENTED` error.
+- **No SOC 2, no SLA.** This is pre-1.0 open source, not a certified service.
 
 Full details and the deployment checklist: **[docs/SECURITY.md](docs/SECURITY.md)**.
 Reporting a vulnerability: **[SECURITY.md](SECURITY.md)**.

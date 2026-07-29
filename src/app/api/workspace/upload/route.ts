@@ -3,7 +3,7 @@ import { getContext } from "@/lib/auth"
 import { createSafeWorkspace } from "@/lib/workspace"
 import { analyzeProject } from "@/lib/project-intelligence"
 import { db } from "@/lib/db"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import path from "path"
 import os from "os"
 import { promises as fs } from "fs"
@@ -29,7 +29,7 @@ const MAX_TOTAL_BYTES = 200 * 1024 * 1024
 const SKIP_SEGMENTS = new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces"])
 
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, "scan")
+  const rl = await enforceRateLimit(req, "scan")
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },

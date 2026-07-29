@@ -28,6 +28,12 @@ const HARD_DENY: Record<string, string> = {
   "fs.execute": "Arbitrary filesystem execution is permanently denied (use sandbox)",
   "db.export": "Full database export is permanently denied (use scoped read)",
   "stripe.charge": "Direct payment charges require human approval flow",
+  // Registry metadata declares this critical/85, but the runtime scored it 74
+  // (high) and it fell through to HIGH_RISK_ASK — so a single approval click
+  // destroyed a customer record, while the published tool description said the
+  // action was hard-blocked. Irreversible deletion of a billing entity belongs
+  // with the other permanent denials, not behind a prompt.
+  "stripe.customer.delete": "Irreversible deletion of a customer record is permanently denied by global policy",
 }
 
 // Auto-allow low risk read operations for trusted agents

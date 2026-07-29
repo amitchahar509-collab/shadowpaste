@@ -7,6 +7,7 @@ import { assessRisk, type RiskLevel } from "@/lib/risk";
 import { evaluatePolicy } from "@/lib/policy";
 import { executeTool, type ExecResult } from "@/lib/tools/adapters";
 import { redactSecrets } from "@/lib/security/vault";
+import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
 
 export interface GatewayRequest {
   agentId: string;
@@ -25,8 +26,11 @@ export interface GatewayResponse {
   riskLevel: string;
   auditRequired: boolean;
   toolCallId: string;
+  /** Sanitized — every detectable secret has been replaced with a marker. */
   output: Record<string, unknown> | null;
   executed: boolean;
+  /** How many secrets were stripped from `output` before it was returned. */
+  secretsRedacted?: number;
   adapter?: string;
   factors: Array<{ factor: string; weight: number; description: string }>;
   inputFlags: string[];
@@ -66,6 +70,14 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
     executed = execResult.ok;
   }
 
+  // ---- Response-side secret sanitization ----------------------------------
+  // Runs BEFORE anything is returned or persisted. The adapter's raw `output`
+  // must not survive past this point: `safeOutput.output` is what the agent
+  // sees and `safeOutput.json` is what the audit trail stores, both derived
+  // from the same sanitized text. See src/lib/security/sanitize-output.ts for
+  // the leak this closes.
+  const safeOutput = sanitizeToolOutput(execResult?.output, `tool:${req.toolName}`);
+
   // ---- Post-execution risk escalation -------------------------------------
   // Some threats are only detectable INSIDE the adapter, after policy has already
   // scored the call. An SSRF attempt is the clearest case: `network.fetch` scores
@@ -73,16 +85,27 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
   // metadata), 127.0.0.1 or 10.0.0.0/8 was blocked correctly but recorded as a
   // low-risk event — the audit trail disagreed with the defence that fired.
   // Escalate the RECORDED score so telemetry matches reality.
-  const adapterCode = (execResult?.output as { code?: string } | undefined)?.code;
+  const adapterCode = (safeOutput.output as { code?: string } | null)?.code;
   const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: string }> = {
     SSRF_BLOCKED: { score: 95, level: "critical", reason: "SSRF attempt blocked — request targeted a private/loopback/metadata address or a non-allowlisted host" },
     COMMAND_REJECTED: { score: 90, level: "critical", reason: "command injection attempt blocked — shell metacharacters in input" },
     SQL_VALIDATION_FAILED: { score: 85, level: "critical", reason: "unsafe SQL blocked by the write validator" },
   };
   const escalation = adapterCode ? ESCALATIONS[adapterCode] : undefined;
-  const recordedScore = escalation ? escalation.score : risk.finalScore;
-  const recordedLevel: string = escalation ? escalation.level : risk.finalLevel;
-  const recordedReason = escalation ? `${escalation.reason} (policy: ${policy.reason})` : policy.reason;
+  // A tool result that contained credentials is itself a security event: the
+  // agent asked for something that turned out to hold secrets. The call still
+  // succeeds (sanitized), but it must not be recorded as routine low-risk
+  // traffic. Only raise the score — never lower an existing escalation.
+  const leakScore = safeOutput.redacted > 0 ? Math.max(risk.finalScore, 70) : risk.finalScore;
+  const leakLevel: string = safeOutput.redacted > 0 && leakScore >= 70 ? "high" : risk.finalLevel;
+
+  const recordedScore = escalation ? escalation.score : leakScore;
+  const recordedLevel: string = escalation ? escalation.level : leakLevel;
+  const recordedReason = escalation
+    ? `${escalation.reason} (policy: ${policy.reason})`
+    : safeOutput.redacted > 0
+      ? `${safeOutput.redacted} secret(s) redacted from tool output before returning to the agent (policy: ${policy.reason})`
+      : policy.reason;
   // A blocked attack is never an "allowed" outcome in the audit trail.
   const recordedDecision = escalation
     ? "blocked"
@@ -92,7 +115,10 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
 
   // Record audit (always). Input/output are REDACTED of any secrets.
   const redactedInput = redactSecrets(JSON.stringify(req.input), []);
-  const redactedOutput = execResult ? execResult.redactedOutput : JSON.stringify({ status: "not_executed", decision: policy.decision });
+  // Persist the SANITIZED text, not the adapter's `redactedOutput` — for most
+  // adapters the latter was just JSON.stringify(output) and carried secrets
+  // straight into the audit table.
+  const redactedOutput = execResult ? safeOutput.json : JSON.stringify({ status: "not_executed", decision: policy.decision });
 
   const toolCall = await db.toolCall.create({
     data: {
@@ -126,6 +152,9 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
         decision: recordedDecision, riskScore: recordedScore, riskLevel: recordedLevel,
         executed, policy: policy.policy,
         ...(escalation ? { escalatedFrom: risk.finalScore, escalationCode: adapterCode } : {}),
+        ...(safeOutput.redacted > 0
+          ? { secretsRedacted: safeOutput.redacted, redactionDetectors: safeOutput.detectors }
+          : {}),
       }),
     },
   });
@@ -143,7 +172,9 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
   return {
     decision: escalation ? "blocked" : policy.decision, reason: recordedReason, policy: policy.policy,
     riskScore: recordedScore, riskLevel: recordedLevel, auditRequired: policy.auditRequired || !!escalation,
-    toolCallId: toolCall.id, output: execResult?.output ?? null, executed,
+    // SANITIZED output only — never `execResult.output`.
+    toolCallId: toolCall.id, output: safeOutput.output, executed,
+    secretsRedacted: safeOutput.redacted,
     adapter: execResult?.adapter, factors: risk.factors, inputFlags: risk.inputFlags,
     durationMs: Date.now() - start,
   };

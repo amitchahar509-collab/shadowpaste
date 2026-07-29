@@ -42,6 +42,18 @@ export async function GET() {
     checks.push({ name: "github-api", ok: false, latencyMs: 0, detail: (e as Error).message })
   }
 
+  // Rate-limiter posture. Reported as a check (never a failure) so an operator
+  // can see at a glance whether limits are global or best-effort per-instance —
+  // an in-memory limiter on serverless is a real gap and must not be silent.
+  const { rateLimitMode } = await import("@/lib/rate-limit")
+  const rlMode = rateLimitMode()
+  checks.push({
+    name: "rate-limiter",
+    ok: true,
+    latencyMs: 0,
+    detail: `${rlMode.backend}${rlMode.durable ? " (durable)" : " (best-effort, per-instance)"}`,
+  })
+
   const allOk = checks.every((c) => c.ok)
   const totalLatency = Date.now() - start
 

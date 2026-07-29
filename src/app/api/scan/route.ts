@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getContext, anonymousContext } from "@/lib/auth"
 import { scanGitHubRepo } from "@/lib/github-scanner"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/scan?projectId=... — fetch project + latest scan
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 // Body: { repo: "owner/name", token?: "ghp_..." }
 // Authenticated only; /api/public-scan serves the no-login demo path.
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, "scan")
+  const rl = await enforceRateLimit(req, "scan")
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },

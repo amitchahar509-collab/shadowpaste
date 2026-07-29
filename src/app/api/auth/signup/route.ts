@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, createSession, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { randomBytes } from "crypto";
+import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // Account creation is unauthenticated and writes User + Org + Membership rows,
+  // so it was a free way to bulk-write to the database. Same preset as login.
+  const rl = await enforceRateLimit(req, "auth");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate limit exceeded: too many signup attempts, try again later", retryAfterMs: rl.retryAfterMs },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   const { email, password, name, orgName } = await req.json().catch(() => ({}));
   if (!email || !password) return NextResponse.json({ error: "email and password required" }, { status: 400 });
   const existing = await db.user.findUnique({ where: { email } });

@@ -3,7 +3,7 @@ import { getContext } from "@/lib/auth";
 import { storeSecret, listSecrets } from "@/lib/security/vault";
 import { db } from "@/lib/db";
 import { checkUsageLimit } from "@/lib/billing";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { auditUnauthorized } from "@/lib/audit-request"
 
 // GET /api/vault — list vaulted secrets (masked only, never raw)
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 // Requires authentication — anonymous users cannot store secrets.
 export async function POST(req: NextRequest) {
   // Rate limit: 20 vault ops per minute
-  const rl = checkRateLimit(req, "vault");
+  const rl = await enforceRateLimit(req, "vault");
   if (!rl.ok) return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const ctx = await getContext(req);
