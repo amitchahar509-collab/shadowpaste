@@ -38,7 +38,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   // DigitalOcean / Linode / Vultr
   P("do_token", "DigitalOcean", "api", "\\bdo_v1_[a-f0-9]{64}\\b", "critical", 0.95),
   P("do_pat", "DigitalOcean", "api", "\\bdop_v1_[a-f0-9]{64}\\b", "critical", 0.95),
-  P("linode_token", "Linode", "api", "\\b[0-9a-f]{64}\\b", "medium", 0.5),
+  P("linode_token", "Linode", "api", "\\b(?:linode)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[0-9a-f]{64}", "medium", 0.9),
   P("vultr_token", "Vultr", "api", "\\b[A-Z0-9]{36}\\b", "low", 0.3),
 
   // ===== GIT HOSTS (10+) =====
@@ -193,7 +193,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("splunk", "Splunk", "logging", "\\b[a-f0-9]{32}\\b", "low", 0.3),
   P("rollbar", "Rollbar", "monitoring", "\\b[a-f0-9]{32}\\b", "low", 0.3),
   P("bugsnag", "Bugsnag", "monitoring", "\\b[a-f0-9]{32}\\b", "low", 0.3),
-  P("honeybadger", "Honeybadger", "monitoring", "\\b[a-zA-Z0-9_-]{40}\\b", "medium", 0.5),
+  P("honeybadger", "Honeybadger", "monitoring", "\\b(?:honeybadger)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[a-zA-Z0-9_-]{40}", "medium", 0.9),
   P("appsignal", "AppSignal", "monitoring", "\\b[a-f0-9]{32}\\b", "low", 0.3),
 
   // ===== IOT/HARDWARE (5+) =====
@@ -395,8 +395,8 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("gcp_natural_language", "Google", "ai", "\\bAIza[0-9A-Za-z_-]{35}\\b", "high", 0.8),
   P("gcp_translation", "Google", "ai", "\\bAIza[0-9A-Za-z_-]{35}\\b", "high", 0.8),
   P("gcp_dialogflow", "Google", "ai", "\\bAIza[0-9A-Za-z_-]{35}\\b", "high", 0.8),
-  P("ibm_watson", "IBM", "ai", "\\b[A-Za-z0-9_-]{44}\\b", "medium", 0.5),
-  P("ibm_cloud", "IBM", "cloud", "\\b[A-Za-z0-9_-]{44}\\b", "medium", 0.4),
+  P("ibm_watson", "IBM", "ai", "\\b(?:ibm|watson)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{44}", "medium", 0.9),
+  P("ibm_cloud", "IBM", "cloud", "\\b(?:ibm|watson)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{44}", "medium", 0.85),
   P("oracle_cloud", "Oracle", "cloud", "\\b[A-Za-z0-9_-]{40}\\b", "low", 0.2),
   P("alibaba", "Alibaba Cloud", "cloud", "\\bLTAI[A-Za-z0-9]{12,}\\b", "high", 0.85),
   P("tencent", "Tencent Cloud", "cloud", "\\bAKID[A-Za-z0-9]{13,}\\b", "high", 0.85),
@@ -404,7 +404,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("baidu", "Baidu Cloud", "cloud", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("wasabi_access", "Wasabi", "storage", "\\b[A-Za-z0-9_-]{20}\\b", "low", 0.2),
   P("digitalocean_spaces", "DigitalOcean", "storage", "\\bdo_v1_[a-f0-9]{64}\\b", "high", 0.8),
-  P("linode_obj", "Linode", "storage", "\\b[a-f0-9]{64}\\b", "medium", 0.4),
+  P("linode_obj", "Linode", "storage", "\\b(?:linode)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[a-f0-9]{64}", "medium", 0.85),
   P("backblaze_key", "Backblaze", "storage", "\\b005[A-Za-z0-9_-]{30}\\b", "high", 0.85),
 
   // ===== ANALYTICS/CRM (30+) =====
@@ -509,10 +509,10 @@ export const SECRET_PATTERNS: SecretPattern[] = [
 
   // ===== ADDITIONAL PROVIDERS — 70+ more to reach 500+ total =====
   // Security/Auth
-  P("auth0", "Auth0", "auth", "\\b[A-Za-z0-9_-]{40,}\\b", "low", 0.2),
-  P("okta", "Okta", "auth", "\\b00[A-Za-z0-9_-]{15,}\\b", "medium", 0.4),
-  P("auth0_client", "Auth0", "auth", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
-  P("auth0_secret", "Auth0", "auth", "\\b[A-Za-z0-9_-]{48,}\\b", "medium", 0.4),
+  P("auth0", "Auth0", "auth", "\\b(?:auth0)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{40,}", "medium", 0.85),
+  P("okta", "Okta", "auth", "\\b(?:okta[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?|SSWS\\s+)00[A-Za-z0-9_-]{15,}", "medium", 0.9),
+  P("auth0_client", "Auth0", "auth", "\\b(?:auth0)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{32}", "medium", 0.85),
+  P("auth0_secret", "Auth0", "auth", "\\b(?:auth0)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{48,}", "medium", 0.9),
   P("keycloak", "Keycloak", "auth", "\\b[A-Za-z0-9_-]{36}\\b", "low", 0.2),
   P("fusionauth", "FusionAuth", "auth", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("supertokens", "SuperTokens", "auth", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
@@ -525,10 +525,10 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("privy", "Privy", "auth", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   P("dynamic", "Dynamic", "auth", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   // CDN/Edge
-  P("bunnycdn", "Bunny CDN", "cdn", "\\b[a-f0-9]{32}\\b", "low", 0.2),
+  P("bunnycdn", "Bunny CDN", "cdn", "\\b(?:bunny(?:cdn)?)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[a-f0-9]{32}", "medium", 0.85),
   P("keycdn", "KeyCDN", "cdn", "\\b[A-Za-z0-9_-]{24}\\b", "low", 0.2),
   P("stackpath", "StackPath", "cdn", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
-  P("bunnycdn_storage", "Bunny CDN", "storage", "\\b[A-Za-z0-9_-]{40}\\b", "medium", 0.4),
+  P("bunnycdn_storage", "Bunny CDN", "storage", "\\b(?:bunny(?:cdn)?)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{40}", "medium", 0.9),
   P("edgio", "Edgio", "cdn", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
   // DNS/Domain
   P("namecheap", "Namecheap", "dns", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
@@ -536,7 +536,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   P("cloudflare_dns", "Cloudflare", "dns", "\\b[A-Za-z0-9_-]{40}\\b", "low", 0.2),
   P("route53_v2", "AWS", "dns", "\\b[A-Za-z0-9_-]{40}\\b", "low", 0.2),
   P("dnsimple", "DNSimple", "dns", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
-  P("linode_dns", "Linode", "dns", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
+  P("linode_dns", "Linode", "dns", "\\b(?:linode)[A-Za-z0-9_.-]*[\\'\"]?\\s*[:=]\\s*[\\'\"]?[A-Za-z0-9_-]{32}", "medium", 0.85),
   // Email delivery
   P("mailersend", "MailerSend", "email", "\\bmlsn\\.[a-f0-9]{32}\\b", "high", 0.85),
   P("mailtrap", "Mailtrap", "email", "\\b[A-Za-z0-9_-]{32}\\b", "low", 0.2),
