@@ -76,3 +76,5 @@ server.log
 # internal-only documents — kept locally, never published
 COMMERCIAL_STRATEGY_AND_VALUATION.md
 CODEBASE_AUDIT_AND_FIXES.md
+# transient verification scratch scripts (never part of the product)
+__*.ts
