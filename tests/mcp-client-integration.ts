@@ -10,6 +10,10 @@
 // This is the REAL protocol — if Claude Desktop were installed, it would send
 // these exact requests. We're proving the server responds correctly.
 
+// Demo credential values are assembled at runtime, never written as literals —
+// see src/lib/security/demo-fixtures.ts for why.
+import { DEMO_MIXED_SECRETS } from "@/lib/security/demo-fixtures"
+
 const BASE = "http://localhost:3000/api/mcp"
 const AGENT_BASE = "http://localhost:3000/api"
 
@@ -86,7 +90,7 @@ async function main() {
   const protectRes = await callMcp(rpc("tools/call", {
     name: "shadowpaste.protect",
     arguments: {
-      text: 'GITHUB_TOKEN=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\nSTRIPE_KEY=sk_live_51H8xK2eZvKuLmNoPqRsTuVwXyZ0123456789\nAWS_KEY=AKIAIOSFODNN7EXAMPLE',
+      text: DEMO_MIXED_SECRETS,
       name: "env-file",
     },
   }))

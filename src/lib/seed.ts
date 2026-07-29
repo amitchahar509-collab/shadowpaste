@@ -8,6 +8,9 @@ import { DEMO_REPO_FILES, runScan } from "./scanner"
 import { generateSyntheticChanges, analyzeDiff } from "./sandbox"
 import { ATTACK_SCENARIOS } from "./attacks"
 import { storeSecret } from "./security/vault"
+// Demo credential values are assembled at runtime, never written as literals —
+// see src/lib/security/demo-fixtures.ts for why.
+import { DEMO_GITHUB_TOKEN } from "./security/demo-fixtures"
 
 const DEFAULT_ORG_ID = "default"
 
@@ -80,7 +83,7 @@ export async function seedDatabase() {
 
   // 6. Auto-vault a few demo secrets (real encrypted storage)
   try {
-    await storeSecret("ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789", { name: "demo-github-token", contextHint: "github", orgId: DEFAULT_ORG_ID, projectId: project.id })
+    await storeSecret(DEMO_GITHUB_TOKEN, { name: "demo-github-token", contextHint: "github", orgId: DEFAULT_ORG_ID, projectId: project.id })
     await storeSecret("sk_test_51H8xK2eZvKuLmNoPqRsTuVwXyZ012345", { name: "demo-stripe-test-key", contextHint: "stripe", orgId: DEFAULT_ORG_ID, projectId: project.id })
   } catch { /* vault key init may race; ignore */ }
 

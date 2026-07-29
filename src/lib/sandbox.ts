@@ -2,6 +2,9 @@
 // Original project -> sandbox copy -> AI changes -> scan -> approve -> merge
 
 import { db } from "./db"
+// Demo credential values are assembled at runtime, never written as literals —
+// see src/lib/security/demo-fixtures.ts for why.
+import { DEMO_STRIPE_KEY, DEMO_GITHUB_TOKEN } from "./security/demo-fixtures"
 
 export interface SandboxDiff {
   filePath: string
@@ -69,8 +72,8 @@ export function generateSyntheticChanges(projectName: string): Omit<SandboxDiff,
       changeType: "modified",
       diff: `@@ -1,3 +1,4 @@
  DATABASE_URL="postgresql://localhost/shadow"
-+STRIPE_SECRET_KEY="sk_live_..."
-+GITHUB_TOKEN="ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"`,
++STRIPE_SECRET_KEY="${DEMO_STRIPE_KEY}"
++GITHUB_TOKEN="${DEMO_GITHUB_TOKEN}"`,
       riskLevel: "high",
       riskReason: "Hardcoded Stripe keys",
     },

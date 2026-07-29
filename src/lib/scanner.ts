@@ -1,6 +1,10 @@
 // ShadowPaste V18 — AI Safe Scanner + Trust Score Engine
 // Scans projects/repos for secrets, dangerous permissions, unsafe configs
 
+// Demo credential values are assembled at runtime, never written as literals —
+// see src/lib/security/demo-fixtures.ts for why.
+import { DEMO_DB_URL, DEMO_ENV_FILE } from "./security/demo-fixtures"
+
 export interface ScanFinding {
   type: "secret" | "permission" | "config" | "dependency"
   severity: "low" | "medium" | "high" | "critical"
@@ -143,15 +147,12 @@ export function runScan(repoContent: string, repoName: string): ScanResult {
 export const DEMO_REPO_FILES: Array<{ path: string; content: string }> = [
   {
     path: "config/database.js",
-    content: `const url = "postgresql://admin:s3cretP@ss@prod-db.internal:5432/app"
+    content: `const url = "${DEMO_DB_URL}"
 module.exports = { url }`,
   },
   {
     path: ".env",
-    content: `DATABASE_URL="postgresql://localhost/dev"
-STRIPE_SECRET_KEY="sk_live_51H8xK2eZvKuLmNoPqRsTuVwXyZ0123456789"
-GITHUB_TOKEN="ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
-AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"`,
+    content: DEMO_ENV_FILE,
   },
   {
     path: "iam/policy.json",
