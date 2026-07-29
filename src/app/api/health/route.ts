@@ -45,14 +45,29 @@ export async function GET() {
   // Rate-limiter posture. Reported as a check (never a failure) so an operator
   // can see at a glance whether limits are global or best-effort per-instance —
   // an in-memory limiter on serverless is a real gap and must not be silent.
-  const { rateLimitMode } = await import("@/lib/rate-limit")
+  // A real round trip, not just an env-var check: a wrong REST URL or token
+  // fails open to the in-memory bucket, which looks identical to a healthy
+  // deployment from the outside. Only a PING distinguishes them.
+  const { rateLimitMode, probeDurableBackend, isDurable } = await import("@/lib/rate-limit")
   const rlMode = rateLimitMode()
-  checks.push({
-    name: "rate-limiter",
-    ok: true,
-    latencyMs: 0,
-    detail: `${rlMode.backend}${rlMode.durable ? " (durable)" : " (best-effort, per-instance)"}`,
-  })
+  if (isDurable()) {
+    const probe = await probeDurableBackend()
+    checks.push({
+      name: "rate-limiter",
+      ok: probe.ok,
+      latencyMs: probe.latencyMs,
+      detail: probe.ok
+        ? `upstash-redis reachable (durable) — ${probe.detail}, ok=${rlMode.redisOk} fail=${rlMode.redisFail}`
+        : `CONFIGURED BUT UNREACHABLE — limits have silently fallen back to per-instance memory. ${probe.detail}`,
+    })
+  } else {
+    checks.push({
+      name: "rate-limiter",
+      ok: true,
+      latencyMs: 0,
+      detail: "in-memory (best-effort, per-instance) — set UPSTASH_REDIS_REST_URL/TOKEN for global limits",
+    })
+  }
 
   const allOk = checks.every((c) => c.ok)
   const totalLatency = Date.now() - start

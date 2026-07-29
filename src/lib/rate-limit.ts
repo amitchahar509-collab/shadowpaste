@@ -136,23 +136,67 @@ export function checkRateLimit(req: Request, preset: keyof typeof RATE_LIMITS = 
 // Durable (Redis-backed) limiting
 // ---------------------------------------------------------------------------
 
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || ""
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || ""
+// A trailing slash produces `https://host//pipeline`, which Upstash rejects —
+// and because the limiter fails open, the only symptom is that limits silently
+// stop working. Normalize rather than trusting the operator's paste.
+const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || "").trim().replace(/\/+$/, "")
+const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || "").trim()
 
-/** True when limits are global across instances; false when best-effort per-instance. */
+/** True when Redis is CONFIGURED. Says nothing about whether it works. */
 export function isDurable(): boolean {
   return Boolean(REDIS_URL && REDIS_TOKEN)
 }
 
+// Live counters. `isDurable()` only proves the env vars exist; these prove the
+// backend is actually answering. Without them a misconfigured URL or a bad
+// token looks identical to a healthy deployment, because every Redis failure
+// falls back to the in-memory bucket and returns a normal 200.
+let redisOk = 0
+let redisFail = 0
+let lastRedisError = ""
+
 /** Describes the active posture, for /api/health and operator diagnostics. */
-export function rateLimitMode(): { durable: boolean; backend: string; note: string } {
-  return isDurable()
-    ? { durable: true, backend: "upstash-redis", note: "limits are global across instances and survive cold starts" }
-    : {
-        durable: false,
-        backend: "in-memory",
-        note: "BEST-EFFORT: per-instance only. Each serverless instance keeps its own counters and a cold start resets them. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for global limits.",
-      }
+export function rateLimitMode(): {
+  durable: boolean; backend: string; note: string
+  configured: boolean; redisOk: number; redisFail: number; lastError?: string
+} {
+  if (!isDurable()) {
+    return {
+      durable: false, configured: false, backend: "in-memory", redisOk, redisFail,
+      note: "BEST-EFFORT: per-instance only. Each serverless instance keeps its own counters and a cold start resets them. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for global limits.",
+    }
+  }
+  // Configured but every attempt has failed -> we are silently on the fallback.
+  const degraded = redisFail > 0 && redisOk === 0
+  return {
+    durable: !degraded, configured: true,
+    backend: degraded ? "in-memory (redis configured but FAILING)" : "upstash-redis",
+    redisOk, redisFail, ...(lastRedisError ? { lastError: lastRedisError } : {}),
+    note: degraded
+      ? "DEGRADED: Redis is configured but every call has failed, so limits have silently fallen back to per-instance in-memory counters. Check the REST URL (must be the https REST endpoint, not redis://) and token."
+      : "limits are global across instances and survive cold starts",
+  }
+}
+
+/**
+ * Actively probe the backend with a real round trip. `/api/health` uses this so
+ * "durable" reflects a working Redis, not merely a populated env var.
+ */
+export async function probeDurableBackend(): Promise<{ ok: boolean; detail: string; latencyMs: number }> {
+  if (!isDurable()) return { ok: false, detail: "not configured", latencyMs: 0 }
+  const start = Date.now()
+  try {
+    const res = await fetch(`${REDIS_URL}/ping`, {
+      headers: { authorization: `Bearer ${REDIS_TOKEN}` },
+      signal: AbortSignal.timeout(4000),
+    })
+    const latencyMs = Date.now() - start
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${(await res.text()).slice(0, 120)}`, latencyMs }
+    const body = (await res.json()) as { result?: string }
+    return { ok: body?.result === "PONG", detail: `PING -> ${body?.result ?? "no result"}`, latencyMs }
+  } catch (e) {
+    return { ok: false, detail: (e as Error).message.slice(0, 140), latencyMs: Date.now() - start }
+  }
 }
 
 async function redisFixedWindow(key: string, opts: RateLimitOptions): Promise<RateLimitResult | null> {
@@ -166,20 +210,36 @@ async function redisFixedWindow(key: string, opts: RateLimitOptions): Promise<Ra
       method: "POST",
       headers: { authorization: `Bearer ${REDIS_TOKEN}`, "content-type": "application/json" },
       body: JSON.stringify([["INCR", k], ["EXPIRE", k, String(windowSec)]]),
-      signal: AbortSignal.timeout(1500),
+      // 1.5s was too tight: a cold instance's first TLS handshake to Upstash can
+      // exceed it, and every timeout silently degraded to the in-memory bucket.
+      signal: AbortSignal.timeout(4000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      redisFail++
+      lastRedisError = `HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 120)}`
+      return null
+    }
     const parsed = (await res.json()) as Array<{ result?: number; error?: string }>
     const count = Number(parsed?.[0]?.result)
-    if (!Number.isFinite(count)) return null
+    if (!Number.isFinite(count)) {
+      redisFail++
+      lastRedisError = `unexpected pipeline response: ${JSON.stringify(parsed).slice(0, 120)}`
+      return null
+    }
+    redisOk++
 
     const resetMs = (slot + 1) * opts.windowMs - Date.now()
     if (count > opts.max) {
       return { ok: false, remaining: 0, resetMs, retryAfterMs: Math.max(0, resetMs) }
     }
     return { ok: true, remaining: Math.max(0, opts.max - count), resetMs, retryAfterMs: 0 }
-  } catch {
-    return null // network/timeout — caller falls back to the in-memory bucket
+  } catch (e) {
+    // Network/timeout — caller falls back to the in-memory bucket. Record it so
+    // a persistently unreachable Redis is visible in /api/health rather than
+    // presenting as a healthy deployment with limits that never fire.
+    redisFail++
+    lastRedisError = (e as Error).message.slice(0, 140)
+    return null
   }
 }
 
