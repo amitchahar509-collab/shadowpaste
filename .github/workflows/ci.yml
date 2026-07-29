@@ -146,6 +146,13 @@ jobs:
 
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/shadowpaste"
+      # test-real-scanner hits the live GitHub API. Unauthenticated calls from
+      # Actions runners share an IP against a 60/hour limit, which made the job
+      # flake (commit 6d7d59a failed, then passed on re-run with no code change).
+      # The automatic Actions token raises that to 5,000/hour and is scoped to
+      # this repository only. The scanner also refuses to lend a server token to
+      # a private repo, so this cannot become a read oracle.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4

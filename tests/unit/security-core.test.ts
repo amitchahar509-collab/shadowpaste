@@ -28,6 +28,7 @@ import { assessRisk, getToolBaseRisk, scoreToLevel } from "@/lib/risk";
 import { rateLimit, getClientIp, rateLimitMode, isDurable, RATE_LIMITS } from "@/lib/rate-limit";
 import { hashToken, redirectUriAllowed, verifyPkce, oauthError, protectedResourceMetadata, bearerChallenge, authServerMetadata } from "@/lib/oauth";
 import { createHash, randomBytes as nodeRandomBytes } from "crypto";
+import { isGitHubRateLimited } from "../_github-rate-limit";
 
 // Fixtures assembled at runtime — never key-shaped literals in a tracked file.
 const STRIPE = ["sk", "live", "51QaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefGH"].join("_");
@@ -159,6 +160,27 @@ describe("hex-valued credentials (allowlist context-sensitivity)", () => {
     });
   }
 
+  // SRI / lockfile integrity digests are PUBLISHED values — shipped in HTML and
+  // committed to lockfiles for anyone to read. They are long and high-entropy,
+  // so entropy_40 flagged every package-lock.json and <script integrity=…> tag.
+  test("does not flag SRI / lockfile integrity hashes", () => {
+    const b64 = "oqVuAfXRKap7fdgcCY5uykM6R9GqQ8Kuxy9rx7HNQlGYl1kPzQho1wx4JwY8wC";
+    for (const t of [
+      `{"integrity":"sha512-${b64}","dev":true}`,
+      `{"integrity":"sha1-${hex(40)}"}`,          // npm lockfile v1
+      `<script src="/a.js" integrity="sha384-${b64}"></script>`,
+      `integrity="sha256-${b64}"`,
+    ]) {
+      expect(scanForSecrets(t, "sri")).toHaveLength(0);
+    }
+  });
+
+  test("SRI allowlisting does not swallow a real credential next to it", () => {
+    const b64 = "oqVuAfXRKap7fdgcCY5uykM6R9GqQ8Kuxy9rx7HNQlGYl1kPzQho1wx4JwY8wC";
+    const mixed = `{"integrity":"sha512-${b64}","access_key":"${hex(32)}"}`;
+    expect(scanForSecrets(mixed, "sri").length).toBeGreaterThan(0);
+  });
+
   test("access_key is covered across separator and quoting styles", () => {
     for (const t of [
       `access_key=${hex(32)}`,
@@ -170,6 +192,37 @@ describe("hex-valued credentials (allowlist context-sensitivity)", () => {
     ]) {
       expect(scanForSecrets(t, "hex").length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("CI flake guard — GitHub rate-limit detection", () => {
+  // The scanner integration test failed CI on commit 6d7d59a and passed on
+  // re-run of the identical commit. Cause: the soft-skip matched only
+  // "GitHub API 403" (the repo-metadata error), while the tree fetch fails with
+  // "Cannot fetch tree: 403". These assertions pin every error shape so the
+  // flake cannot come back silently.
+  test("recognises throttling on the repo-metadata call", () => {
+    expect(isGitHubRateLimited(502, "GitHub API 403")).toBe(true);
+    expect(isGitHubRateLimited(502, "GitHub API 429")).toBe(true);
+  });
+  test("recognises throttling on the TREE call (the case that broke CI)", () => {
+    expect(isGitHubRateLimited(502, "Cannot fetch tree: 403")).toBe(true);
+    expect(isGitHubRateLimited(502, "Cannot fetch tree: 429")).toBe(true);
+  });
+  test("recognises a bare 429 status and GitHub's own wording", () => {
+    expect(isGitHubRateLimited(429, "")).toBe(true);
+    expect(isGitHubRateLimited(502, "API rate limit exceeded for 1.2.3.4")).toBe(true);
+    expect(isGitHubRateLimited(502, "You have exceeded a secondary rate limit")).toBe(true);
+  });
+  test("does NOT mask real scanner failures", () => {
+    // These must stay hard failures — treating them as skips would let a broken
+    // scanner ship behind a green pipeline.
+    expect(isGitHubRateLimited(502, "GitHub API 404")).toBe(false);
+    expect(isGitHubRateLimited(502, "Cannot fetch tree: 404")).toBe(false);
+    expect(isGitHubRateLimited(500, "TypeError: undefined is not a function")).toBe(false);
+    expect(isGitHubRateLimited(200, "")).toBe(false);
+    expect(isGitHubRateLimited(0, "fetch failed")).toBe(false);
+    expect(isGitHubRateLimited(401, "Bad credentials")).toBe(false);
   });
 });
 

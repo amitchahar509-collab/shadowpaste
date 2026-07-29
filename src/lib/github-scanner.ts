@@ -68,7 +68,20 @@ export async function scanGitHubRepo(repo: string, opts: { token?: string; orgId
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "ShadowPaste-Scanner/1.0",
   }
-  if (opts.token) headers.Authorization = `Bearer ${opts.token}`
+  // Caller-supplied token wins. Otherwise fall back to a server token purely to
+  // raise GitHub's anonymous rate limit (60/hour/IP -> 5,000/hour), which is what
+  // made the CI scanner test flaky.
+  //
+  // SECURITY: a server token can see whatever repos it was granted, and the repo
+  // name here is caller-controlled — so an unguarded fallback would turn the
+  // scanner into a private-repo read oracle. When the token comes from the
+  // environment rather than the caller, the scan is refused for any repo GitHub
+  // reports as private (see the `private` check below). Prefer a token with no
+  // private-repo scope via GITHUB_PUBLIC_SCAN_TOKEN.
+  const envToken = process.env.GITHUB_PUBLIC_SCAN_TOKEN || process.env.GITHUB_TOKEN || ""
+  const usingServerToken = !opts.token && !!envToken
+  const effectiveToken = opts.token || envToken
+  if (effectiveToken) headers.Authorization = `Bearer ${effectiveToken}`
 
   // 1. Repo metadata
   let repoRes: Response
@@ -81,6 +94,12 @@ export async function scanGitHubRepo(repo: string, opts: { token?: string; orgId
     return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: `GitHub API ${repoRes.status}` }
   }
   const repoMeta = await repoRes.json()
+  // Refuse to lend the server's credentials to a private repo the caller did not
+  // authenticate for. Without this, setting GITHUB_TOKEN would silently grant
+  // every caller read access to every repo that token can reach.
+  if (usingServerToken && repoMeta.private === true) {
+    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: "private repository requires your own GitHub token" }
+  }
   const defaultBranch = repoMeta.default_branch || "main"
 
   // 2. Tree (recursive)

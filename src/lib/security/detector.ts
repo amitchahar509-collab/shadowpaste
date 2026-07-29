@@ -217,6 +217,21 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
     /^data:image\//, // data URLs
     /^[\w-]+\/[\w-]+$/, // owner/repo format
     /^[0-9]+$/, // pure numbers
+    // Subresource Integrity / package-lock integrity hashes.
+    //
+    // `sha512-<base64>` is a PUBLISHED integrity digest — its entire purpose is
+    // to be shipped in HTML and lockfiles for anyone to read. It can never be a
+    // credential, but it is long and high-entropy, so entropy_40 matched it and
+    // every package-lock.json and <script integrity=…> tag produced a finding.
+    // Always safe, in any context, so it belongs here rather than in the
+    // context-sensitive list below.
+    //
+    // `sha1-` is included deliberately even though the SRI spec only defines
+    // sha256/384/512: npm lockfile v1 wrote `"integrity": "sha1-<base64>"`, and
+    // those entries are still everywhere in real dependency trees. Omitting it
+    // would leave package-lock.json scans dirty, which is the case this exists
+    // to fix.
+    /^sha(?:1|256|384|512)-/i,
   ]
 
   // Ambiguous by shape, decided by context.

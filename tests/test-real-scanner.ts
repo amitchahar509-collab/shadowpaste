@@ -25,6 +25,7 @@
 // Output: results-scanner.json + stdout summary.
 
 import { authCookie } from "./_auth";
+import { isGitHubRateLimited, logRateLimitSkip } from "./_github-rate-limit";
 
 const BASE = "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 30_000; // GitHub API can be slow
@@ -124,7 +125,8 @@ async function main() {
 
   // Distinguish "scanner bug" from "GitHub rate-limited the sandbox"
   const t1ErrorStr = String(scanRes.data?.error || "");
-  const t1RateLimited = scanRes.status === 502 && /GitHub API (403|429)/.test(t1ErrorStr);
+  const t1RateLimited = isGitHubRateLimited(scanRes.status, t1ErrorStr);
+  if (t1RateLimited) logRateLimitSkip("T1 /api/scan");
   checks.push({
     id: "T1",
     description: "Real repo scan returns ok:true, filesScanned>=0, score 0-100, grade, no DEMO_REPO",
@@ -148,7 +150,8 @@ async function main() {
   // which is the real assertion (no false-positive success on a nonexistent repo).
   const t2Error = !badScan.data?.ok && (badScan.status === 404 || badScan.status === 502 || badScan.status === 400);
   const t2ErrorStr = String(badScan.data?.error || "");
-  const t2RateLimited = badScan.status === 502 && /GitHub API (403|429)/.test(t2ErrorStr);
+  const t2RateLimited = isGitHubRateLimited(badScan.status, t2ErrorStr);
+  if (t2RateLimited) logRateLimitSkip("T2 /api/scan invalid-repo");
   checks.push({
     id: "T2",
     description: "Nonexistent repo scan returns an error (404/502/400), ok != true",
@@ -176,7 +179,8 @@ async function main() {
   const t3Pass = t3Ok && t3ShareId && t3NoDemo;
 
   const t3ErrorStr = String(pubRes.data?.error || "");
-  const t3RateLimited = pubRes.status === 502 && /GitHub API (403|429)/.test(t3ErrorStr);
+  const t3RateLimited = isGitHubRateLimited(pubRes.status, t3ErrorStr);
+  if (t3RateLimited) logRateLimitSkip("T3 /api/public-scan");
   checks.push({
     id: "T3",
     description: "Public scan returns ok:true + shareId, no DEMO_REPO",
@@ -226,6 +230,8 @@ async function main() {
   // T4 is a hard check IF T3 produced a shareId (otherwise it's auto-skipped).
   const rateLimitedIds = new Set<string>();
   if (t1RateLimited) rateLimitedIds.add("T1");
+  // T2 was computed but never added here, so a rate-limited T2 still hard-failed.
+  if (t2RateLimited) rateLimitedIds.add("T2");
   if (t3RateLimited) rateLimitedIds.add("T3");
 
   const hardFailChecks = checks.filter((c) => {
