@@ -3,6 +3,7 @@
 // ONE source of truth for secret detection across Web App, MCP Gateway, Scanner, Extension.
 
 import { SECRET_PATTERNS } from "./secret-patterns";
+import { canonicalizeWithMap } from "./canonicalize";
 
 export interface Detector {
   id: string;
@@ -303,6 +304,56 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
     }
   }
 
+  // 4. Canonicalization pass (percent-decoding + NFKC + invisible-char removal).
+  // Patterns match literal text, so `sk_live_%35%31…`, a fullwidth `ｓｋ_live_…`
+  // or a key split by a zero-width space matched NOTHING before this stage —
+  // measured at 8 of 9 obfuscations bypassing the full catalog.
+  //
+  // The finding reports the ORIGINAL (still-encoded) span as `raw`, never the
+  // decoded value. Downstream redaction and vaulting replace substrings of the
+  // original text; handing them a decoded string that does not occur there
+  // would silently no-op while reporting success — a leak plus a reassuring
+  // log line. canonicalizeWithMap keeps the index map that makes this exact.
+  if (_depth < 1) {
+    const canon = canonicalizeWithMap(text);
+    if (canon.changed) {
+      const inner = scanForSecrets(canon.text, contextHint, _depth + 1);
+      // Own dedupe set, like the base64 pass: gating on `seen` would let a
+      // generic catalog match on the encoded blob suppress the decode and
+      // mis-attribute the credential.
+      const canonSeen = new Set<string>();
+      for (const f of inner) {
+        // Locate every occurrence so a repeated secret is fully covered.
+        let from = 0;
+        for (;;) {
+          const idx = canon.text.indexOf(f.raw, from);
+          if (idx === -1) break;
+          from = idx + Math.max(1, f.raw.length);
+          const span = canon.toOriginal(idx, idx + f.raw.length);
+          const originalRaw = text.slice(span.start, span.end);
+          if (!originalRaw || originalRaw.length < 6) continue;
+          // Unchanged region -> stages 1-2 already had a fair shot at it.
+          if (originalRaw === f.raw) continue;
+          if (canonSeen.has(originalRaw) || findings.some((x) => x.raw === originalRaw)) continue;
+          canonSeen.add(originalRaw);
+          const how = originalRaw.includes("%") ? "URL_ENCODED" : "NORMALIZED";
+          const { line, column } = lineColOf(text, span.start);
+          findings.push({
+            type: "secret",
+            severity: f.severity,
+            detector: `${how}:${f.detector}`,
+            provider: f.provider,
+            scope: f.scope,
+            raw: originalRaw,
+            masked: maskEvidence(originalRaw),
+            line,
+            column,
+          });
+        }
+      }
+    }
+  }
+
   return findings;
 }
 
@@ -366,6 +417,38 @@ export function virtualizeText(text: string, opts: { mode?: "PROTECT" | "TEST"; 
       pushSpan(valStart, valStart + m[2].length, m[2]);
       if (m[0].length === 0) re.lastIndex++;
     }
+  }
+
+  // Canonical pass.
+  //
+  // virtualizeText deliberately keeps its own pattern set (SELF/ASSIGN) rather
+  // than calling scanForSecrets, which means the canonicalization stage added to
+  // scanForSecrets does NOT reach it. Without this block the scanner reported an
+  // encoded Stripe key correctly while virtualizeText — the function the CLI and
+  // workspace protect flow actually use to rewrite files — left it untouched
+  // (measured: scanForSecrets 1 finding, virtualizeText count=0).
+  //
+  // So run the same patterns over canonicalized text and map every match back to
+  // the ORIGINAL span, so the encoded bytes on disk are what gets replaced.
+  const canon = canonicalizeWithMap(text);
+  if (canon.changed) {
+    const collect = (re: RegExp, valueGroup: number) => {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(canon.text)) !== null) {
+        const prefixLen = valueGroup > 0 ? (m[1] ?? "").length : 0;
+        const cStart = m.index + prefixLen;
+        const value = valueGroup > 0 ? m[valueGroup] : m[0];
+        if (!value) { if (m[0].length === 0) re.lastIndex++; continue; }
+        const span = canon.toOriginal(cStart, cStart + value.length);
+        const raw = text.slice(span.start, span.end);
+        // Unchanged region: the literal passes above already had a fair shot,
+        // and re-adding it would just duplicate a span.
+        if (raw && raw !== value) pushSpan(span.start, span.end, raw);
+        if (m[0].length === 0) re.lastIndex++;
+      }
+    };
+    for (const d of SELF) collect(d.re(), 0);
+    for (const d of ASSIGN) collect(d.re(), 2);
   }
 
   if (spans.length === 0) return { text, count: 0, findings: [] };
