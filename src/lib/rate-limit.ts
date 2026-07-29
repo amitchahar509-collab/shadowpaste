@@ -115,7 +115,20 @@ export function getClientIp(req: Request): string {
 
 // Preset rate limits per endpoint category
 export const RATE_LIMITS = {
-  auth: { windowMs: 15 * 60 * 1000, max: 10, keyPrefix: "auth" },      // 10 login/signup per 15min
+  // FAILED login attempts per 15min (brute-force protection).
+  //
+  // Only failures consume a token — see the login route. Throttling SUCCESSFUL
+  // logins protects nothing: a user who authenticates correctly twenty times is
+  // not attacking anything, while an attacker guessing passwords generates
+  // failures by definition. Counting both also made this bucket shared state
+  // between unrelated callers behind one NAT/proxy, and (as CI proved) between
+  // every test suite in a run, where getClientIp() collapses to one key.
+  auth: { windowMs: 15 * 60 * 1000, max: 10, keyPrefix: "auth" },
+  // Account creation, counted on EVERY attempt — a signup "succeeds" by design,
+  // so success-only counting would leave mass account creation unthrottled.
+  // Separate bucket so a burst of registrations cannot exhaust the brute-force
+  // budget that protects existing accounts, and vice versa.
+  signup: { windowMs: 60 * 60 * 1000, max: 20, keyPrefix: "signup" },
   mcp: { windowMs: 60 * 1000, max: 60, keyPrefix: "mcp" },             // 60 MCP calls per min
   scan: { windowMs: 60 * 1000, max: 5, keyPrefix: "scan" },            // 5 scans per min
   vault: { windowMs: 60 * 1000, max: 20, keyPrefix: "vault" },         // 20 vault ops per min
@@ -302,6 +315,55 @@ export async function enforceRateLimit(
     // the request outright.
   }
   return rateLimit(id, opts)
+}
+
+/**
+ * Check a limit WITHOUT consuming a token.
+ *
+ * Lets a route reject callers who are already throttled while deciding for
+ * itself what counts as an attempt — the login route peeks first, then consumes
+ * only when the credentials were wrong.
+ */
+export async function peekRateLimit(
+  req: Request,
+  preset: keyof typeof RATE_LIMITS = "default"
+): Promise<RateLimitResult> {
+  const opts = RATE_LIMITS[preset]
+  const id = getClientIp(req)
+
+  if (isDurable()) {
+    const slot = Math.floor(Date.now() / opts.windowMs)
+    const k = `sp:rl:${opts.keyPrefix || "default"}:${id}:${slot}`
+    try {
+      const res = await fetch(`${REDIS_URL}/get/${encodeURIComponent(k)}`, {
+        headers: { authorization: `Bearer ${REDIS_TOKEN}` },
+        signal: AbortSignal.timeout(4000),
+      })
+      if (res.ok) {
+        const body = (await res.json()) as { result?: string | null }
+        const count = Number(body?.result ?? 0) || 0
+        const resetMs = (slot + 1) * opts.windowMs - Date.now()
+        redisOk++
+        return count >= opts.max
+          ? { ok: false, remaining: 0, resetMs, retryAfterMs: Math.max(0, resetMs) }
+          : { ok: true, remaining: Math.max(0, opts.max - count), resetMs, retryAfterMs: 0 }
+      }
+      redisFail++
+    } catch (e) {
+      redisFail++
+      lastRedisError = redactConfig((e as Error).message).slice(0, 140)
+    }
+    // fall through to the local bucket
+  }
+
+  // In-memory peek: replicate the refill maths without taking a token.
+  const key = `${opts.keyPrefix || "default"}:${id}`
+  const bucket = buckets.get(key)
+  if (!bucket) return { ok: true, remaining: opts.max, resetMs: opts.windowMs, retryAfterMs: 0 }
+  const tokens = Math.min(opts.max, bucket.tokens + ((Date.now() - bucket.lastRefill) / opts.windowMs) * opts.max)
+  return tokens >= 1
+    ? { ok: true, remaining: Math.floor(tokens), resetMs: opts.windowMs, retryAfterMs: 0 }
+    : { ok: false, remaining: 0, resetMs: opts.windowMs, retryAfterMs: Math.ceil((1 - tokens) * opts.windowMs) }
 }
 
 /** Standard 429 headers for a rejected request. */

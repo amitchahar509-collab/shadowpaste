@@ -25,7 +25,12 @@ export async function GET(req: NextRequest) {
   //    anonymous caller could drive unbounded INSERTs (measured: 30 parallel
   //    probes -> 30 writes). Limiting before the auth check means a probe flood
   //    costs zero database work; auditUnauthorized additionally coalesces.
-  const rl = await enforceRateLimit(req, "auth")
+  // Its own budget, not the login one: an unauthenticated probe here must not
+  // consume the brute-force allowance protecting a user's password, and vice
+  // versa. Write amplification is bounded independently by the coalescing in
+  // auditUnauthorized, so this limit is defence in depth rather than the
+  // primary control.
+  const rl = await enforceRateLimit(req, "default")
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate limit exceeded", retryAfterMs: rl.retryAfterMs },
