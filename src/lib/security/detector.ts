@@ -152,7 +152,34 @@ function lineColOf(text: string, index: number): { line: number; column: number 
   return { line, column };
 }
 
-export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] {
+/**
+ * Decode a candidate base64 run, or null when it is not plausibly base64-encoded
+ * text. Guards keep the pass cheap and quiet:
+ *   - bounded length (a whole PEM body is not worth re-scanning)
+ *   - must decode to mostly-printable ASCII, so binary blobs are ignored
+ *   - must round-trip, since Buffer.from(..., "base64") silently accepts junk
+ */
+function decodeBase64Maybe(s: string): string | null {
+  if (s.length < 16 || s.length > 4096) return null;
+  try {
+    const buf = Buffer.from(s, "base64");
+    if (buf.length < 8) return null;
+    // Round-trip check: re-encoding must reproduce the input (ignoring padding).
+    const reencoded = buf.toString("base64").replace(/=+$/, "");
+    if (reencoded !== s.replace(/=+$/, "")) return null;
+    const decoded = buf.toString("utf8");
+    let printable = 0;
+    for (let i = 0; i < decoded.length; i++) {
+      const c = decoded.charCodeAt(i);
+      if (c === 9 || c === 10 || c === 13 || (c >= 32 && c < 127)) printable++;
+    }
+    return decoded.length > 0 && printable / decoded.length >= 0.9 ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+export function scanForSecrets(text: string, contextHint = "", _depth = 0): SecretFinding[] {
   const findings: SecretFinding[] = [];
   // 1. Legacy high-precision detectors (6 patterns)
   for (const d of detectors) {
@@ -233,6 +260,49 @@ export function scanForSecrets(text: string, contextHint = ""): SecretFinding[] 
       if (raw.length === 0) re.lastIndex++;
     }
   }
+
+  // 3. Base64 pre-decode pass.
+  // A credential that has been base64-encoded ("c2tfbGl2ZV8...") is invisible to
+  // every pattern above, so an encoded Stripe/AWS/GitHub key would be scored as
+  // harmless and handed to an agent verbatim. Decode plausible base64 runs and
+  // re-scan the plaintext. Depth is capped at one level: nested encoding is not
+  // pursued, which keeps the pass bounded and prevents runaway recursion.
+  if (_depth < 1) {
+    const B64_RE = /\b[A-Za-z0-9+/]{16,}={0,2}/g;
+    // Deliberately NOT gated on `seen`: a generic catalog pattern (HighEntropy,
+    // upstash_token, wireguard_psk …) frequently matches the encoded blob first
+    // and would otherwise suppress the decode, leaving the credential MIS-
+    // ATTRIBUTED — an encoded Stripe key reported as "WireGuard". Decoding wins
+    // the attribution; duplicate spans are harmless because virtualization
+    // replaces the first occurrence and skips the rest.
+    const decodedSeen = new Set<string>();
+    let bm: RegExpExecArray | null;
+    while ((bm = B64_RE.exec(text)) !== null) {
+      const blob = bm[0];
+      if (decodedSeen.has(blob)) continue;
+      const decoded = decodeBase64Maybe(blob);
+      if (!decoded) continue;
+      const inner = scanForSecrets(decoded, contextHint, _depth + 1);
+      if (inner.length === 0) continue;
+      // Report the ENCODED span as `raw` so virtualization and vaulting replace
+      // the text that actually appears in the file; surface the decoded
+      // provider so the finding is still actionable.
+      const { line, column } = lineColOf(text, bm.index);
+      decodedSeen.add(blob);
+      findings.push({
+        type: "secret",
+        severity: inner[0].severity,
+        detector: `BASE64_ENCODED:${inner[0].detector}`,
+        provider: inner[0].provider,
+        scope: inner[0].scope,
+        raw: blob,
+        masked: maskEvidence(blob),
+        line,
+        column,
+      });
+    }
+  }
+
   return findings;
 }
 
