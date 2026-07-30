@@ -277,6 +277,49 @@ const DB_READ_TABLE_ALLOWLIST = new Set([
 // Column names that must never leave the database, wherever they appear.
 const DB_READ_COLUMN_DENYLIST = /\b(passwordhash|apikeyhash|tokenhash|clientsecrethash|encryptedcipher|encryptediv|secret|password|passwd)\b/i;
 
+// Every model in the schema. Any model NOT in DB_READ_TABLE_ALLOWLIST is denied
+// by NAME PRESENCE, independently of SQL syntax — see assertNoDeniedTable.
+const ALL_MODELS = [
+  "user", "usersession", "organization", "team", "membership", "agent", "session",
+  "permission", "mcptool", "mcppackage", "vaultentry", "toolcall", "toolexecution",
+  "auditlog", "project", "scan", "sandboxchange", "attacktest", "oauthclient",
+  "oauthcode", "oauthtoken", "publicscan",
+];
+
+/**
+ * Reject a query that mentions a denied table ANYWHERE.
+ *
+ * WHY THIS EXISTS (found by independent re-verification of the first fix):
+ * the FROM/JOIN position parser below only captured identifiers directly after a
+ * FROM or JOIN keyword, so a comma-separated join slipped straight past it:
+ *
+ *   SELECT u.email FROM "Agent", "User" u   -> parser saw ["agent"] only
+ *                                           -> allowlisted -> ALLOWED
+ *                                           -> returned real user emails
+ *
+ * Same for `FROM "Agent" a, "Organization" o`, which returned every tenant's org.
+ * Position-based SQL parsing is the wrong shape for a security control: there is
+ * always another syntax (comma joins, LATERAL, ONLY, set-returning functions).
+ *
+ * Presence-based denial inverts the burden. To READ a table its name must appear
+ * in the statement, so if a denied model name occurs as a word anywhere outside a
+ * string literal, refuse. This cannot be evaded by rearranging syntax.
+ *
+ * Word boundaries keep legitimate columns working: `"sessionId"` does not match
+ * `\bsession\b`, so ToolCall.sessionId is still selectable.
+ */
+export function assertNoDeniedTable(sql: string): string | null {
+  const stripped = sql
+    .replace(/--[^\n]*/g, " ")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/'(?:[^']|'')*'/g, "''");
+  for (const model of ALL_MODELS) {
+    if (DB_READ_TABLE_ALLOWLIST.has(model)) continue;
+    if (new RegExp(`\\b${model}\\b`, "i").test(stripped)) return model;
+  }
+  return null;
+}
+
 /** Tables referenced after FROM / JOIN. Returns null when the query cannot be parsed confidently. */
 export function extractQueryTables(sql: string): string[] | null {
   // Strip string literals and comments so identifiers inside them cannot hide a
@@ -314,6 +357,19 @@ export async function dbQuery(input: { query: string }): Promise<ExecResult> {
     if (/;\s*\S/.test(q)) return fail("Multiple statements are not permitted", "SQL_VALIDATION_FAILED");
     if (DB_READ_COLUMN_DENYLIST.test(q)) {
       return fail("Query references a credential column that db.read may never return", "SQL_FORBIDDEN_COLUMN");
+    }
+
+    // Presence-based denial FIRST. The position parser below is defence in depth,
+    // but it was independently shown to miss comma-separated joins
+    // (`FROM "Agent", "User"`), which returned real user emails. A denied table
+    // cannot be read without its name appearing, so check for the name.
+    const deniedTable = assertNoDeniedTable(q);
+    if (deniedTable) {
+      return fail(
+        `db.read may not reference the "${deniedTable}" table (credentials/identity/tenant data). ` +
+        `Allowed: ${[...DB_READ_TABLE_ALLOWLIST].sort().join(", ")}`,
+        "SQL_FORBIDDEN_TABLE"
+      );
     }
 
     const tables = extractQueryTables(q);

@@ -23,7 +23,7 @@ import { canonicalizeText, canonicalizeWithMap } from "@/lib/security/canonicali
 import { scanForSecrets, virtualizeText } from "@/lib/security/detector";
 import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
 import { SECRET_PATTERNS, PATTERN_COUNT } from "@/lib/security/secret-patterns";
-import { isPrivateAddress, assertSafeUrl, extractQueryTables, jsonSafe, executeTool } from "@/lib/tools/adapters";
+import { isPrivateAddress, assertSafeUrl, extractQueryTables, assertNoDeniedTable, jsonSafe, executeTool } from "@/lib/tools/adapters";
 import { GATEWAY_ESCALATION_CODES } from "@/lib/gateway";
 import { limitParam } from "@/lib/query-params";
 import { assertRiskMetadataInSync } from "@/lib/tool-registry";
@@ -348,6 +348,43 @@ describe("db.read authorization", () => {
   });
   test("schema-qualified names resolve to the object, not the schema", () => {
     expect(extractQueryTables('SELECT * FROM public."Agent"')).toEqual(["agent"]);
+  });
+
+  // Independent re-verification of the first fix found it INCOMPLETE. The
+  // position parser only captured identifiers directly after FROM/JOIN, so a
+  // comma-separated join walked past it and returned real user emails:
+  //
+  //   SELECT u.email FROM "Agent", "User" u  -> parser saw ["agent"] -> ALLOWED
+  //
+  // Presence-based denial replaced position parsing as the primary control: a
+  // table cannot be read without its name appearing in the statement.
+  test("denies a forbidden table regardless of SQL syntax", () => {
+    const evasions = [
+      'SELECT u.email FROM "Agent", "User" u',            // the confirmed bypass
+      'SELECT * FROM "Agent" a, "Organization" o',
+      'SELECT * FROM "Agent" CROSS JOIN "User"',
+      'SELECT * FROM "Agent" WHERE id IN (SELECT id FROM "User")',
+      'SELECT * FROM ONLY "User"',
+      'SELECT * FROM public."User"',
+      'SELECT * FROM "OAuthToken"',
+      'SELECT * FROM "VaultEntry"',
+      'SELECT * FROM "Session"',
+    ];
+    for (const q of evasions) expect(assertNoDeniedTable(q)).not.toBeNull();
+  });
+  test("does not over-block allowlisted tables or lookalike columns", () => {
+    for (const q of [
+      'SELECT * FROM "Agent"',
+      'SELECT COUNT(*) FROM "AuditLog"',
+      // "sessionId" must NOT trip the \bsession\b denial.
+      'SELECT "sessionId" FROM "ToolCall"',
+      'SELECT a.name FROM "Agent" a JOIN "ToolCall" t ON t."agentId" = a.id',
+    ]) {
+      expect(assertNoDeniedTable(q)).toBeNull();
+    }
+  });
+  test("a denied name inside a string literal is not a reference", () => {
+    expect(assertNoDeniedTable(`SELECT 'User' AS label FROM "Agent"`)).toBeNull();
   });
 });
 
