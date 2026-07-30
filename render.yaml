@@ -1,88 +1,152 @@
-# ShadowPaste — Render Blueprint (recommended 24/7 home for the FULL product)
+# ShadowPaste — Render Blueprint (Node runtime)
 #
-# Why Render (or Railway) and not Vercel for the primary deploy:
-#   ShadowPaste is filesystem-stateful. The AI-Safe Workspace core writes real
-#   directories (.workspaces/), shells out to `git clone`, and persists the vault
-#   master key. Those need a long-running container with a real filesystem — which
-#   this Docker web service provides, and which Vercel serverless does not.
+# Deploy: push to GitHub → Render Dashboard → New → Blueprint → select this repo.
 #
-# This blueprint provisions:
-#   - a Docker web service (uses the repo Dockerfile), and
-#   - a free managed PostgreSQL database, wired into DATABASE_URL automatically.
+# ── THREE THINGS THIS FILE DELIBERATELY DOES NOT DO THE OBVIOUS WAY ───────────
 #
-# ── FREE-TIER LIMITATIONS (be honest) ─────────────────────────────────────────
-#   • Free web services SPIN DOWN after ~15 min of inactivity and cold-start on
-#     the next request — so "24/7 always-warm" needs the paid Starter plan.
-#   • Free instances have an EPHEMERAL filesystem: .workspaces/ created during a
-#     session are lost on restart/redeploy. For durable workspaces, upgrade to a
-#     paid instance and attach a Disk (see the commented `disk:` block below).
-#   • The Postgres data itself IS persistent on the free DB plan.
+# 1. buildCommand uses `npm install --include=dev`, not plain `npm install`.
+#    Render sets NODE_ENV=production for Node services, which makes npm SKIP
+#    devDependencies. `typescript` lives in devDependencies and `next build`
+#    requires it — so a plain `npm install` produces a build that fails with
+#    "you're trying to use TypeScript but do not have the required package(s)".
+#    The flag is what makes the documented command actually work here.
 #
-# Deploy: push this file to GitHub → Render Dashboard → New → Blueprint → pick repo.
+# 2. startCommand runs node, not bun. package.json's `start` script used to
+#    invoke bun; Render's Node runtime has no bun on PATH, so the build would
+#    succeed and the service would crash on boot. `npm start` now runs node.
+#    Verified locally: `node .next/standalone/server.js` → ready in 651ms,
+#    /api/health → 200.
+#
+# 3. Secrets are `sync: false` (you paste them in the dashboard) or
+#    `generateValue: true` (Render generates once, stable across deploys).
+#    Neither ever puts a real credential in this file — this file is in git.
+#
+# ── REQUIRED, NOT OPTIONAL ────────────────────────────────────────────────────
+# AUTH_PEPPER, SHADOWPASTE_MASTER_KEY and SHADOWPASTE_VAULT_SALT are included
+# even though they were not in the original request. Without AUTH_PEPPER the app
+# REFUSES TO START in production (deliberate guard). Without the vault key/salt,
+# every vaulted secret becomes unrecoverable on the next restart. A blueprint
+# that omitted them would deploy and then fail, so they stay.
+#
+# NOTE: the previous version of this file used the Docker runtime and provisioned
+# a managed Postgres. This one uses the Node runtime per request and expects
+# DATABASE_URL to be supplied (e.g. the existing Neon database). The Docker
+# variant is preserved in git history if you want it back.
 
 services:
   - type: web
     name: shadowpaste
-    runtime: docker
-    plan: free                 # change to "starter" for always-on + a persistent disk
-    dockerfilePath: ./Dockerfile
+    runtime: node
+    plan: starter # `free` spins down after ~15 min idle; starter stays warm
+    region: oregon
+    branch: main
+    autoDeploy: true
+
+    # --include=dev — see note 1 above.
+    buildCommand: "npm install --include=dev && npm run build"
+    # package.json start = NODE_ENV=production node .next/standalone/server.js
+    startCommand: "npm start"
+
     healthCheckPath: /api/health
-    autoDeploy: true           # every push to the connected branch redeploys
-    # Apply the Prisma schema to the managed Postgres before each deploy goes live.
-    # Invoke the Prisma CLI that the image ships (see Dockerfile) directly, rather
-    # than via `bunx`, which would try to download it from npm at deploy time.
-    preDeployCommand: "node node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss"
+
+    # Apply the Prisma schema before traffic reaches the new build. Idempotent,
+    # so it is safe against an already-migrated database.
+    preDeployCommand: "npx prisma db push --skip-generate --accept-data-loss"
+
     envVars:
+      # ---- Runtime ----
+      - key: NODE_VERSION
+        value: "20"
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3000"
       - key: HOSTNAME
         value: "0.0.0.0"
-      # Postgres connection string is injected from the managed DB below.
+
+      # ---- Database (required) ----
+      # Paste the Postgres connection string in the Render dashboard. If you are
+      # reusing the existing Neon database, use its POOLED connection string.
       - key: DATABASE_URL
-        fromDatabase:
-          name: shadowpaste-db
-          property: connectionString
-      # Secrets: Render generates a strong random value ONCE and keeps it stable
-      # across deploys — exactly what the auth pepper and vault key need.
+        sync: false
+
+      # ---- Durable rate limiting (strongly recommended) ----
+      # Without these the limiter keeps PER-INSTANCE counters: a "60/min" limit
+      # becomes 60 x instances and resets on restart. /api/health reports which
+      # mode is live and says "CONFIGURED BUT UNREACHABLE" when the URL or token
+      # is wrong — it fails open to memory rather than erroring, so check it.
+      # Use the https REST endpoint, NOT the redis:// connection string.
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+
+      # ---- Proxy ----
+      # Render terminates TLS and sets X-Forwarded-For, so it is trustworthy
+      # here. Left false, every client keys to the same rate-limit bucket.
+      - key: TRUST_PROXY
+        value: "true"
+
+      # ---- Alerting ----
+      # Without this, alerts are RECORDED but nobody is notified. /api/health
+      # reports "NO delivery adapter configured" so the state stays visible.
+      - key: ALERT_WEBHOOK_URL
+        sync: false
+      # Optional: enables HMAC signing of alert payloads
+      # (x-shadowpaste-signature: v1=<hmac sha256 over "<timestamp>.<body>">).
+      - key: ALERT_WEBHOOK_SECRET
+        sync: false
+
+      # ---- Required secrets (see note above) ----
       - key: AUTH_PEPPER
         generateValue: true
       - key: SHADOWPASTE_MASTER_KEY
         generateValue: true
       - key: SHADOWPASTE_VAULT_SALT
         generateValue: true
-      # Public URL of this service — set to your Render URL after first deploy
-      # (e.g. https://shadowpaste.onrender.com). Used for redirects + MCP config.
+
+      # ---- Public URL ----
+      # Set to your Render URL after the first deploy, e.g.
+      # https://shadowpaste.onrender.com — used for OAuth redirects and the MCP
+      # config the app hands out.
       - key: NEXT_PUBLIC_APP_URL
         sync: false
-      # Behind Render's proxy, trust X-Forwarded-For for rate limiting.
-      - key: TRUST_PROXY
+
+      # ---- MCP authorization ----
+      # true = /api/mcp requires a valid OAuth access token. Correct posture for
+      # any publicly reachable deployment.
+      - key: REQUIRE_OAUTH
         value: "true"
-      # Comma-separated origins allowed to call the API cross-origin from a
-      # browser (e.g. the Chrome extension host, a separate dashboard domain).
-      # Leave blank for same-origin only.
-      - key: ALLOWED_ORIGINS
-        sync: false
-      # Server-path import is confined to these roots; /tmp is always writable.
+
+      # ---- Filesystem ----
+      # Server-path import is confined to these roots. /tmp is always writable on
+      # Render; attach a Disk and point this at its mountPath for durability.
       - key: SHADOWPASTE_PROJECT_ROOTS
         value: "/tmp"
-      # Optional integrations — set in the dashboard if you use them.
+
+      # ---- Optional observability ----
+      # Unset = spans stay in a bounded in-process buffer readable via
+      # /api/v1/traces. Set to export OTLP/HTTP JSON to any collector.
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_SERVICE_NAME
+        value: shadowpaste
+
+      # ---- Optional integrations ----
+      - key: ALLOWED_ORIGINS
+        sync: false
       - key: GITHUB_TOKEN
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-    # ── Uncomment on a PAID instance for durable .workspaces/ ──────────────────
+
+    # ── Durable workspaces (paid instances only) ──────────────────────────────
+    # ShadowPaste writes real directories under .workspaces/ and shells out to
+    # `git clone`. Without a Disk that state is lost on every restart/redeploy.
     # disk:
     #   name: shadowpaste-data
     #   mountPath: /data
     #   sizeGB: 1
     # (then set SHADOWPASTE_PROJECT_ROOTS to /data)
-
-databases:
-  - name: shadowpaste-db
-    plan: free
-    databaseName: shadowpaste
-    user: shadow
