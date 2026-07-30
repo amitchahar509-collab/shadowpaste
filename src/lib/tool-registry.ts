@@ -14,6 +14,16 @@ export interface ToolDef {
   packageName: string
 }
 
+// Risk metadata below is the DECLARED base risk. It is asserted against
+// risk.ts's TOOL_RISK table by assertRiskMetadataInSync() (see the bottom of this
+// file) and by a unit test, because these were two independently hand-maintained
+// copies of the same data — which is exactly how stripe.customer.delete came to
+// publish "critical/85" while the policy engine resolved it to high/ASK and let a
+// single approval click delete a billing record.
+//
+// Keeping the literals here (rather than computing them) preserves this file as
+// the readable public description of the tool surface; the invariant check makes
+// silent divergence impossible.
 export const TOOL_REGISTRY: ToolDef[] = [
   // Filesystem
   { name: "fs.read", category: "filesystem", description: "Read file contents", riskLevel: "low", riskScore: 10, packageName: "safe-filesystem-mcp", inputSchema: { path: "string" }, required: ["path"] },
@@ -104,3 +114,37 @@ export const MCP_PACKAGES: McpPackageSeed[] = PACKAGE_DEFS
   .map((p) => ({ ...p, version: PACKAGE_VERSION, toolCount: toolCountFor(p.name) }))
   // Rule 4: a bundle with no backing tools is not a product.
   .filter((p) => p.toolCount > 0)
+
+/**
+ * Assert that published tool metadata matches the risk engine's base table.
+ *
+ * TOOL_REGISTRY (what tools/list advertises) and TOOL_RISK in risk.ts (what the
+ * policy engine scores against) were two hand-maintained copies of the same
+ * numbers. When they diverge the product LIES: it publishes one risk level and
+ * enforces another. That already happened once — stripe.customer.delete was
+ * advertised as critical/85 while the engine resolved it to high, so it fell
+ * through to HIGH_RISK_ASK instead of being blocked.
+ *
+ * Called by a unit test rather than at import time: a module-load throw would
+ * take down the whole app for a metadata typo, which is a worse failure than the
+ * drift it prevents.
+ *
+ * @returns a list of human-readable mismatches; empty means in sync.
+ */
+export function assertRiskMetadataInSync(): string[] {
+  // Imported lazily to avoid a module cycle (risk.ts does not depend on this file
+  // today, but a static import here would make that a landmine for anyone who
+  // later adds one).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getToolBaseRisk } = require("./risk") as typeof import("./risk")
+  const problems: string[] = []
+  for (const t of TOOL_REGISTRY) {
+    const base = getToolBaseRisk(t.name)
+    if (base.score !== t.riskScore || base.level !== t.riskLevel) {
+      problems.push(
+        `${t.name}: registry declares ${t.riskScore}/${t.riskLevel}, risk.ts scores ${base.score}/${base.level}`
+      )
+    }
+  }
+  return problems
+}

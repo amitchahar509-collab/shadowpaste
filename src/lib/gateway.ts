@@ -37,6 +37,26 @@ export interface GatewayResponse {
   durationMs: number;
 }
 
+// Adapter error codes that must RAISE the recorded risk of a call.
+// Hoisted to module scope so the set is exported and testable: an unmapped code
+// records a blocked attack as routine low-risk traffic, which is exactly what
+// happened to filesystem path-escape attempts before they carried a code.
+const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: string }> = {
+  SSRF_BLOCKED: { score: 95, level: "critical", reason: "SSRF attempt blocked — request targeted a private/loopback/metadata address or a non-allowlisted host" },
+  COMMAND_REJECTED: { score: 90, level: "critical", reason: "command injection attempt blocked — shell metacharacters in input" },
+  SQL_VALIDATION_FAILED: { score: 85, level: "critical", reason: "unsafe SQL blocked by the write validator" },
+  // Added once the filesystem adapter started reporting categories. A sandbox
+  // escape attempt previously came back with no `code` at all, so it was
+  // recorded as an ordinary low-risk failure indistinguishable from a typo in
+  // a filename.
+  FS_PATH_ESCAPE: { score: 90, level: "critical", reason: "path traversal blocked — input attempted to escape the workspace sandbox" },
+  SQL_FORBIDDEN_TABLE: { score: 85, level: "critical", reason: "db.read blocked — query targeted a table outside the operational allowlist (credentials/identity/tenant data)" },
+  SQL_FORBIDDEN_COLUMN: { score: 90, level: "critical", reason: "db.read blocked — query requested a credential column" },
+};
+
+/** Codes the gateway escalates on. Exported for the invariant test. */
+export const GATEWAY_ESCALATION_CODES = Object.keys(ESCALATIONS);
+
 export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> {
   const start = Date.now();
 
@@ -86,11 +106,7 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
   // low-risk event — the audit trail disagreed with the defence that fired.
   // Escalate the RECORDED score so telemetry matches reality.
   const adapterCode = (safeOutput.output as { code?: string } | null)?.code;
-  const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: string }> = {
-    SSRF_BLOCKED: { score: 95, level: "critical", reason: "SSRF attempt blocked — request targeted a private/loopback/metadata address or a non-allowlisted host" },
-    COMMAND_REJECTED: { score: 90, level: "critical", reason: "command injection attempt blocked — shell metacharacters in input" },
-    SQL_VALIDATION_FAILED: { score: 85, level: "critical", reason: "unsafe SQL blocked by the write validator" },
-  };
+
   const escalation = adapterCode ? ESCALATIONS[adapterCode] : undefined;
   // A tool result that contained credentials is itself a security event: the
   // agent asked for something that turned out to hold secrets. The call still

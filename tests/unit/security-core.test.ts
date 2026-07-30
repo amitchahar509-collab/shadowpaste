@@ -23,7 +23,10 @@ import { canonicalizeText, canonicalizeWithMap } from "@/lib/security/canonicali
 import { scanForSecrets, virtualizeText } from "@/lib/security/detector";
 import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
 import { SECRET_PATTERNS, PATTERN_COUNT } from "@/lib/security/secret-patterns";
-import { isPrivateAddress, assertSafeUrl } from "@/lib/tools/adapters";
+import { isPrivateAddress, assertSafeUrl, extractQueryTables, jsonSafe, executeTool } from "@/lib/tools/adapters";
+import { GATEWAY_ESCALATION_CODES } from "@/lib/gateway";
+import { limitParam } from "@/lib/query-params";
+import { assertRiskMetadataInSync } from "@/lib/tool-registry";
 import { assessRisk, getToolBaseRisk, scoreToLevel } from "@/lib/risk";
 import { rateLimit, getClientIp, rateLimitMode, isDurable, RATE_LIMITS } from "@/lib/rate-limit";
 import { hashToken, redirectUriAllowed, verifyPkce, oauthError, protectedResourceMetadata, bearerChallenge, authServerMetadata } from "@/lib/oauth";
@@ -284,6 +287,123 @@ describe("SSRF address classification", () => {
   test("allows an allowlisted host", async () => {
     const u = await assertSafeUrl("https://api.github.com/");
     expect(u.hostname).toBe("api.github.com");
+  });
+});
+
+describe("execution error categories", () => {
+  // Every adapter failure must carry a machine-readable `code`. Filesystem
+  // failures previously returned only a message, so a caller — and the gateway's
+  // risk-escalation table, which keys on `code` — could not tell a sandbox-escape
+  // ATTACK from a missing file. A path traversal was therefore recorded as an
+  // ordinary low-risk failure.
+  test("filesystem failures are categorised", async () => {
+    const esc = await executeTool("fs.read", { path: "../../etc/passwd" }, { sessionId: "u", orgId: "default" });
+    expect(esc.ok).toBe(false);
+    expect((esc.output as { code?: string }).code).toBe("FS_PATH_ESCAPE");
+
+    const missing = await executeTool("fs.read", { path: "definitely-not-here.txt" }, { sessionId: "u", orgId: "default" });
+    expect(missing.ok).toBe(false);
+    expect((missing.output as { code?: string }).code).toBe("FS_NOT_FOUND");
+  });
+  test("the sanitised message never leaks the host path", async () => {
+    const esc = await executeTool("fs.read", { path: "../../etc/passwd" }, { sessionId: "u", orgId: "default" });
+    const blob = JSON.stringify(esc.output);
+    expect(blob).not.toMatch(/[A-Za-z]:\\|\/home\/|\/Users\//);
+  });
+  test("path-escape and db.read denials are escalation-mapped in the gateway", () => {
+    // Codes the gateway must recognise; an unmapped code records as routine.
+    for (const code of ["FS_PATH_ESCAPE", "SQL_FORBIDDEN_TABLE", "SQL_FORBIDDEN_COLUMN", "SSRF_BLOCKED"]) {
+      expect(GATEWAY_ESCALATION_CODES).toContain(code);
+    }
+  });
+});
+
+describe("risk metadata sync", () => {
+  // TOOL_REGISTRY (what tools/list advertises) and TOOL_RISK in risk.ts (what
+  // the policy engine scores against) are two hand-maintained copies of the same
+  // numbers. When they diverge the product LIES — it publishes one risk level and
+  // enforces another. That already happened: stripe.customer.delete advertised
+  // critical/85 while the engine resolved it to high, so it fell through to
+  // HIGH_RISK_ASK instead of being denied.
+  test("published tool risk matches the risk engine's base table", () => {
+    const problems = assertRiskMetadataInSync();
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("db.read authorization", () => {
+  // db.read is riskScore 20 / "low" and auto-approved by policy, so its only
+  // guard was "starts with SELECT". An agent could read the whole database.
+  // Measured before the fix: User emails, scrypt password hashes, every
+  // Organization row (cross-tenant) and OAuthToken hashes were all READABLE.
+  test("parses table references, and fails closed when it cannot", () => {
+    expect(extractQueryTables('SELECT * FROM "Agent"')).toEqual(["agent"]);
+    expect(extractQueryTables('select a.* from "ToolCall" a join "Agent" b on 1=1')).toEqual(["toolcall", "agent"]);
+    expect(extractQueryTables("SELECT 1")).toEqual([]);           // no FROM is fine
+    expect(extractQueryTables("SELECT 1 FROM")).toBeNull();       // unparseable -> closed
+  });
+  test("ignores table names hidden in string literals and comments", () => {
+    expect(extractQueryTables(`SELECT 'from "User"' FROM "Agent"`)).toEqual(["agent"]);
+    expect(extractQueryTables(`SELECT * FROM "Agent" -- from "User"`)).toEqual(["agent"]);
+  });
+  test("schema-qualified names resolve to the object, not the schema", () => {
+    expect(extractQueryTables('SELECT * FROM public."Agent"')).toEqual(["agent"]);
+  });
+});
+
+describe("BigInt / Decimal serialization", () => {
+  // Postgres returns BIGINT for COUNT()/SUM(); the driver surfaces a JS BigInt
+  // and JSON.stringify THROWS on it, so every aggregate query failed outright
+  // with "JSON.stringify cannot serialize BigInt".
+  test("BigInt becomes a string, preserving precision", () => {
+    expect(jsonSafe(BigInt(10))).toBe("10");
+    // Beyond 2^53 a Number would lose precision silently; a wrong count is
+    // worse than a typed one.
+    expect(jsonSafe(BigInt("9007199254740993"))).toBe("9007199254740993");
+    expect(JSON.stringify(jsonSafe({ count: BigInt(2147) }))).toBe('{"count":"2147"}');
+  });
+  test("respects a value type's own toJSON (Prisma Decimal)", () => {
+    // Recursing into a Decimal instead of calling toJSON emitted its internals
+    // ({"s":1,"e":1,"d":[...]}) in place of the number — a silent corruption.
+    const decimalLike = { s: 1, e: 1, d: [51, 3635077], toJSON: () => "51.3635077" };
+    expect(jsonSafe(decimalLike)).toBe("51.3635077");
+  });
+  test("normalises Dates and Buffers, and survives nesting", () => {
+    expect(jsonSafe(new Date("2026-01-01T00:00:00.000Z"))).toBe("2026-01-01T00:00:00.000Z");
+    expect(jsonSafe(Buffer.from("hi"))).toBe("aGk=");
+    expect(jsonSafe([{ a: [{ b: BigInt(1) }] }])).toEqual([{ a: [{ b: "1" }] }]);
+  });
+  test("is depth-bounded against cyclic input", () => {
+    const cyc: Record<string, unknown> = {};
+    cyc.self = cyc;
+    expect(() => JSON.stringify(jsonSafe(cyc))).not.toThrow();
+  });
+});
+
+describe("query-parameter coercion", () => {
+  // These fed straight into Prisma `take`. A negative take silently REVERSES
+  // pagination in Prisma, and NaN throws — a 500 reachable from a query string.
+  test("clamps negatives and zero to the minimum", () => {
+    expect(limitParam("-1")).toBe(1);
+    expect(limitParam("-100")).toBe(1);
+    expect(limitParam("0")).toBe(1);
+  });
+  test("falls back on junk instead of producing NaN or partial numbers", () => {
+    expect(limitParam("abc")).toBe(100);
+    expect(limitParam("12abc")).toBe(100); // parseInt would have returned 12
+    expect(limitParam("")).toBe(100);
+    expect(limitParam(null)).toBe(100);
+    expect(limitParam(undefined)).toBe(100);
+  });
+  test("caps at the maximum and accepts valid values", () => {
+    expect(limitParam("50")).toBe(50);
+    expect(limitParam("99999")).toBe(500);
+    expect(limitParam("500")).toBe(500);
+  });
+  test("never returns NaN for any input", () => {
+    for (const v of ["-1", "abc", "", "1e9", "Infinity", "0x10", "  7  ", "+5"]) {
+      expect(Number.isFinite(limitParam(v))).toBe(true);
+    }
   });
 });
 

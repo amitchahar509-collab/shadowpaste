@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { limitParam } from "@/lib/query-params"
 import { db } from "@/lib/db"
 import { getContext, requirePermission } from "@/lib/auth"
 import { validateAccessToken, bearerChallenge } from "@/lib/oauth"
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500)
+  const limit = limitParam(searchParams.get("limit"), 100, 500)
   const action = searchParams.get("action")
   const actorType = searchParams.get("actorType")
 

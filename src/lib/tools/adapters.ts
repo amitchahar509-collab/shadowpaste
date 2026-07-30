@@ -10,6 +10,50 @@ import { injectCredential, consumeCredential, redactSecrets, getCapabilityEngine
 import { isWithin } from "@/lib/security/paths";
 import { db } from "@/lib/db";
 
+/**
+ * Coerce a value into something JSON.stringify can handle.
+ *
+ * Postgres returns BIGINT for COUNT() and SUM(), which the Prisma driver
+ * surfaces as a JS BigInt — and JSON.stringify THROWS on BigInt rather than
+ * degrading. So the single most common analytics query an agent would run failed
+ * outright:
+ *
+ *   SELECT COUNT(*) FROM "AuditLog"      -> JSON.stringify cannot serialize BigInt
+ *   SELECT SUM("riskScore") FROM ...     -> JSON.stringify cannot serialize BigInt
+ *   SELECT AVG("riskScore") FROM ...     -> worked (numeric, not bigint)
+ *
+ * BigInt becomes a string rather than a number: values beyond 2^53 would lose
+ * precision silently as numbers, and a wrong count is worse than a typed one.
+ * Dates normalise to ISO, and Buffers to base64, for the same "must round-trip"
+ * reason.
+ */
+export function jsonSafe(value: unknown, depth = 0): unknown {
+  if (depth > 12) return "[max depth]";
+  if (typeof value === "bigint") return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (Buffer.isBuffer(value)) return value.toString("base64");
+  if (Array.isArray(value)) return value.map((v) => jsonSafe(v, depth + 1));
+  if (value && typeof value === "object") {
+    // Respect a type's own serializer BEFORE walking its fields. Prisma returns
+    // NUMERIC/DECIMAL columns as Decimal objects whose real value lives behind
+    // toJSON(); recursing into them instead emitted the internal representation
+    // ({"s":1,"e":1,"d":[51,3635077,...]}) in place of "51.3635...". A generic
+    // deep-walk silently corrupts any value object like this.
+    const maybe = value as { toJSON?: () => unknown };
+    if (typeof maybe.toJSON === "function") {
+      try {
+        return jsonSafe(maybe.toJSON(), depth + 1);
+      } catch {
+        return String(value);
+      }
+    }
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = jsonSafe(v, depth + 1);
+    return out;
+  }
+  return value;
+}
+
 const WORKSPACE_ROOT = path.resolve(process.cwd(), ".workspace");
 
 async function ensureWorkspace(): Promise<string> {
@@ -33,11 +77,31 @@ function safePath(p: string): string {
 // host layout. Sandbox denials are reported distinctly so a caller can tell
 // "you may not read there" from "it isn't there".
 function sanitizeFsError(e: unknown, op: string): string {
+  return classifyFsError(e, op).message;
+}
+
+/**
+ * Classify a filesystem failure into a machine-readable category.
+ *
+ * The sanitized MESSAGE already distinguished "denied" from "not found", but the
+ * ExecResult carried no `code`, so every fs failure surfaced to the caller as
+ * `ok:false` with no category — while other adapters returned SSRF_BLOCKED,
+ * MIGRATION_RUNNER_UNAVAILABLE and so on. An agent (or the gateway's escalation
+ * table) could not tell a sandbox-escape ATTACK from a harmless missing file, and
+ * the gateway only escalates risk on known codes — so a path-escape attempt was
+ * recorded as an ordinary low-risk failure.
+ *
+ * The full error still goes to the server log and never to the caller: the log
+ * needs the host path to be useful, the caller must not learn it.
+ */
+function classifyFsError(e: unknown, op: string): { code: string; message: string } {
   console.error(`[INTERNAL FS ERROR] ${op}:`, e);
   const msg = e instanceof Error ? e.message : String(e);
-  if (msg.startsWith("Path escape attempt")) return "Access denied: path escapes the workspace sandbox.";
-  if (msg === "Invalid path") return "Invalid path.";
-  return "File or directory not found within workspace.";
+  if (msg.startsWith("Path escape attempt")) {
+    return { code: "FS_PATH_ESCAPE", message: "Access denied: path escapes the workspace sandbox." };
+  }
+  if (msg === "Invalid path") return { code: "FS_INVALID_PATH", message: "Invalid path." };
+  return { code: "FS_NOT_FOUND", message: "File or directory not found within workspace." };
 }
 
 export interface ExecResult {
@@ -59,8 +123,8 @@ export async function fsRead(input: { path: string }): Promise<ExecResult> {
     const content = await fs.readFile(full, "utf8");
     return { ok: true, output: { path: input.path, bytes: content.length, content }, redactedOutput: JSON.stringify({ path: input.path, bytes: content.length, content }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    const error = sanitizeFsError(e, "fs.read");
-    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
+    const { code, message: error } = classifyFsError(e, "fs.read");
+    return { ok: false, output: { code, error }, redactedOutput: JSON.stringify({ code, error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
@@ -73,8 +137,8 @@ export async function fsWrite(input: { path: string; content: string }): Promise
     await fs.writeFile(full, input.content, "utf8");
     return { ok: true, output: { path: input.path, bytes: input.content.length, written: true }, redactedOutput: JSON.stringify({ path: input.path, bytes: input.content.length, written: true }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    const error = sanitizeFsError(e, "fs.write");
-    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
+    const { code, message: error } = classifyFsError(e, "fs.write");
+    return { ok: false, output: { code, error }, redactedOutput: JSON.stringify({ code, error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
@@ -87,8 +151,8 @@ export async function fsList(input: { path?: string }): Promise<ExecResult> {
     const listing = entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { ok: true, output: { path: input.path || "/", entries: listing }, redactedOutput: JSON.stringify({ path: input.path || "/", entries: listing }), adapter: "filesystem", durationMs: Date.now() - start };
   } catch (e) {
-    const error = sanitizeFsError(e, "fs.list");
-    return { ok: false, output: { error }, redactedOutput: JSON.stringify({ error }), adapter: "filesystem", durationMs: Date.now() - start, error };
+    const { code, message: error } = classifyFsError(e, "fs.list");
+    return { ok: false, output: { code, error }, redactedOutput: JSON.stringify({ code, error }), adapter: "filesystem", durationMs: Date.now() - start, error };
   }
 }
 
@@ -180,17 +244,107 @@ export async function githubCommit(input: { repo: string; branch: string; path: 
 const FORBIDDEN_DB = /\b(drop|truncate)\b/i;
 const FORBIDDEN_DELETE = /delete\s+from\s+\w+\s*$/i;
 
+// ---------------------------------------------------------------------------
+// db.read authorization
+// ---------------------------------------------------------------------------
+// `db.read` is riskScore 20 / "low" and sits on the policy AUTO_ALLOW_LOW list,
+// so it executes with NO human approval. Its only checks were "starts with
+// SELECT" and "no DROP/TRUNCATE" — which left an auto-approved agent able to
+// read the ENTIRE database. Measured before this guard existed:
+//
+//   SELECT email,"passwordHash" FROM "User"    -> READABLE (scrypt$... returned)
+//   SELECT id,slug FROM "Organization"         -> READABLE (all tenants)
+//   SELECT * FROM "OAuthToken"                 -> READABLE (token hashes)
+//   SELECT * FROM "Session"                    -> READABLE
+//
+// That defeats the multi-tenant isolation this product advertises. Note the
+// existing attack-tenant-isolation suite passes regardless, because it exercises
+// the HTTP API surface and never goes through db.read.
+//
+// Arbitrary SQL cannot be reliably org-scoped by string inspection — you cannot
+// prove an attacker-supplied WHERE clause restricts rows to one tenant. So the
+// posture is an ALLOWLIST of non-tenant-sensitive operational tables, plus a
+// column denylist, and it FAILS CLOSED on anything unparseable.
+//
+// Tables holding credentials, identities or per-tenant PII are absent
+// deliberately. An agent that needs that data must go through a scoped API route
+// where orgId is server-derived, not through raw SQL.
+const DB_READ_TABLE_ALLOWLIST = new Set([
+  "agent", "toolcall", "toolexecution", "auditlog", "mcptool", "mcppackage",
+  "permission", "attacktest", "sandboxchange", "scan", "project",
+]);
+
+// Column names that must never leave the database, wherever they appear.
+const DB_READ_COLUMN_DENYLIST = /\b(passwordhash|apikeyhash|tokenhash|clientsecrethash|encryptedcipher|encryptediv|secret|password|passwd)\b/i;
+
+/** Tables referenced after FROM / JOIN. Returns null when the query cannot be parsed confidently. */
+export function extractQueryTables(sql: string): string[] | null {
+  // Strip string literals and comments so identifiers inside them cannot hide a
+  // table reference or smuggle a denied column name past the checks.
+  const stripped = sql
+    .replace(/--[^\n]*/g, " ")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/'(?:[^']|'')*'/g, "''");
+
+  const tables: string[] = [];
+  const re = /\b(?:from|join)\s+("?[A-Za-z_][A-Za-z0-9_$]*"?)(?:\s*\.\s*("?[A-Za-z_][A-Za-z0-9_$]*"?))?/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(stripped)) !== null) {
+    // For schema-qualified names take the object, not the schema.
+    const ident = (m[2] || m[1]).replace(/"/g, "").toLowerCase();
+    if (ident) tables.push(ident);
+  }
+  // A SELECT with no FROM (e.g. `SELECT 1`) is fine; anything else with zero
+  // recognised tables means the parse failed and we must not guess.
+  if (tables.length === 0 && /\bfrom\b/i.test(stripped)) return null;
+  return tables;
+}
+
 export async function dbQuery(input: { query: string }): Promise<ExecResult> {
   const start = Date.now();
+  const fail = (msg: string, code: string) =>
+    structuredError("database", code, msg, {}, Date.now() - start);
   try {
     const q = input.query.trim();
-    if (FORBIDDEN_DB.test(q)) throw new Error("Destructive query blocked (DROP/TRUNCATE)");
-    if (FORBIDDEN_DELETE.test(q)) throw new Error("DELETE without WHERE clause blocked");
-    if (!/^select\b/i.test(q)) throw new Error("Only SELECT queries permitted via db.read");
+    if (FORBIDDEN_DB.test(q)) return fail("Destructive query blocked (DROP/TRUNCATE)", "SQL_VALIDATION_FAILED");
+    if (FORBIDDEN_DELETE.test(q)) return fail("DELETE without WHERE clause blocked", "SQL_VALIDATION_FAILED");
+    if (!/^select\b/i.test(q)) return fail("Only SELECT queries permitted via db.read", "SQL_VALIDATION_FAILED");
+    // Multiple statements are rejected by Postgres itself, but relying on the
+    // driver for a security property is not a control — reject them here.
+    if (/;\s*\S/.test(q)) return fail("Multiple statements are not permitted", "SQL_VALIDATION_FAILED");
+    if (DB_READ_COLUMN_DENYLIST.test(q)) {
+      return fail("Query references a credential column that db.read may never return", "SQL_FORBIDDEN_COLUMN");
+    }
+
+    const tables = extractQueryTables(q);
+    if (tables === null) {
+      return fail("Could not determine which tables this query reads; db.read fails closed", "SQL_UNPARSEABLE");
+    }
+    const denied = tables.filter((t) => !DB_READ_TABLE_ALLOWLIST.has(t));
+    if (denied.length > 0) {
+      return fail(
+        `db.read is limited to operational tables. Not permitted: ${[...new Set(denied)].join(", ")}. ` +
+        `Allowed: ${[...DB_READ_TABLE_ALLOWLIST].sort().join(", ")}`,
+        "SQL_FORBIDDEN_TABLE"
+      );
+    }
+    // `SELECT *` on an allowlisted table is safe by construction (no credential
+    // columns live there), so it stays permitted.
+
     const rows = await (db as unknown as { $queryRawUnsafe: (sql: string) => Promise<unknown[]> }).$queryRawUnsafe(q);
-    return { ok: true, output: { rows: rows.slice(0, 100), rowCount: rows.length }, redactedOutput: JSON.stringify({ rowCount: rows.length, rows: rows.slice(0, 20) }), adapter: "database", durationMs: Date.now() - start };
+    // Postgres returns BIGINT for COUNT()/SUM(), which the driver surfaces as a
+    // JS BigInt — and JSON.stringify throws on BigInt. Every aggregate query
+    // therefore failed with "JSON.stringify cannot serialize BigInt" before this.
+    const safeRows = jsonSafe(rows) as unknown[];
+    return {
+      ok: true,
+      output: { rows: safeRows.slice(0, 100), rowCount: safeRows.length },
+      redactedOutput: JSON.stringify({ rowCount: safeRows.length, rows: safeRows.slice(0, 20) }),
+      adapter: "database",
+      durationMs: Date.now() - start,
+    };
   } catch (e) {
-    return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "database", durationMs: Date.now() - start, error: (e as Error).message };
+    return fail((e as Error).message, "DB_ERROR");
   }
 }
 
@@ -234,7 +388,9 @@ export async function dbSchemaInspect(_input: Record<string, unknown>): Promise<
     // Postgres catalog (the app's DB is PostgreSQL). information_schema is the
     // portable, read-only source of table/view names in the public schema.
     const rows = await (db as unknown as { $queryRawUnsafe: (sql: string) => Promise<Array<{ name: string; type?: string } & Record<string, unknown>>> }).$queryRawUnsafe("SELECT table_name AS name, table_type AS type FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_type, table_name");
-    return { ok: true, output: { tables: rows, count: rows.length }, redactedOutput: JSON.stringify({ count: rows.length, tables: rows.slice(0, 50) }), adapter: "database", durationMs: Date.now() - start };
+    // Same BigInt hazard as db.read: coerce before anything stringifies.
+    const safe = jsonSafe(rows) as Array<Record<string, unknown>>;
+    return { ok: true, output: { tables: safe, count: safe.length }, redactedOutput: JSON.stringify({ count: safe.length, tables: safe.slice(0, 50) }), adapter: "database", durationMs: Date.now() - start };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "database", durationMs: Date.now() - start, error: (e as Error).message };
   }
