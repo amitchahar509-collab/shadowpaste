@@ -10,6 +10,7 @@ import { redactSecrets } from "@/lib/security/vault";
 import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
 import { withSpan, setSpanAttributes, currentCorrelationId } from "@/lib/observability/trace";
 import { log } from "@/lib/observability/logger";
+import { fireAlert } from "@/lib/observability/alerts";
 
 export interface GatewayRequest {
   agentId: string;
@@ -58,6 +59,20 @@ const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: str
   SQL_FORBIDDEN_COLUMN: { score: 90, level: "critical", reason: "db.read blocked — query requested a credential column" },
 };
 
+/**
+ * Escalation code -> alert rule. Kept beside ESCALATIONS so a new escalation
+ * without an alert is visible in review: a blocked attack that pages nobody is
+ * the gap the alerting engine exists to close.
+ */
+const ALERT_RULE_BY_CODE: Record<string, string> = {
+  SSRF_BLOCKED: "security.ssrf_blocked",
+  FS_PATH_ESCAPE: "security.path_escape",
+  SQL_FORBIDDEN_TABLE: "security.forbidden_table",
+  SQL_FORBIDDEN_COLUMN: "security.forbidden_table",
+  SQL_VALIDATION_FAILED: "security.forbidden_table",
+  COMMAND_REJECTED: "security.path_escape",
+};
+
 /** Codes the gateway escalates on. Exported for the invariant test. */
 export const GATEWAY_ESCALATION_CODES = Object.keys(ESCALATIONS);
 
@@ -88,6 +103,30 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
         "shadowpaste.executed": res.executed,
         "shadowpaste.secrets_redacted": res.secretsRedacted ?? 0,
       });
+      // Alert on blocked attacks and credential-bearing output. Fired AFTER the
+      // audit row exists so an alert never points at a record that is not there
+      // yet. Deduplicated per (rule, agent) inside the engine so a tight attack
+      // loop pages once, not thousands of times.
+      const alertRule = ALERT_RULE_BY_CODE[(res.output as { code?: string } | null)?.code ?? ""];
+      if (alertRule) {
+        void fireAlert({
+          rule: alertRule,
+          severity: "critical",
+          title: alertRule,
+          description: res.reason,
+          dedupeKey: `${alertRule}:${req.agentId}`,
+          context: { tool: req.toolName, agentId: req.agentId, orgId: req.orgId, decision: res.decision, riskScore: res.riskScore, toolCallId: res.toolCallId },
+        });
+      } else if ((res.secretsRedacted ?? 0) > 0) {
+        void fireAlert({
+          rule: "security.secrets_in_output",
+          severity: "warning",
+          title: "Credentials found in tool output",
+          description: `${res.secretsRedacted} secret(s) redacted before reaching the agent`,
+          dedupeKey: `secrets_in_output:${req.agentId}`,
+          context: { tool: req.toolName, agentId: req.agentId, count: res.secretsRedacted, toolCallId: res.toolCallId },
+        });
+      }
       log.info("tool.invoke", {
         tool: req.toolName,
         decision: res.decision,

@@ -61,6 +61,22 @@ export function redact(input: string): string {
   return out;
 }
 
+/**
+ * Redact a STRUCTURE by walking it, applying redact() to each string value.
+ *
+ * Use this instead of `JSON.parse(redact(JSON.stringify(obj)))`. That round-trip
+ * looks equivalent and is not: the KEY=value pattern's optional trailing quote
+ * consumes the closing quote of a JSON string, producing
+ * `"note":"DB_PASSWORD=<redacted>}` — unterminated, so JSON.parse throws. In the
+ * alerting path that meant a credential-bearing alert was silently DROPPED, which
+ * is the worst possible outcome for the one message that most needed to be sent.
+ *
+ * Walking the structure never has to re-parse, so it cannot fail this way.
+ */
+export function redactObject<T>(value: T): T {
+  return redactValue(value) as T;
+}
+
 function redactValue(v: unknown, depth = 0): unknown {
   if (depth > 6) return "[max depth]";
   if (typeof v === "string") return redact(v);

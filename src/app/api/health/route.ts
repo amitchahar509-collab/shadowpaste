@@ -87,7 +87,47 @@ export async function GET() {
   const lg = obsLog.status()
   checks.push({ name: "logging", ok: true, latencyMs: 0, detail: `${lg.format} level=${lg.minLevel} redaction=${lg.redaction}` })
 
+  // Alerting posture. `deliveryActive:false` means alerts are RECORDED but nobody
+  // is notified — the "observable but not noticeable" state the engine exists to
+  // fix, so it is surfaced rather than left implicit in an empty adapter list.
+  const { alertingStatus, fireAlert } = await import("@/lib/observability/alerts")
+  const al = alertingStatus()
+  checks.push({
+    name: "alerting",
+    ok: true,
+    latencyMs: 0,
+    detail: al.deliveryActive
+      ? `${al.enabledRules}/${al.totalRules} rules, adapters=[${al.adaptersConfigured.join(",")}], minSeverity=${al.minSeverity}`
+      : `${al.enabledRules}/${al.totalRules} rules but NO delivery adapter configured — alerts are recorded only. Set ALERT_WEBHOOK_URL / ALERT_SLACK_WEBHOOK_URL`,
+  })
+
   const allOk = checks.every((c) => c.ok)
+
+  // Health is the natural place to detect degradation, so it is also where the
+  // corresponding alerts fire. Fire-and-forget: an alerting failure must never
+  // turn a health probe into a 500 that takes pods out of rotation.
+  if (!allOk) {
+    const failing = checks.filter((c) => !c.ok).map((c) => c.name)
+    void fireAlert({
+      rule: "ops.health_degraded",
+      severity: "critical",
+      title: "Health check degraded",
+      description: `Failing checks: ${failing.join(", ")}`,
+      dedupeKey: `health:${failing.sort().join(",")}`,
+      context: { failing, totalChecks: checks.length },
+    })
+  }
+  const rlCheck = checks.find((c) => c.name === "rate-limiter")
+  if (rlCheck && /UNREACHABLE/i.test(rlCheck.detail ?? "")) {
+    void fireAlert({
+      rule: "ops.rate_limiter_degraded",
+      severity: "warning",
+      title: "Rate limiter degraded",
+      description: "Redis configured but unreachable; limits fell back to per-instance memory",
+      dedupeKey: "rate_limiter_degraded",
+      context: { detail: rlCheck.detail },
+    })
+  }
   const totalLatency = Date.now() - start
 
   return NextResponse.json(

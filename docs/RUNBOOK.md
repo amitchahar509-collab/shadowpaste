@@ -108,3 +108,62 @@ Not implemented — do not assume these exist:
 * No automated backup schedule. `scripts/backup.mjs` must be driven by cron/a job.
 * Single region. No multi-region failover.
 * No browser E2E suite.
+
+## 8. Alerting
+
+Alerts are recorded regardless of configuration; **delivery** requires an adapter.
+
+```bash
+# Is anyone actually being notified?
+curl -s https://<host>/api/health | jq '.checks[] | select(.name=="alerting")'
+```
+
+`NO delivery adapter configured` means alerts are recorded and **nobody is paged**.
+
+| Variable | Effect |
+|---|---|
+| `ALERT_WEBHOOK_URL` | Generic JSON webhook (HMAC-signed when `ALERT_WEBHOOK_SECRET` is set) |
+| `ALERT_WEBHOOK_SECRET` | Enables `x-shadowpaste-signature: v1=<hmac>` over `<timestamp>.<payload>` |
+| `ALERT_SLACK_WEBHOOK_URL` | Slack incoming webhook |
+| `ALERT_TEAMS_WEBHOOK_URL` | Teams MessageCard webhook |
+| `ALERT_MIN_SEVERITY` | `info` \| `warning` (default) \| `critical` |
+
+**Email is NOT implemented** — it needs an SMTP relay or provider account. The
+adapter reports itself unconfigured rather than silently succeeding. Implement
+`EmailAdapter.send()` against your provider to enable it.
+
+### Rules (all bound to signals this system actually emits)
+
+| Rule | Severity | Threshold | Cooldown |
+|---|---|---|---|
+| `security.ssrf_blocked` | warning | 3 | 300s |
+| `security.path_escape` | critical | 1 | 300s |
+| `security.forbidden_table` | critical | 1 | 300s |
+| `security.secrets_in_output` | warning | 5 | 600s |
+| `compliance.audit_chain_divergence` | critical | 1 | 60s |
+| `ops.rate_limiter_degraded` | warning | 1 | 900s |
+| `ops.health_degraded` | critical | 1 | 300s |
+| `security.auth_probe_burst` | warning | 10 | 900s |
+
+Deduplication is per `(rule, agent)`. Verified: 5,000 SSRF trips produce **one**
+notification carrying an occurrence count, with 4,999 suppressed. An attacker
+controls how often they trip a control and therefore page volume — the cooldown
+is what stops that becoming a denial-of-attention attack.
+
+### Incident timeline
+
+```bash
+curl -s -H "Authorization: Bearer <token>" \
+  "https://<host>/api/v1/alerts?severity=critical&limit=50" | jq '.alerts[] | {firedAt,rule,occurrences,correlationId,deliveries}'
+```
+
+Every alert carries the `correlationId` and `traceId` of the request that caused
+it, so §2 (tracing an incident) works directly from an alert.
+
+### Verifying a received webhook
+
+```
+signature = HMAC-SHA256(ALERT_WEBHOOK_SECRET, "<x-shadowpaste-timestamp>.<raw body>")
+compare against x-shadowpaste-signature, which is "v1=" + hex
+```
+Compare in constant time and reject timestamps outside your tolerance window.

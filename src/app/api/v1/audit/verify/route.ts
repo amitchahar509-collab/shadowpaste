@@ -5,6 +5,7 @@ import { validateAccessToken, bearerChallenge } from "@/lib/oauth"
 import { auditUnauthorized, auditRequest } from "@/lib/audit-request"
 import { enforceRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 import { verifyAuditChain, anchorHead } from "@/lib/observability/audit-chain"
+import { fireAlert } from "@/lib/observability/alerts"
 
 // GET  /api/v1/audit/verify?expectedHead=<hash>  — recompute the audit hash chain
 // POST /api/v1/audit/verify                      — produce an anchor record
@@ -84,6 +85,24 @@ export async function GET(req: NextRequest) {
     actorId: gate.actorId,
     detail: { rowsVerified: result.rowsVerified, ok: result.ok, anchored: Boolean(expectedHead) },
   })
+
+  // A divergent chain is the single highest-severity signal this system produces:
+  // it means the compliance trail may no longer be trustworthy. Alert immediately.
+  if (!result.ok) {
+    void fireAlert({
+      rule: "compliance.audit_chain_divergence",
+      severity: "critical",
+      title: "Audit chain verification FAILED",
+      description: "Recomputed audit hash chain does not match the supplied anchor",
+      dedupeKey: `audit_divergence:${gate.orgId}`,
+      context: {
+        orgId: gate.orgId,
+        rowsVerified: result.rowsVerified,
+        expected: result.anchorMismatch?.expected,
+        actual: result.anchorMismatch?.actual,
+      },
+    })
+  }
 
   return NextResponse.json({ apiVersion: "v1", ...result }, { status: result.ok ? 200 : 409 })
 }
