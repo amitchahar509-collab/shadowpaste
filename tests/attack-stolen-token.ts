@@ -17,7 +17,19 @@
 import { authCookie } from "./_auth";
 
 const BASE = "http://localhost:3000";
-const REQUEST_TIMEOUT_MS = 10_000;
+// 10s was too tight and made this suite intermittently red. The FIRST POST to
+// /api/mcp/call pays for Next dev route compilation plus a cold Prisma connect to
+// a remote (Neon) database, which together exceeded the budget on a loaded
+// machine. The symptom was the control check C0 reporting `status=0` — the fetch
+// itself throwing — while T5, the identical "active agent calls a tool"
+// operation, passed later in the same run once the route was warm.
+//
+// Observed across runs of IDENTICAL code: 4/6, 5/6, 6/6. Confirmed pre-existing
+// by stashing unrelated edits and re-running.
+const REQUEST_TIMEOUT_MS = 30_000;
+// Transport failures only (status 0). A wrong DECISION is never retried — that
+// would let a genuine authorization regression hide behind a retry.
+const TRANSPORT_RETRIES = 3;
 // Set once in main() — mutating endpoints require an authenticated session.
 let SESSION = "";
 
@@ -43,20 +55,44 @@ async function api<T = any>(
   path: string,
   body?: unknown,
 ): Promise<{ status: number; data: T; ok: boolean }> {
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      method,
-      headers: { "content-type": "application/json", ...(SESSION ? { cookie: SESSION } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    const text = await res.text();
-    let data: any;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
-    return { status: res.status, data, ok: res.ok };
-  } catch (e) {
-    return { status: 0, data: { error: (e as Error).message } as any, ok: false };
+  let lastError = "";
+  for (let attempt = 1; attempt <= TRANSPORT_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers: { "content-type": "application/json", ...(SESSION ? { cookie: SESSION } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const text = await res.text();
+      let data: any;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      // Any HTTP response — including 4xx/5xx — is a real answer from the
+      // server and is returned as-is. Only a thrown fetch is retried.
+      return { status: res.status, data, ok: res.ok };
+    } catch (e) {
+      lastError = (e as Error).message;
+      if (attempt < TRANSPORT_RETRIES) {
+        console.log(`  (transport failure on ${method} ${path}: ${lastError} — retry ${attempt}/${TRANSPORT_RETRIES - 1})`);
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
   }
+  return { status: 0, data: { error: lastError } as any, ok: false };
+}
+
+/**
+ * Compile the routes this suite hits before any check is measured.
+ *
+ * Next dev compiles a route on first request, and the first DB-touching call
+ * also pays for a cold Prisma connect. Paying that inside the control check made
+ * C0 fail on timeout and reported it as "an active agent cannot call tools" — a
+ * security-looking failure with an infrastructure cause. Results are discarded;
+ * this only moves the cost outside the assertions.
+ */
+async function warmRoutes(): Promise<void> {
+  await api("GET", "/api/agents");
+  await api("POST", "/api/mcp/call", { agentId: "warmup-nonexistent", toolName: "fs.read", input: { path: "package.json" } });
 }
 
 async function createAgent(name: string, trustScore = 50): Promise<string | null> {
@@ -95,6 +131,9 @@ async function main() {
   console.log("=== ShadowPaste V19 — Stolen/Revoked Token Attack ===\n");
 
   SESSION = await authCookie(BASE);
+
+  // Pay route-compilation and cold-connect costs before anything is asserted.
+  await warmRoutes();
 
   const runTag = Date.now().toString(36);
   const checks: CheckResult[] = [];
