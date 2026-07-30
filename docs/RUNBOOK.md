@@ -167,3 +167,58 @@ signature = HMAC-SHA256(ALERT_WEBHOOK_SECRET, "<x-shadowpaste-timestamp>.<raw bo
 compare against x-shadowpaste-signature, which is "v1=" + hex
 ```
 Compare in constant time and reject timestamps outside your tolerance window.
+
+## 9. Deployments silently stop shipping (Vercel Hobby)
+
+**Symptom.** Every push shows CI green and a deployment is *created*, but production
+keeps serving an old commit. In the Vercel dashboard the deployments read
+**Blocked** — not Failed — and blocked deployments have no log page, so there is
+nothing obvious to read.
+
+**This is the most dangerous failure mode in this runbook.** "Committed + CI
+green" is not "live". A security fix can sit unshipped for days while every
+signal you normally trust looks healthy. It happened here: five consecutive
+commits — including a Critical `db.read` cross-tenant fix — never reached
+production while `/api/health` reported `healthy` the whole time.
+
+**Root cause.** Vercel matches the **commit author's email** to a Vercel account.
+If that email is not registered on the account, Vercel treats the author as an
+outside collaborator — and Hobby teams do not support collaborators, so the
+deployment is blocked:
+
+> The Deployment was blocked because the commit author does not have contributing
+> access to the project on Vercel. Hobby teams do not support collaboration.
+
+The trap is that `git config user.name` and the linked GitHub account can both be
+correct while only the **email** differs.
+
+**Diagnose.**
+
+```bash
+# Which commit is actually live?
+curl -s https://<host>/api/v1/version        # 404 => running a build older than v1
+gh api repos/<owner>/<repo>/deployments --jq '.[0:6][] | "\(.sha[0:7])"'
+# Statuses: "failure" + description "Deployment was blocked"
+
+# Compare the commit author email against the Vercel account email
+git log -1 --format='%ae'
+```
+
+**Fix — either works, neither costs anything.**
+
+1. Add the commit-author email to the Vercel account:
+   Account Settings → Authentication → Email → Manage → add + verify.
+   Then Redeploy the blocked deployments.
+2. Point git at the email already registered on Vercel:
+   `git config user.email "<vercel-account-email>"`, then push a new commit.
+   Previously blocked commits stay blocked, but their code ships with the new one.
+
+**Prevention.** After any push you believe is important, verify what is LIVE
+rather than what is committed:
+
+```bash
+curl -s https://<host>/api/v1/version | jq -r '.apiVersion'
+```
+
+A deploy pipeline that reports success while shipping nothing is worth one
+explicit check per release.
