@@ -106,10 +106,21 @@ async function main() {
   // PART 1 — MCP rate limit (60/min)
   // ============================================================
   console.log("--- Part 1: MCP rate limit (limit = 60/min) ---");
-  console.log(`Firing 65 POST /api/mcp/call from IP ${SPOOF_IP_MCP}...`);
-
-  const MCP_TOTAL = 65;
+  // 90, not 65.
+  //
+  // With 65 the test straddled the bucket boundary and was unsatisfiable in its
+  // own arithmetic: overflow = 5 calls, while a 5.8s burst legitimately refills
+  // ~6 tokens, so capacity (60 + 6) exceeded the 65 calls made and NO 429 could
+  // ever occur — yet `minBlocked = Math.max(1, 5 - 6)` still demanded one. It
+  // reported "rate limiting is NOT enforced" against a working limiter.
+  //
+  // 90 calls means overflow (30) decisively exceeds any plausible refill during
+  // the burst, so a functioning limiter must reject ~20+ and a disabled one
+  // rejects 0. Verified directly at this size: 90 parallel calls -> 63 allowed /
+  // 27 rejected, first 429 at #52.
+  const MCP_TOTAL = 90;
   const MCP_LIMIT = 60;
+  console.log(`Firing ${MCP_TOTAL} POST /api/mcp/call from IP ${SPOOF_IP_MCP}...`);
   const mcpResults: ApiResult[] = [];
   for (let i = 0; i < MCP_TOTAL; i++) {
     // Body intentionally omits agentId — route returns 400 but consumes a token.

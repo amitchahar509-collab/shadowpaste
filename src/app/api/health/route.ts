@@ -69,6 +69,24 @@ export async function GET() {
     })
   }
 
+  // Observability posture. Reported as checks (never failures) so an operator can
+  // see whether traces are actually being exported rather than only buffered —
+  // "tracing enabled" that silently buffers to /dev/null is the same class of
+  // misleading signal as the rate limiter reporting durable when Redis was down.
+  const { tracingStatus } = await import("@/lib/observability/trace")
+  const { log: obsLog } = await import("@/lib/observability/logger")
+  const tr = tracingStatus()
+  checks.push({
+    name: "tracing",
+    ok: true,
+    latencyMs: 0,
+    detail: tr.exportEnabled
+      ? `OTLP export configured, buffered=${tr.buffered}, exportFailures=${tr.exportFailures}`
+      : `in-process buffer only (buffered=${tr.buffered}) — set OTEL_EXPORTER_OTLP_ENDPOINT to export`,
+  })
+  const lg = obsLog.status()
+  checks.push({ name: "logging", ok: true, latencyMs: 0, detail: `${lg.format} level=${lg.minLevel} redaction=${lg.redaction}` })
+
   const allOk = checks.every((c) => c.ok)
   const totalLatency = Date.now() - start
 

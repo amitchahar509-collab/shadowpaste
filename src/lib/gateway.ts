@@ -8,6 +8,8 @@ import { evaluatePolicy } from "@/lib/policy";
 import { executeTool, type ExecResult } from "@/lib/tools/adapters";
 import { redactSecrets } from "@/lib/security/vault";
 import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
+import { withSpan, setSpanAttributes, currentCorrelationId } from "@/lib/observability/trace";
+import { log } from "@/lib/observability/logger";
 
 export interface GatewayRequest {
   agentId: string;
@@ -16,6 +18,8 @@ export interface GatewayRequest {
   input: Record<string, unknown>;
   orgId?: string;
   _tokenOverride?: string; // for public/unauthenticated reads
+  /** Propagated from the HTTP layer so logs, spans and audit rows share an id. */
+  correlationId?: string;
 }
 
 export interface GatewayResponse {
@@ -57,7 +61,47 @@ const ESCALATIONS: Record<string, { score: number; level: RiskLevel; reason: str
 /** Codes the gateway escalates on. Exported for the invariant test. */
 export const GATEWAY_ESCALATION_CODES = Object.keys(ESCALATIONS);
 
+/**
+ * Traced entry point. Every tool invocation becomes one span carrying the
+ * decision, risk score and redaction count as attributes, so a trace view shows
+ * WHY a call was allowed or blocked without cross-referencing the audit table.
+ * The correlation id is threaded from the HTTP layer.
+ */
 export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> {
+  return withSpan(
+    `tool.invoke ${req.toolName}`,
+    {
+      kind: "INTERNAL",
+      correlationId: req.correlationId,
+      attributes: {
+        "shadowpaste.tool": req.toolName,
+        "shadowpaste.agent_id": req.agentId,
+        "shadowpaste.org_id": req.orgId ?? "unknown",
+      },
+    },
+    async () => {
+      const res = await invokeToolInner(req);
+      setSpanAttributes({
+        "shadowpaste.decision": res.decision,
+        "shadowpaste.risk_score": res.riskScore,
+        "shadowpaste.risk_level": res.riskLevel,
+        "shadowpaste.executed": res.executed,
+        "shadowpaste.secrets_redacted": res.secretsRedacted ?? 0,
+      });
+      log.info("tool.invoke", {
+        tool: req.toolName,
+        decision: res.decision,
+        riskScore: res.riskScore,
+        executed: res.executed,
+        secretsRedacted: res.secretsRedacted ?? 0,
+        durationMs: res.durationMs,
+      });
+      return res;
+    }
+  );
+}
+
+async function invokeToolInner(req: GatewayRequest): Promise<GatewayResponse> {
   const start = Date.now();
 
   const agent = await db.agent.findUnique({ where: { id: req.agentId } });
@@ -171,6 +215,9 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
         ...(safeOutput.redacted > 0
           ? { secretsRedacted: safeOutput.redacted, redactionDetectors: safeOutput.detectors }
           : {}),
+        // Correlation id on the audit row is what lets an incident responder pivot
+        // from a log line or a trace to the exact governance decision.
+        correlationId: req.correlationId ?? currentCorrelationId() ?? undefined,
       }),
     },
   });

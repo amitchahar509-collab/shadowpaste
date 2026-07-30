@@ -1,0 +1,105 @@
+# ShadowPaste — Kubernetes Deployment (horizontal-scaling ready).
+#
+# IMPORTANT: this manifest is syntactically valid and complete, but it has NOT
+# been applied to a live cluster in this environment — no cluster is available.
+# Treat it as reviewed-but-unexercised infrastructure code. See docs/DEPLOYMENT.md.
+#
+# Horizontal scaling correctness depends on ONE thing being configured:
+# UPSTASH_REDIS_REST_URL/_TOKEN. Without it the rate limiter keeps per-pod
+# counters, so a "60/min" limit becomes 60 x replicas. /api/health reports which
+# mode is active — check it after rollout.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shadowpaste
+  labels: { app: shadowpaste }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: shadowpaste }
+  template:
+    metadata:
+      labels: { app: shadowpaste }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: shadowpaste
+          image: ghcr.io/OWNER/shadowpaste:latest
+          ports: [{ containerPort: 3000, name: http }]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            # Behind an ingress, so the forwarded header is trustworthy. Without
+            # this every client keys to the same rate-limit bucket.
+            - name: TRUST_PROXY
+              value: "true"
+            - name: REQUIRE_OAUTH
+              value: "true"
+            - name: OTEL_SERVICE_NAME
+              value: shadowpaste
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef: { name: shadowpaste-config, key: otlpEndpoint, optional: true }
+          envFrom:
+            - secretRef: { name: shadowpaste-secrets }
+          # Liveness must NOT depend on the database: a transient DB blip would
+          # otherwise restart every pod and turn a degradation into an outage.
+          livenessProbe:
+            httpGet: { path: /api/v1/version, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          # Readiness DOES check dependencies — a pod with no database should stop
+          # receiving traffic without being killed.
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet: { path: /api/v1/version, port: http }
+            failureThreshold: 30
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # .workspace/ is written at runtime
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shadowpaste
+spec:
+  selector: { app: shadowpaste }
+  ports: [{ port: 80, targetPort: http, name: http }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: shadowpaste
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: shadowpaste }
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+# Scaling past one replica REQUIRES durable rate limiting; PDB keeps capacity
+# during voluntary disruption.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: shadowpaste
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: { app: shadowpaste }

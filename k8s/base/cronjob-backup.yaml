@@ -1,0 +1,42 @@
+# Scheduled logical backup + integrity verification.
+#
+# The verify step is not optional decoration: a backup that has never been
+# verified is not a backup. If verification fails the job fails loudly rather
+# than leaving a corrupt dump in the bucket.
+#
+# NOT APPLIED to a live cluster in this environment — see docs/DEPLOYMENT.md.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: shadowpaste-backup
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: ghcr.io/OWNER/shadowpaste:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  OUT=/backups/$(date +%Y-%m-%d)
+                  mkdir -p "$OUT"
+                  node scripts/backup.mjs backup --out "$OUT"
+                  FILE=$(ls -t "$OUT"/*.json | head -1)
+                  node scripts/backup.mjs verify --file "$FILE"
+                  echo "backup verified: $FILE"
+              envFrom:
+                - secretRef: { name: shadowpaste-secrets }
+              volumeMounts:
+                - { name: backups, mountPath: /backups }
+          volumes:
+            - name: backups
+              persistentVolumeClaim: { claimName: shadowpaste-backups }

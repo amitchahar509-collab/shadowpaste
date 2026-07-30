@@ -21,7 +21,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "test:coverage": "node scripts/check-coverage.mjs"
+    "test:coverage": "node scripts/check-coverage.mjs",
+    "backup": "node scripts/backup.mjs backup --out ./backups",
+    "backup:verify": "node scripts/backup.mjs verify",
+    "backup:restore": "node scripts/backup.mjs restore"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
