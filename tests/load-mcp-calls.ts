@@ -15,7 +15,7 @@
 //
 // Output: results-mcp.json + stdout summary.
 
-import { authCookie } from "./_auth";
+import { authCookie, resetOwnAgents } from "./_auth";
 // Set once in main() — mutating endpoints require an authenticated session.
 let SESSION = "";
 
@@ -127,7 +127,14 @@ async function main() {
   console.log(`Target: ${AGENT_COUNT} agents × ${CALLS_PER_AGENT} calls = ${AGENT_COUNT * CALLS_PER_AGENT} tool calls`);
   console.log(`Concurrency: ${CONCURRENCY} in-flight at a time\n`);
 
-  SESSION = await authCookie(BASE);
+  // Own identity/org per suite: a shared account is poisoned by
+  // attack-billing-bypass, which deliberately fills its org to the FREE
+  // plan's 3-agent limit. Per-suite labels keep plan budgets independent
+  // while still signing up at most once per label per database.
+  SESSION = await authCookie(BASE, "load-mcp");
+  // Idempotency: clear any agents left in this org by a prior run, so the
+  // FREE plan's 3-agent cap does not block this run's control agent.
+  await resetOwnAgents(BASE, SESSION);
 
   const agentIds = await ensureAgents();
   if (agentIds.length === 0) {

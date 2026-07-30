@@ -14,7 +14,7 @@
 //
 // Output: results-token.json + stdout summary.
 
-import { authCookie } from "./_auth";
+import { authCookie, resetOwnAgents } from "./_auth";
 
 const BASE = "http://localhost:3000";
 // 10s was too tight and made this suite intermittently red. The FIRST POST to
@@ -130,7 +130,14 @@ async function main() {
 
   console.log("=== ShadowPaste V19 — Stolen/Revoked Token Attack ===\n");
 
-  SESSION = await authCookie(BASE);
+  // Own identity/org per suite: a shared account is poisoned by
+  // attack-billing-bypass, which deliberately fills its org to the FREE
+  // plan's 3-agent limit. Per-suite labels keep plan budgets independent
+  // while still signing up at most once per label per database.
+  SESSION = await authCookie(BASE, "stolen-token");
+  // Idempotency: clear any agents left in this org by a prior run, so the
+  // FREE plan's 3-agent cap does not block this run's control agent.
+  await resetOwnAgents(BASE, SESSION);
 
   // Pay route-compilation and cold-connect costs before anything is asserted.
   await warmRoutes();

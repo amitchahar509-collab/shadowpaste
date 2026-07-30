@@ -78,3 +78,6 @@ COMMERCIAL_STRATEGY_AND_VALUATION.md
 CODEBASE_AUDIT_AND_FIXES.md
 # transient verification scratch scripts (never part of the product)
 __*.ts
+
+# war-test cached identities (per-database, never shared)
+tests/.auth-cache.json

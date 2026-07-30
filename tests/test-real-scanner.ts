@@ -97,7 +97,11 @@ async function main() {
   console.log("=== ShadowPaste V20 — Real GitHub Scanner Test ===\n");
   console.log("This test hits the REAL GitHub API (no DEMO_REPO).\n");
 
-  SESSION = await authCookie(BASE);
+  // Own identity/org per suite: a shared account is poisoned by
+  // attack-billing-bypass, which deliberately fills its org to the FREE
+  // plan's 3-agent limit. Per-suite labels keep plan budgets independent
+  // while still signing up at most once per label per database.
+  SESSION = await authCookie(BASE, "real-scanner");
 
   const checks: CheckResult[] = [];
 

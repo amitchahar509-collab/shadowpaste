@@ -14,7 +14,7 @@
 //
 // Output: results-injection.json + stdout summary.
 
-import { authCookie } from "./_auth";
+import { authCookie, resetOwnAgents } from "./_auth";
 
 const BASE = "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -145,7 +145,14 @@ async function main() {
   console.log("=== ShadowPaste V19 — Prompt Injection Attack Suite ===");
   console.log(`Firing ${PAYLOADS.length} prompt-injection payloads through the MCP gateway\n`);
 
-  SESSION = await authCookie(BASE);
+  // Own identity/org per suite: a shared account is poisoned by
+  // attack-billing-bypass, which deliberately fills its org to the FREE
+  // plan's 3-agent limit. Per-suite labels keep plan budgets independent
+  // while still signing up at most once per label per database.
+  SESSION = await authCookie(BASE, "prompt-injection");
+  // Idempotency: clear any agents left in this org by a prior run, so the
+  // FREE plan's 3-agent cap does not block this run's control agent.
+  await resetOwnAgents(BASE, SESSION);
 
   // Ensure a dedicated attack-test agent exists with moderate trust
   const agentRes = await api<{ agent: { id: string } }>("POST", "/api/agents", {
