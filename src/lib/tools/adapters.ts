@@ -172,14 +172,45 @@ async function githubRequest(method: string, endpoint: string, token: string, bo
   return { status: res.status, data };
 }
 
+// Credential resolution for the READ-ONLY github/stripe adapters.
+//
+// These two tools were vault-ONLY: they never read an environment variable, so a
+// GITHUB_TOKEN / STRIPE_SECRET_KEY configured on the host had no effect and the
+// call used whatever happened to be the newest matching vault row — in practice a
+// leftover test fixture, which is why the live calls returned 401.
+//
+// Order matches the AI provider (src/lib/ai/provider.ts:57): the operator's
+// explicitly configured credential wins, and the per-org vault is the fallback.
+// Only the read tools use this; the write tools (pr.merge, refund, charge) stay
+// vault-only so a server-wide token can never authorize a mutation.
+async function resolveConfiguredKey(
+  envNames: string[],
+  scope: string,
+  opts: { sessionId: string; orgId?: string }
+): Promise<{ raw: string; nonce?: string; source: "env" | "vault"; consume?: () => Promise<void> } | null> {
+  for (const name of envNames) {
+    const v = process.env[name]?.trim();
+    if (v) return { raw: v, source: "env" };
+  }
+  const cred = await injectCredential({ sessionId: opts.sessionId, scope, orgId: opts.orgId });
+  if (!cred) return null;
+  // Vault-sourced credentials keep their single-use capability-token semantics.
+  return {
+    raw: cred.raw,
+    nonce: cred.token.nonce,
+    source: "vault",
+    consume: async () => { (await getCapabilityEngine()).consume(cred.token); },
+  };
+}
+
 export async function githubRead(input: { repo: string; path?: string }, opts: { sessionId: string; orgId?: string; _tokenOverride?: string }): Promise<ExecResult> {
   const start = Date.now();
   try {
     let token = opts._tokenOverride || "";
     let capabilityNonce: string | undefined;
     if (!token) {
-      const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
-      if (cred) { token = cred.raw; capabilityNonce = cred.token.nonce; }
+      const cred = await resolveConfiguredKey(["GITHUB_TOKEN"], "github.repo", opts);
+      if (cred) { token = cred.raw; capabilityNonce = cred.nonce; }
     }
     const endpoint = input.path ? `/repos/${input.repo}/contents/${input.path}` : `/repos/${input.repo}`;
     const { status, data } = await githubRequest("GET", endpoint, token);
@@ -408,14 +439,14 @@ export async function dbQuery(input: { query: string }): Promise<ExecResult> {
 export async function stripeRead(input: { resource: string; id?: string }, opts: { sessionId: string; orgId?: string }): Promise<ExecResult> {
   const start = Date.now();
   try {
-    const cred = await injectCredential({ sessionId: opts.sessionId, scope: "stripe.charges", orgId: opts.orgId });
-    if (!cred) throw new Error("No Stripe credential in vault. Store a stripe test key first.");
+    const cred = await resolveConfiguredKey(["STRIPE_SECRET_KEY", "STRIPE_API_KEY"], "stripe.charges", opts);
+    if (!cred) throw new Error("No Stripe credential configured. Set STRIPE_SECRET_KEY or store a stripe test key in the vault.");
     const endpoint = input.id ? `/v1/${input.resource}/${input.id}` : `/v1/${input.resource}`;
     const res = await fetch(`https://api.stripe.com${endpoint}`, { headers: { Authorization: `Bearer ${cred.raw}` } });
     const data = await res.json().catch(() => null);
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await cred.consume?.();
     const redacted = redactSecrets(JSON.stringify(data), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
-    return { ok: res.ok, output: { resource: input.resource, status: res.status, data }, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
+    return { ok: res.ok, output: { resource: input.resource, status: res.status, data }, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.nonce };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "stripe", durationMs: Date.now() - start, error: (e as Error).message };
   }
