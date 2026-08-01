@@ -9,6 +9,7 @@ import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
 import { auditUnauthorized } from "@/lib/audit-request"
+import { classifyArchive, extractArchive } from "@/lib/archive"
 
 export const runtime = "nodejs"
 
@@ -91,6 +92,29 @@ export async function POST(req: NextRequest) {
       if (total > MAX_TOTAL_BYTES) return NextResponse.json({ error: `upload too large (limit ${Math.round(MAX_TOTAL_BYTES / 1048576)} MB)` }, { status: 413 })
 
       const buf = Buffer.from(await files[i].arrayBuffer())
+
+      // An uploaded .zip/.tar/.tgz is a PROJECT, not a file to drop in verbatim.
+      // Without this the workspace contained a single opaque archive: the stack
+      // detector saw nothing, the secret scanner scanned a compressed blob and
+      // reported 0 findings, and the import looked successful while doing
+      // nothing. Extract single-archive uploads into the workspace root.
+      const kind = classifyArchive(files[i].name || rel, buf)
+      if (kind && files.length === 1) {
+        const r = await extractArchive(buf, files[i].name || rel, destResolved, {})
+        written += r.files ?? 0
+        // Archives usually wrap everything in one top-level directory; lift it so
+        // package.json and friends sit where the analyzer expects them.
+        const top = await fs.readdir(destResolved, { withFileTypes: true })
+        if (top.length === 1 && top[0].isDirectory()) {
+          const inner = path.join(destResolved, top[0].name)
+          for (const child of await fs.readdir(inner)) {
+            await fs.rename(path.join(inner, child), path.join(destResolved, child))
+          }
+          await fs.rmdir(inner).catch(() => {})
+        }
+        continue
+      }
+
       await fs.mkdir(path.dirname(outPath), { recursive: true })
       await fs.writeFile(outPath, buf)
       written++

@@ -329,7 +329,14 @@ function pushLargest(list: Array<{ path: string; size: number }>, p: string, siz
   if (list.length < 5) { list.push({ path: p, size }); list.sort((a, b) => b.size - a.size); return }
   if (size > list[list.length - 1].size) { list[list.length - 1] = { path: p, size }; list.sort((a, b) => b.size - a.size) }
 }
-function safeJson(s: string | undefined): Record<string, unknown> | null { if (!s) return null; try { return JSON.parse(s) } catch { return null } }
+// Strips a UTF-8 BOM before parsing. Windows editors and PowerShell write
+// package.json with a leading U+FEFF, which makes JSON.parse throw — the whole
+// project then detected as "Generic Project" with 0 dependencies and no
+// framework, on the platform a large share of users are on.
+function safeJson(s: string | undefined): Record<string, unknown> | null {
+  if (!s) return null
+  try { return JSON.parse(s.charCodeAt(0) === 0xfeff ? s.slice(1) : s) } catch { return null }
+}
 function dedupe<T>(a: T[]): T[] { return [...new Set(a)] }
 
 function detectRuntime(cache: Map<string, string>, stack: StackInfo): string | null {

@@ -24,7 +24,14 @@ async function exists(p: string): Promise<boolean> {
   try { await fs.access(p); return true } catch { return false }
 }
 async function readJson(p: string): Promise<Record<string, unknown> | null> {
-  try { return JSON.parse(await fs.readFile(p, "utf8")) } catch { return null }
+  // Strip a UTF-8 BOM before parsing. Windows editors and PowerShell write
+  // package.json with a leading U+FEFF; JSON.parse throws on it, so the project
+  // came back as "Generic Project" with 0 dependencies and no framework — on
+  // the platform a large share of users are on.
+  try {
+    const raw = await fs.readFile(p, "utf8")
+    return JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw)
+  } catch { return null }
 }
 async function readText(p: string): Promise<string> {
   try { return await fs.readFile(p, "utf8") } catch { return "" }

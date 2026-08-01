@@ -83,3 +83,39 @@ describe("upload paths[] fallback", () => {
     expect(resolvePaths("{not json", ["a.js"])).toEqual(["a.js"]);
   });
 });
+
+describe("archive upload extraction", () => {
+  // A .zip upload used to be written into the workspace verbatim: fileCount 1,
+  // secretCount 0, stack "Generic Project". The import reported success while
+  // scanning a compressed blob — the worst kind of failure for a secret scanner.
+  test("an uploaded archive is recognised as one", async () => {
+    const { classifyArchive } = await import("../../src/lib/archive");
+    const zipMagic = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]);
+    expect(classifyArchive("project.zip", zipMagic)).toBe("zip");
+    const gzMagic = Buffer.from([0x1f, 0x8b, 0x08, 0, 0, 0, 0, 0]);
+    expect(classifyArchive("project.tar.gz", gzMagic)).toBe("tgz");
+    // A normal source file must NOT be treated as an archive.
+    expect(classifyArchive("index.js", Buffer.from("const a = 1;"))).toBeNull();
+  });
+});
+
+describe("package.json BOM handling", () => {
+  // PowerShell and several Windows editors write a UTF-8 BOM. JSON.parse throws
+  // on it, so every such project detected as "Generic Project" with 0 deps.
+  test("a BOM-prefixed package.json still parses", async () => {
+    const { analyzeProject } = await import("../../src/lib/project-intelligence");
+    const fs = await import("fs/promises");
+    const os = await import("os");
+    const path = await import("path");
+    const dir = path.join(os.tmpdir(), "sp-bom-" + Date.now().toString(36));
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, "package.json"),
+      "﻿" + JSON.stringify({ name: "d", dependencies: { next: "15.0.0", react: "19.0.0" } })
+    );
+    const r = await analyzeProject(dir);
+    expect(r.stack.dependencyCount).toBe(2);
+    expect(r.stack.frameworks).toContain("Next.js");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+});
