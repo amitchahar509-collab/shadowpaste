@@ -64,7 +64,7 @@ flowchart LR
     end
     subgraph Gateway["ShadowPaste gateway"]
         direction TB
-        ID[Identity<br/>OAuth 2.1 / API key] --> RISK[Risk engine<br/>score 0-100]
+        ID[Identity<br/>OAuth 2.1 token<br/>or local-dev agent] --> RISK[Risk engine<br/>score 0-100]
         RISK --> POL[Policy engine<br/>allow / ask / deny]
         POL --> CRED[Credential injection<br/>single-use capability token]
         CRED --> EXEC[Adapter execution]
@@ -109,10 +109,21 @@ flowchart TD
 git clone https://github.com/amitchahar509-collab/shadowpaste.git
 cd shadowpaste
 bun install
-cp .env.example .env
-docker compose up -d db      # or point DATABASE_URL at any Postgres
-bun run db:push
+
+cp .env.example .env         # defaults match the bundled Postgres exactly
+docker compose up -d db      # …or edit DATABASE_URL to point at any Postgres
+                             #    (Neon, Supabase, Render, Railway all work)
+
+bun run db:generate          # generate the Prisma client — REQUIRED
+bun run db:push              # create the schema
 ```
+
+> **Do not skip `db:generate`.** Without a generated Prisma client every
+> database-backed route returns a 500 whose only clue is
+> `@prisma/client did not initialize yet`, which in dev is rendered as an HTML
+> error page rather than JSON. `db:push` also generates the client, so if that
+> command succeeded you are already covered — but run it explicitly if you are
+> pointing at a database that is not up yet.
 
 > `git` on `PATH` is optional. Clone-import uses it when present and falls back to
 > the host's HTTPS tarball endpoint when it isn't (GitHub, GitLab, Codeberg, Gitea).
@@ -170,11 +181,47 @@ bun run dev      # http://localhost:3000
 ShadowPaste implements MCP over Streamable HTTP and the older HTTP+SSE transport,
 negotiating protocol versions `2025-06-18`, `2025-03-26` and `2024-11-05`.
 
+### Authentication: what you need, and when
+
+**Locally, you need nothing.** With `REQUIRE_OAUTH` unset, `/api/mcp` accepts
+unauthenticated calls and attributes them to a built-in local-dev agent, so the
+configs below work as written with no token.
+
+> Note the sharp edge: an *invalid* bearer token is also accepted locally and
+> silently falls back to that same local-dev agent. If you paste a made-up key
+> and calls succeed, that proves nothing about your credentials. Set
+> `REQUIRE_OAUTH=true` when you want the token actually enforced.
+
+**In production, set `REQUIRE_OAUTH=true`** and the token becomes a real **OAuth
+2.1 access token**. There is no separate "API key" to copy from a settings page —
+clients obtain a token through the OAuth flow, either automatically (MCP clients
+that support OAuth discover it from the `WWW-Authenticate` header on a 401) or
+manually:
+
+```bash
+# 1. Register a client (RFC 7591)
+curl -s -X POST https://<your-host>/oauth/register \
+  -H 'content-type: application/json' \
+  -d '{"client_name":"my-client","redirect_uris":["http://localhost/callback"]}'
+
+# 2. Send the user to /oauth/authorize with PKCE (S256 is required), then
+#    exchange the returned code at /oauth/token for an access token.
+```
+
+Discovery documents (`/.well-known/oauth-authorization-server` and
+`/.well-known/oauth-protected-resource`) describe every endpoint and parameter.
+
 ### Claude Code
 
 ```bash
-claude mcp add --transport http shadowpaste http://localhost:3000/api/mcp \
-  --header "Authorization: Bearer <agent-api-key>"
+claude mcp add --transport http shadowpaste http://localhost:3000/api/mcp
+```
+
+For a deployment with `REQUIRE_OAUTH=true`, point it at your host instead —
+Claude Code runs the OAuth flow for you:
+
+```bash
+claude mcp add --transport http shadowpaste https://<your-host>/api/mcp
 ```
 
 ### Cursor
@@ -186,8 +233,21 @@ claude mcp add --transport http shadowpaste http://localhost:3000/api/mcp \
   "mcpServers": {
     "shadowpaste": {
       "type": "http",
-      "url": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer <agent-api-key>" }
+      "url": "http://localhost:3000/api/mcp"
+    }
+  }
+}
+```
+
+Against a deployment that requires OAuth, add the token you obtained above:
+
+```json
+{
+  "mcpServers": {
+    "shadowpaste": {
+      "type": "http",
+      "url": "https://<your-host>/api/mcp",
+      "headers": { "Authorization": "Bearer <oauth-access-token>" }
     }
   }
 }
@@ -202,7 +262,20 @@ claude mcp add --transport http shadowpaste http://localhost:3000/api/mcp \
   "servers": {
     "shadowpaste": {
       "type": "http",
-      "url": "http://localhost:3000/api/mcp",
+      "url": "http://localhost:3000/api/mcp"
+    }
+  }
+}
+```
+
+For a remote deployment, prompt for the OAuth access token instead of hard-coding it:
+
+```json
+{
+  "servers": {
+    "shadowpaste": {
+      "type": "http",
+      "url": "https://<your-host>/api/mcp",
       "headers": { "Authorization": "Bearer ${input:shadowpaste_token}" }
     }
   },
@@ -210,7 +283,7 @@ claude mcp add --transport http shadowpaste http://localhost:3000/api/mcp \
     {
       "id": "shadowpaste_token",
       "type": "promptString",
-      "description": "ShadowPaste agent API key",
+      "description": "ShadowPaste OAuth access token",
       "password": true
     }
   ]
@@ -291,7 +364,7 @@ sequenceDiagram
     participant T as Target system
     participant L as Audit chain
     A->>G: tools/call
-    G->>G: Identity (OAuth 2.1 / API key)
+    G->>G: Identity (OAuth 2.1 or local-dev)
     G->>G: Risk score 0-100
     G->>G: Policy: allow / ask / deny
     alt denied or hard-denied
@@ -444,6 +517,9 @@ Annotated list: **[.env.example](.env.example)**. The ones that matter most:
 
 | Symptom | Cause and fix |
 |---|---|
+| 500 with an HTML page on `/api/health` or `/api/mcp` | The Prisma client was never generated. Run `bun run db:generate`. The underlying error is `@prisma/client did not initialize yet`. |
+| `P1001: Can't reach database server at localhost:5432` | Postgres is not running. `docker compose up -d db`, or point `DATABASE_URL` at a hosted Postgres. |
+| MCP calls succeed with an obviously fake token | Expected locally: unauthenticated and invalid tokens both fall back to the local-dev agent. Set `REQUIRE_OAUTH=true` to enforce tokens. |
 | `Environment variable not found: DATABASE_URL` | `.env` missing or not a `postgresql://` URL. `cp .env.example .env`, then `bun run db:push`. |
 | `AUTH_PEPPER` startup refusal in production | Deliberate. Set a unique value; without it sessions would be forgeable. |
 | `/api/mcp` returns 401 | `REQUIRE_OAUTH=true` and no valid token. Check `WWW-Authenticate` in the response for the discovery URL. |
