@@ -46,9 +46,18 @@ export async function POST(req: NextRequest) {
   if (files.length === 0) return NextResponse.json({ error: "no files uploaded" }, { status: 400 })
   if (files.length > MAX_FILES) return NextResponse.json({ error: `too many files (limit ${MAX_FILES})` }, { status: 413 })
 
+  // `paths[]` carries webkitRelativePath for a folder pick, so the directory
+  // tree can be rebuilt. A plain file pick (or any API client) has no relative
+  // paths — that case used to 400 with "paths[] must match files[] length",
+  // which made every upload that was not a folder pick impossible. Fall back to
+  // the files' own names instead of rejecting.
+  const rawPaths = String(form.get("paths") || "")
   let relPaths: string[]
-  try { relPaths = JSON.parse(String(form.get("paths") || "[]")) } catch { relPaths = [] }
-  if (!Array.isArray(relPaths) || relPaths.length !== files.length) {
+  try { relPaths = rawPaths ? JSON.parse(rawPaths) : [] } catch { relPaths = [] }
+  if (!Array.isArray(relPaths) || relPaths.length === 0) {
+    relPaths = files.map((f, i) => f.name || `file-${i}`)
+  }
+  if (relPaths.length !== files.length) {
     return NextResponse.json({ error: "paths[] must match files[] length" }, { status: 400 })
   }
 

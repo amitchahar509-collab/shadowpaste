@@ -7,13 +7,34 @@
 // from the vault back into the original project for commit.
 
 import { promises as fs } from "fs"
+import os from "os"
 import path from "path"
 import { scanForSecrets } from "./security/detector"
 import { virtualizeWithFakes, generateFakeSecret } from "./security/fake-secrets"
 import { storeSecret } from "./security/vault"
 import { db } from "./db"
 
-export const WORKSPACE_ROOT = path.resolve(process.cwd(), ".workspaces")
+// Where workspace copies live.
+//
+// This used to be hard-coded to `<cwd>/.workspaces`. On a serverless host the
+// bundle directory (/var/task on Vercel) is READ-ONLY, so the very first
+// `fs.mkdir` threw EROFS and every project upload returned a 500 — the feature
+// could not work in production at all, only locally.
+//
+// Order: explicit config wins; otherwise a serverless runtime gets the only
+// writable location it has (os.tmpdir()); otherwise the local repo directory,
+// which is what a self-hosted install wants.
+//
+// NOTE: os.tmpdir() on serverless is per-instance and ephemeral. That makes
+// upload work, but workspaces do not survive across instances — a durable
+// deployment must set SHADOWPASTE_WORKSPACE_ROOT to a mounted volume.
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+
+export const WORKSPACE_ROOT = process.env.SHADOWPASTE_WORKSPACE_ROOT
+  ? path.resolve(process.env.SHADOWPASTE_WORKSPACE_ROOT)
+  : IS_SERVERLESS
+    ? path.join(os.tmpdir(), "shadowpaste-workspaces")
+    : path.resolve(process.cwd(), ".workspaces")
 
 export interface WorkspaceSecret {
   id: string

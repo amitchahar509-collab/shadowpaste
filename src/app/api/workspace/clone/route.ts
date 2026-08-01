@@ -34,6 +34,68 @@ const ALLOWED_HOSTS = new Set([
 ])
 const CLONE_TIMEOUT_MS = 90_000
 const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces"])
+const MAX_TARBALL_BYTES = 100 * 1024 * 1024
+
+/**
+ * Fetch a public repository as an HTTPS tarball instead of shelling out to git.
+ *
+ * Used when no `git` binary exists (serverless). The URL is built from the
+ * ALREADY-VALIDATED `url` — same host allowlist, same https-only, same
+ * no-credentials rules — so this does not widen what can be reached. Returns
+ * null on success, or the error to surface.
+ */
+async function downloadTarball(url: URL, destDir: string): Promise<{ error: string; status: number } | null> {
+  const host = url.hostname.toLowerCase()
+  const segs = url.pathname.replace(/\.git$/, "").split("/").filter(Boolean)
+  if (segs.length < 2) return { error: "repository URL must include owner and repository name", status: 400 }
+  const [owner, repo] = segs
+
+  let tarUrl: string
+  if (host.endsWith("github.com")) tarUrl = `https://codeload.github.com/${owner}/${repo}/tar.gz/HEAD`
+  else if (host.endsWith("gitlab.com")) tarUrl = `https://gitlab.com/${owner}/${repo}/-/archive/HEAD/${repo}-HEAD.tar.gz`
+  else if (host.endsWith("codeberg.org") || host.endsWith("gitea.com")) tarUrl = `https://${host}/${owner}/${repo}/archive/HEAD.tar.gz`
+  else return { error: `cloning from ${host} needs a git binary, which this deployment does not have. Use a GitHub, GitLab, Codeberg or Gitea URL, or self-host.`, status: 501 }
+
+  let res: Response
+  try {
+    res = await fetch(tarUrl, { redirect: "follow", signal: AbortSignal.timeout(CLONE_TIMEOUT_MS) })
+  } catch (e) {
+    return { error: `could not download repository archive: ${(e as Error).message.slice(0, 120)}`, status: 502 }
+  }
+  if (res.status === 404) return { error: "repository not found — check the URL", status: 404 }
+  if (res.status === 401 || res.status === 403) {
+    return { error: "repository is private or requires authentication — only public repositories can be cloned here", status: 400 }
+  }
+  if (!res.ok) return { error: `repository archive download failed (HTTP ${res.status})`, status: 502 }
+
+  const len = Number(res.headers.get("content-length") || 0)
+  if (len > MAX_TARBALL_BYTES) return { error: "repository is too large to import here", status: 413 }
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.byteLength > MAX_TARBALL_BYTES) return { error: "repository is too large to import here", status: 413 }
+
+  const { extractArchive } = await import("@/lib/archive")
+  try {
+    // The extractor enforces path-traversal and zip-bomb limits; the archive is
+    // remote input, so those checks matter as much here as for an upload.
+    await extractArchive(buf, `${repo}.tar.gz`, destDir, {})
+  } catch (e) {
+    return { error: `could not extract repository archive: ${(e as Error).message.slice(0, 160)}`, status: 502 }
+  }
+
+  // Host tarballs wrap everything in a single `<repo>-<ref>/` directory. Lift it
+  // so the workspace root looks the same as a `git clone` result.
+  try {
+    const entries = await fs.readdir(destDir, { withFileTypes: true })
+    if (entries.length === 1 && entries[0].isDirectory()) {
+      const inner = path.join(destDir, entries[0].name)
+      for (const child of await fs.readdir(inner)) {
+        await fs.rename(path.join(inner, child), path.join(destDir, child))
+      }
+      await fs.rmdir(inner).catch(() => {})
+    }
+  } catch { /* leaving the wrapper directory in place is not fatal */ }
+  return null
+}
 
 export async function POST(req: NextRequest) {
   const rl = await enforceRateLimit(req, "scan")
@@ -78,14 +140,26 @@ export async function POST(req: NextRequest) {
       )
     } catch (e) {
       const msg = (e as Error & { stderr?: Buffer }).stderr?.toString() || (e as Error).message
-      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
-      if (/Authentication|could not read Username|terminal prompts disabled|403/i.test(msg)) {
-        return NextResponse.json({ error: "repository is private or requires authentication — only public repositories can be cloned here" }, { status: 400 })
+      // A serverless runtime has no `git` binary at all (spawn ENOENT), which
+      // made this endpoint a guaranteed 502 in production. Fall back to the
+      // host's HTTPS tarball, which needs no external process. Same transport,
+      // same public-repo-only guarantees — just no git.
+      if (/ENOENT|not recognized|command not found/i.test(msg)) {
+        const tarErr = await downloadTarball(url, tmpDir)
+        if (tarErr) {
+          await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+          return NextResponse.json({ error: tarErr.error }, { status: tarErr.status })
+        }
+      } else {
+        await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+        if (/Authentication|could not read Username|terminal prompts disabled|403/i.test(msg)) {
+          return NextResponse.json({ error: "repository is private or requires authentication — only public repositories can be cloned here" }, { status: 400 })
+        }
+        if (/not found|repository .* does not exist|404/i.test(msg)) {
+          return NextResponse.json({ error: "repository not found — check the URL" }, { status: 404 })
+        }
+        return NextResponse.json({ error: `git clone failed: ${msg.split("\n").slice(-3).join(" ").slice(0, 300)}` }, { status: 502 })
       }
-      if (/not found|repository .* does not exist|404/i.test(msg)) {
-        return NextResponse.json({ error: "repository not found — check the URL" }, { status: 404 })
-      }
-      return NextResponse.json({ error: `git clone failed: ${msg.split("\n").slice(-3).join(" ").slice(0, 300)}` }, { status: 502 })
     }
 
     const intelligence = await analyzeProject(tmpDir).catch(() => null)
