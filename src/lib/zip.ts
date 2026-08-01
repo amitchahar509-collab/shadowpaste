@@ -70,6 +70,20 @@ export async function extractZip(buf: Buffer, destDir: string, opts: ExtractOpti
   const entries = readCentralDirectory(buf, eocd.cdOffset, eocd.cdCount)
   if (entries.length === 0) throw new ZipError("ZIP central directory is empty or unreadable.")
 
+  // Reject an oversized archive from the central directory BEFORE inflating
+  // anything. The per-entry checks below alone let an adversarial 20,000-entry
+  // ZIP write maxFiles files first — measured at 11 SECONDS, which on a
+  // serverless host means the request times out (and leaves a partial tree
+  // behind) instead of returning a clean 4xx. The directory already states the
+  // counts, so this costs nothing.
+  if (entries.length > maxFiles) {
+    throw new ZipError(`ZIP contains too many files (${entries.length}, limit ${maxFiles}).`)
+  }
+  const declaredBytes = entries.reduce((n, e) => n + (e.uncompressedSize || 0), 0)
+  if (declaredBytes > maxTotalBytes) {
+    throw new ZipError(`ZIP expands too large (limit ${Math.round(maxTotalBytes / 1048576)} MB).`)
+  }
+
   const rootPrefix = detectRootPrefix(entries)
   const destResolved = path.resolve(destDir)
   await fs.mkdir(destResolved, { recursive: true })

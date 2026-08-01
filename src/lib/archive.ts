@@ -20,6 +20,24 @@ export type { ExtractResult, ExtractOptions } from "./zip"
 
 export type ArchiveKind = "zip" | "tar" | "tgz"
 
+/**
+ * Limits for archives arriving over HTTP (uploads, remote tarballs).
+ *
+ * The library defaults (20,000 files / 500 MB) are sized for a trusted local
+ * CLI import. They are far too permissive for a request handler: an adversarial
+ * 20,000-entry ZIP measured 45 SECONDS of extraction on one request, and a
+ * single 60 MB entry expanded with no ceiling — on a serverless host that is
+ * request-timeout exhaustion plus a shared /tmp that other invocations need.
+ *
+ * A project being imported for a secret scan does not need 20,000 files, and
+ * build output is skipped rather than counted against the budget.
+ */
+export const IMPORT_LIMITS: ExtractOptions = {
+  maxFiles: 5000,
+  maxTotalBytes: 100 * 1024 * 1024,
+  skipDirs: new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces", "vendor", "target"]),
+}
+
 /** Classify an upload by filename + magic bytes. Returns null if unsupported. */
 export function classifyArchive(filename: string, buf: Buffer): ArchiveKind | null {
   const name = (filename || "").toLowerCase()

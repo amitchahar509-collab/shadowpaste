@@ -36,6 +36,25 @@ export const WORKSPACE_ROOT = process.env.SHADOWPASTE_WORKSPACE_ROOT
     ? path.join(os.tmpdir(), "shadowpaste-workspaces")
     : path.resolve(process.cwd(), ".workspaces")
 
+/**
+ * Per-tenant workspace directory.
+ *
+ * Workspaces live only on disk — there is no DB row to check ownership against.
+ * With every tenant's workspace directly under WORKSPACE_ROOT, the only gate on
+ * /api/workspace/[id] was "authenticated AND path is under WORKSPACE_ROOT",
+ * which ANY logged-in user satisfies. Reproduced: org B read and then DELETED
+ * org A's workspace by passing its path.
+ *
+ * Namespacing by org makes tenancy a property of the path itself, so the same
+ * confinement check that already exists becomes an ownership check. orgId is a
+ * cuid, but it is sanitised anyway — it reaches path.join, and an id containing
+ * separators must never be able to climb out.
+ */
+export function orgWorkspaceRoot(orgId: string): string {
+  const safe = (orgId || "").replace(/[^a-zA-Z0-9_-]/g, "") || "unknown-org"
+  return path.join(WORKSPACE_ROOT, safe)
+}
+
 export interface WorkspaceSecret {
   id: string
   filePath: string
@@ -67,10 +86,14 @@ export async function createSafeWorkspace(opts: {
   projectName: string
 }): Promise<SafeWorkspace> {
   const { projectId, orgId, sourcePath, projectName } = opts
-  await fs.mkdir(WORKSPACE_ROOT, { recursive: true })
+  const orgRoot = orgWorkspaceRoot(orgId)
+  await fs.mkdir(orgRoot, { recursive: true })
 
-  const workspaceId = `ws-${Date.now().toString(36)}`
-  const workspacePath = path.join(WORKSPACE_ROOT, `${projectName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-${workspaceId}`)
+  // Two workspaces created in the same millisecond previously collided, because
+  // the id was Date.now() alone. Add entropy so concurrent imports — including
+  // imports from different tenants — can never share a directory.
+  const workspaceId = `ws-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  const workspacePath = path.join(orgRoot, `${projectName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-${workspaceId}`)
   await fs.mkdir(workspacePath, { recursive: true })
 
   // Walk the source directory (skip node_modules, .git, .next, dist, build)

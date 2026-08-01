@@ -9,7 +9,7 @@ import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
 import { auditUnauthorized } from "@/lib/audit-request"
-import { classifyArchive, extractArchive } from "@/lib/archive"
+import { classifyArchive, extractArchive, IMPORT_LIMITS } from "@/lib/archive"
 
 export const runtime = "nodejs"
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       // nothing. Extract single-archive uploads into the workspace root.
       const kind = classifyArchive(files[i].name || rel, buf)
       if (kind && files.length === 1) {
-        const r = await extractArchive(buf, files[i].name || rel, destResolved, {})
+        const r = await extractArchive(buf, files[i].name || rel, destResolved, IMPORT_LIMITS)
         written += r.files ?? 0
         // Archives usually wrap everything in one top-level directory; lift it so
         // package.json and friends sit where the analyzer expects them.

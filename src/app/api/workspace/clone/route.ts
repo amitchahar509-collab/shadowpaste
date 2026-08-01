@@ -73,11 +73,11 @@ async function downloadTarball(url: URL, destDir: string): Promise<{ error: stri
   const buf = Buffer.from(await res.arrayBuffer())
   if (buf.byteLength > MAX_TARBALL_BYTES) return { error: "repository is too large to import here", status: 413 }
 
-  const { extractArchive } = await import("@/lib/archive")
+  const { extractArchive, IMPORT_LIMITS } = await import("@/lib/archive")
   try {
     // The extractor enforces path-traversal and zip-bomb limits; the archive is
     // remote input, so those checks matter as much here as for an upload.
-    await extractArchive(buf, `${repo}.tar.gz`, destDir, {})
+    await extractArchive(buf, `${repo}.tar.gz`, destDir, IMPORT_LIMITS)
   } catch (e) {
     return { error: `could not extract repository archive: ${(e as Error).message.slice(0, 160)}`, status: 502 }
   }

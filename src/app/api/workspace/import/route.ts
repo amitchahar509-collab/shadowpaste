@@ -3,7 +3,7 @@ import { getContext } from "@/lib/auth"
 import { createSafeWorkspace } from "@/lib/workspace"
 import { db } from "@/lib/db"
 import { enforceRateLimit } from "@/lib/rate-limit"
-import { extractArchive, classifyArchive, ZipError } from "@/lib/archive"
+import { extractArchive, classifyArchive, ZipError , IMPORT_LIMITS } from "@/lib/archive"
 import { analyzeProject } from "@/lib/project-intelligence"
 import path from "path"
 import os from "os"
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
   try {
     let extracted
     try {
-      extracted = await extractArchive(buf, upload.name || "", tmpDir, { skipDirs: SKIP_DIRS })
+      extracted = await extractArchive(buf, upload.name || "", tmpDir, { ...IMPORT_LIMITS, skipDirs: SKIP_DIRS })
     } catch (e) {
       if (e instanceof ZipError) return NextResponse.json({ error: e.message }, { status: 400 })
       throw e

@@ -119,3 +119,46 @@ describe("package.json BOM handling", () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 });
+
+describe("workspace tenancy (cross-tenant isolation)", () => {
+  // Reproduced against a live server: org B read AND DELETED org A's workspace
+  // just by passing its path. Workspaces have no DB row, so the only gate was
+  // "authenticated AND under WORKSPACE_ROOT" — which every logged-in user
+  // satisfies. Tenancy is now a property of the path itself.
+  test("each org gets a distinct workspace root", async () => {
+    const { orgWorkspaceRoot, WORKSPACE_ROOT } = await import("../../src/lib/workspace");
+    const a = orgWorkspaceRoot("org_aaa");
+    const b = orgWorkspaceRoot("org_bbb");
+    expect(a).not.toBe(b);
+    expect(a.startsWith(WORKSPACE_ROOT)).toBe(true);
+    expect(b.startsWith(WORKSPACE_ROOT)).toBe(true);
+  });
+
+  test("org A's workspace is NOT within org B's root", async () => {
+    const { orgWorkspaceRoot } = await import("../../src/lib/workspace");
+    const { isWithin } = await import("../../src/lib/security/paths");
+    const path = await import("path");
+    const aWorkspace = path.join(orgWorkspaceRoot("org_aaa"), "proj-ws-1");
+    expect(isWithin(orgWorkspaceRoot("org_aaa"), aWorkspace)).toBe(true);
+    expect(isWithin(orgWorkspaceRoot("org_bbb"), aWorkspace)).toBe(false);
+  });
+
+  test("a hostile orgId cannot climb out of the workspace root", async () => {
+    const { orgWorkspaceRoot, WORKSPACE_ROOT } = await import("../../src/lib/workspace");
+    for (const evil of ["../../etc", "..", "a/../../b", "/abs", "x y"]) {
+      expect(orgWorkspaceRoot(evil).startsWith(WORKSPACE_ROOT)).toBe(true);
+    }
+  });
+});
+
+describe("import resource limits", () => {
+  // An adversarial 20,000-entry ZIP took 11s to reject — AFTER writing 5,000
+  // files — before the central-directory pre-check. A serverless request times
+  // out well before that and leaves a partial tree behind.
+  test("request-path limits are tighter than the library defaults", async () => {
+    const { IMPORT_LIMITS } = await import("../../src/lib/archive");
+    expect(IMPORT_LIMITS.maxFiles).toBeLessThanOrEqual(5000);
+    expect(IMPORT_LIMITS.maxTotalBytes).toBeLessThanOrEqual(100 * 1024 * 1024);
+    expect(IMPORT_LIMITS.skipDirs?.has("node_modules")).toBe(true);
+  });
+});
