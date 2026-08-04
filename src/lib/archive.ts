@@ -14,6 +14,7 @@ import path from "path"
 import zlib from "zlib"
 import { promises as fs } from "fs"
 import { extractZip, ZipError, type ExtractOptions, type ExtractResult } from "./zip"
+import { IMPORT_MAX_BYTES, IMPORT_MAX_FILES, IMPORT_SKIP_DIRS } from "./import-budget"
 
 export { ZipError } from "./zip"
 export type { ExtractResult, ExtractOptions } from "./zip"
@@ -26,16 +27,18 @@ export type ArchiveKind = "zip" | "tar" | "tgz"
  * The library defaults (20,000 files / 500 MB) are sized for a trusted local
  * CLI import. They are far too permissive for a request handler: an adversarial
  * 20,000-entry ZIP measured 45 SECONDS of extraction on one request, and a
- * single 60 MB entry expanded with no ceiling — on a serverless host that is
- * request-timeout exhaustion plus a shared /tmp that other invocations need.
+ * single 60 MB entry expanded with no ceiling.
  *
- * A project being imported for a secret scan does not need 20,000 files, and
- * build output is skipped rather than counted against the budget.
+ * These now come from src/lib/import-budget.ts, which derives them from the
+ * platform's request deadline and MEASURED import throughput rather than a
+ * hand-picked constant. Extraction is only the first stage — scanning, vaulting
+ * and copying cost far more — so the ceiling has to be set by what the whole
+ * import can finish, not by what the extractor alone can survive.
  */
 export const IMPORT_LIMITS: ExtractOptions = {
-  maxFiles: 5000,
-  maxTotalBytes: 100 * 1024 * 1024,
-  skipDirs: new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces", "vendor", "target"]),
+  maxFiles: IMPORT_MAX_FILES,
+  maxTotalBytes: IMPORT_MAX_BYTES,
+  skipDirs: IMPORT_SKIP_DIRS,
 }
 
 /** Classify an upload by filename + magic bytes. Returns null if unsupported. */

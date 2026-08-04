@@ -462,6 +462,11 @@ charges, customer deletion, and arbitrary shell or filesystem execution.
   `shell.exec` therefore refuses outright rather than pretending.
 - **`db.migrate` and `ai.train` are registered but not implemented** — they return a
   structured `NOT_IMPLEMENTED` error.
+- **Import size is capped by the request deadline.** A full import scans every
+  file for secrets at a measured ~0.33 MB/s, so a serverless deployment accepts
+  about 9.9 MB (half of the 60 s `maxDuration`) and a self-hosted one 100 MB.
+  Over-budget imports are rejected immediately with a 413 rather than dying as a
+  gateway timeout. `SHADOWPASTE_MAX_IMPORT_MB` overrides it.
 - **Workspaces need a persistent filesystem.** On serverless hosts they are written
   to the instance's temp directory, which is per-instance and ephemeral, so a
   workspace may not survive to the next request. Set `SHADOWPASTE_WORKSPACE_ROOT` to
@@ -505,6 +510,7 @@ Annotated list: **[.env.example](.env.example)**. The ones that matter most:
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | recommended | Global (not per-instance) rate limiting |
 | `TRUST_PROXY` | recommended behind a proxy | Trust `X-Forwarded-For` for rate-limit keying |
 | `SHADOWPASTE_WORKSPACE_ROOT` | recommended on serverless | Durable workspace directory |
+| `SHADOWPASTE_MAX_IMPORT_MB` | optional | Import ceiling. Defaults are derived from the request deadline: ~9.9 MB serverless, 100 MB self-hosted. |
 | `ALERT_WEBHOOK_URL` | recommended | Where security alerts are delivered |
 | `SHADOWPASTE_PROJECT_ROOTS` | optional | Roots the local-path import may read from |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` | optional | Enables the `ai.generate` tool |
@@ -517,6 +523,7 @@ Annotated list: **[.env.example](.env.example)**. The ones that matter most:
 
 | Symptom | Cause and fix |
 |---|---|
+| 413 `project too large to import` | Importing scans every file (~0.33 MB/s), so the ceiling is derived from the request deadline — about 9.9 MB on serverless, 100 MB self-hosted. Import a subdirectory, or raise `SHADOWPASTE_MAX_IMPORT_MB` if your platform allows longer requests. |
 | 500 with an HTML page on `/api/health` or `/api/mcp` | The Prisma client was never generated. Run `bun run db:generate`. The underlying error is `@prisma/client did not initialize yet`. |
 | `P1001: Can't reach database server at localhost:5432` | Postgres is not running. `docker compose up -d db`, or point `DATABASE_URL` at a hosted Postgres. |
 | MCP calls succeed with an obviously fake token | Expected locally: unauthenticated and invalid tokens both fall back to the local-dev agent. Set `REQUIRE_OAUTH=true` to enforce tokens. |

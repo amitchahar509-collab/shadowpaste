@@ -10,6 +10,7 @@ import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
 import { auditUnauthorized } from "@/lib/audit-request"
 import { classifyArchive, extractArchive, IMPORT_LIMITS } from "@/lib/archive"
+import { IMPORT_MAX_BYTES, IMPORT_MAX_FILES, overBudgetError } from "@/lib/import-budget"
 
 export const runtime = "nodejs"
 
@@ -25,8 +26,11 @@ export const runtime = "nodejs"
 // Every relative path is confined inside the temp dir (no traversal), and
 // node_modules/.git style dirs are skipped so uploads stay small.
 
-const MAX_FILES = 20000
-const MAX_TOTAL_BYTES = 200 * 1024 * 1024
+// These used to be 20,000 files / 200 MB — LOOSER than the extraction limits
+// they sit in front of, and far past what the import can finish inside a
+// request deadline. Both now come from the same measured budget.
+const MAX_FILES = IMPORT_MAX_FILES
+const MAX_TOTAL_BYTES = IMPORT_MAX_BYTES
 const SKIP_SEGMENTS = new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces"])
 
 export async function POST(req: NextRequest) {
@@ -40,12 +44,33 @@ export async function POST(req: NextRequest) {
   const ctx = await getContext(req)
   if (!ctx || !ctx.user) { await auditUnauthorized(req, "/api/workspace/upload"); return NextResponse.json({ error: "authentication required" }, { status: 401 }) }
 
+  // Check the declared size BEFORE parsing. req.formData() throws on a body
+  // larger than the runtime will buffer, and that throw is indistinguishable
+  // from "this isn't multipart" — so an over-sized upload used to be reported as
+  // `expected a multipart/form-data upload`, which is both wrong and unactionable
+  // (measured: a 12 MB upload got that 400). Content-Length lets the budget
+  // check run first and return the real reason.
+  const declared = Number(req.headers.get("content-length") || 0)
+  if (declared > MAX_TOTAL_BYTES) {
+    return NextResponse.json(overBudgetError("size"), { status: 413 })
+  }
+
   let form: FormData
-  try { form = await req.formData() } catch { return NextResponse.json({ error: "expected a multipart/form-data upload" }, { status: 400 }) }
+  try {
+    form = await req.formData()
+  } catch {
+    // No Content-Length (chunked) and the parse failed: still most likely size.
+    return NextResponse.json(
+      declared === 0
+        ? { ...overBudgetError("size"), error: "could not read the upload — it is either not multipart/form-data, or larger than this deployment accepts" }
+        : { error: "expected a multipart/form-data upload" },
+      { status: declared === 0 ? 413 : 400 }
+    )
+  }
 
   const files = form.getAll("files").filter((f): f is File => typeof f !== "string")
   if (files.length === 0) return NextResponse.json({ error: "no files uploaded" }, { status: 400 })
-  if (files.length > MAX_FILES) return NextResponse.json({ error: `too many files (limit ${MAX_FILES})` }, { status: 413 })
+  if (files.length > MAX_FILES) return NextResponse.json(overBudgetError("files"), { status: 413 })
 
   // `paths[]` carries webkitRelativePath for a folder pick, so the directory
   // tree can be rebuilt. A plain file pick (or any API client) has no relative
@@ -89,7 +114,7 @@ export async function POST(req: NextRequest) {
       }
       const size = files[i].size
       total += size
-      if (total > MAX_TOTAL_BYTES) return NextResponse.json({ error: `upload too large (limit ${Math.round(MAX_TOTAL_BYTES / 1048576)} MB)` }, { status: 413 })
+      if (total > MAX_TOTAL_BYTES) return NextResponse.json(overBudgetError("size"), { status: 413 })
 
       const buf = Buffer.from(await files[i].arrayBuffer())
 

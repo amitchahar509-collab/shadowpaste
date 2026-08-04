@@ -4,6 +4,7 @@ import { createSafeWorkspace } from "@/lib/workspace"
 import { db } from "@/lib/db"
 import { enforceRateLimit } from "@/lib/rate-limit"
 import { extractArchive, classifyArchive, ZipError , IMPORT_LIMITS } from "@/lib/archive"
+import { IMPORT_MAX_BYTES, overBudgetError } from "@/lib/import-budget"
 import { analyzeProject } from "@/lib/project-intelligence"
 import path from "path"
 import os from "os"
@@ -27,7 +28,10 @@ export const runtime = "nodejs"
 // Authenticated only: scanning extracts the secrets it finds, so it must never
 // be reachable anonymously.
 
-const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024 // 200 MB compressed upload cap
+// Was a flat 200 MB compressed cap, unrelated to what the import could finish.
+// A compressed archive under the cap can still expand past the budget, so this
+// bounds the upload and IMPORT_LIMITS bounds the expansion.
+const MAX_ARCHIVE_BYTES = IMPORT_MAX_BYTES
 // Never extract these into the temp source tree — keeps imports small and fast.
 // (createSafeWorkspace skips them again when copying, but skipping here avoids
 // writing them to disk at all.)
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
   }
   if (upload.size > MAX_ARCHIVE_BYTES) {
     return NextResponse.json(
-      { error: `archive too large (max ${Math.round(MAX_ARCHIVE_BYTES / 1048576)} MB)` },
+      overBudgetError("size"),
       { status: 413 }
     )
   }

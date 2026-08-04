@@ -9,6 +9,7 @@ import os from "os"
 import { promises as fs } from "fs"
 import { internalError } from "@/lib/api-error"
 import { auditUnauthorized } from "@/lib/audit-request"
+import { IMPORT_MAX_BYTES, importLimitMb } from "@/lib/import-budget"
 
 export const runtime = "nodejs"
 
@@ -34,7 +35,9 @@ const ALLOWED_HOSTS = new Set([
 ])
 const CLONE_TIMEOUT_MS = 90_000
 const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", ".workspaces"])
-const MAX_TARBALL_BYTES = 100 * 1024 * 1024
+// Same measured budget as uploads: a repo small enough to download is not
+// necessarily small enough to scan, vault and copy inside the request deadline.
+const MAX_TARBALL_BYTES = IMPORT_MAX_BYTES
 
 /**
  * Fetch a public repository as an HTTPS tarball instead of shelling out to git.
@@ -69,9 +72,9 @@ async function downloadTarball(url: URL, destDir: string): Promise<{ error: stri
   if (!res.ok) return { error: `repository archive download failed (HTTP ${res.status})`, status: 502 }
 
   const len = Number(res.headers.get("content-length") || 0)
-  if (len > MAX_TARBALL_BYTES) return { error: "repository is too large to import here", status: 413 }
+  if (len > MAX_TARBALL_BYTES) return { error: `repository is too large to import here (limit ${importLimitMb()} MB)`, status: 413 }
   const buf = Buffer.from(await res.arrayBuffer())
-  if (buf.byteLength > MAX_TARBALL_BYTES) return { error: "repository is too large to import here", status: 413 }
+  if (buf.byteLength > MAX_TARBALL_BYTES) return { error: `repository is too large to import here (limit ${importLimitMb()} MB)`, status: 413 }
 
   const { extractArchive, IMPORT_LIMITS } = await import("@/lib/archive")
   try {
