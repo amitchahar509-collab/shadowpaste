@@ -20,6 +20,20 @@ through a risk → policy → audit pipeline.
 
 ---
 
+## See it block something
+
+![Four attacks, all blocked before execution](assets/readme/attack-blocked.svg)
+
+Not a mock-up. `scripts/record-terminal-demo.mjs` runs those four calls against a
+live gateway, captures what actually comes back, and renders it — and it
+**refuses to write the asset** if any of them reports `executed: true`, because a
+demo asserting "these are blocked" must not be able to ship showing the opposite.
+Regenerate any time with:
+
+```bash
+node scripts/record-terminal-demo.mjs --demo attack-blocked --out assets/readme/attack-blocked.svg
+```
+
 ## Overview
 
 You want Claude Code or Cursor to work on your actual project. Your actual project

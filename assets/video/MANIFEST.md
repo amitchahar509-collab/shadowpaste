@@ -19,7 +19,15 @@ frame does not.
 
 ## Assets
 
-_None yet._
+_No MP4s yet._ One SVG asset is published — see `assets/readme/`.
+
+### assets/readme/attack-blocked.svg
+- script: `docs/videos/scripts/07-attack-blocked.md`
+- generator: `scripts/record-terminal-demo.mjs --demo attack-blocked`
+- claims: SSRF blocked 95 · traversal blocked 90 · credential column blocked 90 ·
+  repo.delete deny 95 · all four `executed: false`
+- verified: the generator captured these from a live gateway at build time and
+  refuses to write the file if any call reports `executed: true`
 
 <!-- Template:
 ### 07-attack-blocked.mp4
