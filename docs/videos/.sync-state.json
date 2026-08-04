@@ -1,0 +1,11 @@
+{
+  "commit": "474bfc7f497319881bfbf6ce66ab17f8e11cdc1e",
+  "markedAt": "2026-08-04T20:19:42.200Z",
+  "claims": {
+    "patterns": 501,
+    "tools": 28,
+    "hardDeny": 6,
+    "alertRules": 8,
+    "cliCommands": 6
+  }
+}

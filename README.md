@@ -574,10 +574,22 @@ and decide for your own risk tolerance.
 
 ---
 
-## Screenshots
+## Video and screenshots
 
-> Not yet captured. These are the shots that would help most — contributions welcome
-> (PNG or GIF, light and dark, 1440×900):
+Scripts for the demo library live in **[docs/videos/](docs/videos/)**. Every one is
+written against **[docs/videos/FACTS.md](docs/videos/FACTS.md)** — a verified-claims
+sheet — and carries the exact commands to reproduce its takes, so a viewer can run
+the demo rather than take it on trust.
+
+`node scripts/video-sync.mjs` reports which scripts a code change has invalidated,
+and flags separately when a number stated *on screen* has moved. It does not
+re-render anything: that should be a decision, not a side effect of a commit.
+
+> **No videos are published yet.** The scripts and the staleness tooling are in the
+> repo; rendering is pending. Nothing below links to an asset that does not exist.
+
+Screenshots are also still to be captured. These are the shots that would help most
+— contributions welcome (PNG or GIF, light and dark, 1440×900):
 >
 > 1. **Dashboard / command center** — the landing view with live metrics
 > 2. **Import Hub** — drag-and-drop folder import with the analysis result
