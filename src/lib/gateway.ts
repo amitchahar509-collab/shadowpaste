@@ -11,6 +11,7 @@ import { sanitizeToolOutput } from "@/lib/security/sanitize-output";
 import { withSpan, setSpanAttributes, currentCorrelationId } from "@/lib/observability/trace";
 import { log } from "@/lib/observability/logger";
 import { fireAlert } from "@/lib/observability/alerts";
+import { inspectToolInput } from "@/lib/security/preflight";
 
 export interface GatewayRequest {
   agentId: string;
@@ -37,6 +38,13 @@ export interface GatewayResponse {
   /** How many secrets were stripped from `output` before it was returned. */
   secretsRedacted?: number;
   adapter?: string;
+  /**
+   * Escalation code for this call, from the adapter when it ran and from
+   * pre-flight inspection when policy stopped the call first. Alerting keys off
+   * this rather than digging into `output`, which is null for a call that never
+   * executed — the reason blocked attacks used to page nobody.
+   */
+  securityCode?: string;
   factors: Array<{ factor: string; weight: number; description: string }>;
   inputFlags: string[];
   durationMs: number;
@@ -107,7 +115,7 @@ export async function invokeTool(req: GatewayRequest): Promise<GatewayResponse> 
       // audit row exists so an alert never points at a record that is not there
       // yet. Deduplicated per (rule, agent) inside the engine so a tight attack
       // loop pages once, not thousands of times.
-      const alertRule = ALERT_RULE_BY_CODE[(res.output as { code?: string } | null)?.code ?? ""];
+      const alertRule = ALERT_RULE_BY_CODE[res.securityCode ?? ""];
       if (alertRule) {
         void fireAlert({
           rule: alertRule,
@@ -156,6 +164,33 @@ async function invokeToolInner(req: GatewayRequest): Promise<GatewayResponse> {
   }
 
   const risk = assessRisk(req.toolName, req.input, agent.trustScore);
+
+  // ---- Pre-flight input inspection ---------------------------------------
+  // The security classifiers live inside the adapters, and adapters only run
+  // when policy allows the call. So an attack aimed at a tool policy stops
+  // earlier was contained but never CLASSIFIED: an SSRF at 169.254.169.254 came
+  // back "ask, risk 38/medium" and paged nobody, while the same URL through an
+  // allowed tool escalated to 95/critical and fired an alert. The more trusted
+  // the agent, the better the telemetry — exactly backwards.
+  //
+  // Inspecting the raw input first fixes both halves: the recorded risk matches
+  // what the input actually is, and the alert fires regardless of which branch
+  // the policy takes. It executes nothing.
+  const preflight = inspectToolInput(req.toolName, req.input);
+  const preEscalation = preflight ? ESCALATIONS[preflight.code] : undefined;
+  if (preEscalation) {
+    // Only ever raise. A pre-flight signal must not soften a risk score that
+    // other factors already pushed higher.
+    if (preEscalation.score > risk.finalScore) {
+      risk.finalScore = preEscalation.score;
+      risk.finalLevel = preEscalation.level;
+    }
+    risk.factors = [
+      ...risk.factors,
+      { factor: preflight!.code, weight: preEscalation.score, description: preflight!.detail },
+    ];
+  }
+
   const policy = await evaluatePolicy({
     agentId: req.agentId, sessionId: req.sessionId || "", toolName: req.toolName,
     risk, agentTrustScore: agent.trustScore,
@@ -190,7 +225,12 @@ async function invokeToolInner(req: GatewayRequest): Promise<GatewayResponse> {
   // Escalate the RECORDED score so telemetry matches reality.
   const adapterCode = (safeOutput.output as { code?: string } | null)?.code;
 
-  const escalation = adapterCode ? ESCALATIONS[adapterCode] : undefined;
+  // The adapter's verdict wins when it ran, because it is the enforcing control
+  // and sees more (resolved DNS, real filesystem). Pre-flight covers the case
+  // the adapter never got: policy stopped the call, so there is no adapter code
+  // at all, and without this the attack is recorded as routine traffic.
+  const effectiveCode = (adapterCode && ESCALATIONS[adapterCode] ? adapterCode : undefined) ?? preflight?.code;
+  const escalation = effectiveCode ? ESCALATIONS[effectiveCode] : undefined;
   // A tool result that contained credentials is itself a security event: the
   // agent asked for something that turned out to hold secrets. The call still
   // succeeds (sanitized), but it must not be recorded as routine low-risk
@@ -277,6 +317,7 @@ async function invokeToolInner(req: GatewayRequest): Promise<GatewayResponse> {
     // SANITIZED output only — never `execResult.output`.
     toolCallId: toolCall.id, output: safeOutput.output, executed,
     secretsRedacted: safeOutput.redacted,
+    securityCode: effectiveCode,
     adapter: execResult?.adapter, factors: risk.factors, inputFlags: risk.inputFlags,
     durationMs: Date.now() - start,
   };
@@ -287,6 +328,7 @@ async function finalize(args: {
   auditRequired: boolean; toolName: string; agentId: string; input: Record<string, unknown>;
   sessionId?: string; factors: Array<{ factor: string; weight: number; description: string }>;
   inputFlags: string[]; durationMs: number; executed: boolean; output: Record<string, unknown> | null; adapter: string | undefined;
+  securityCode?: string;
 }): Promise<GatewayResponse> {
   const toolCall = await db.toolCall.create({
     data: {

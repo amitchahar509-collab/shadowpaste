@@ -61,6 +61,28 @@ async function ensureWorkspace(): Promise<string> {
   return WORKSPACE_ROOT;
 }
 
+/**
+ * Shell metacharacters. Named and exported so the gateway's pre-flight
+ * inspection can test the SAME pattern this adapter enforces. Two copies would
+ * drift, and a pre-flight that disagrees with the adapter is worse than none.
+ */
+export const SHELL_METACHARS = /[;&|`$(){}<>\\'"\n\r]/;
+
+/**
+ * True when a caller-supplied path would escape the workspace.
+ *
+ * Pure, synchronous and side-effect free — the same containment rule safePath()
+ * enforces, factored out so it can be evaluated BEFORE a call is executed. The
+ * gateway needs that: a traversal attempt stopped by policy never reached
+ * safePath at all, so it was recorded as an ordinary low-risk call and paged
+ * nobody.
+ */
+export function isPathEscape(p: unknown): boolean {
+  if (typeof p !== "string" || p.includes("\0")) return true;
+  const resolved = path.resolve(WORKSPACE_ROOT, p.replace(/^[/\\]+/, ""));
+  return !isWithin(WORKSPACE_ROOT, resolved);
+}
+
 function safePath(p: string): string {
   if (typeof p !== "string" || p.includes("\0")) throw new Error("Invalid path");
   const resolved = path.resolve(WORKSPACE_ROOT, p.replace(/^[/\\]+/, ""));
@@ -306,7 +328,7 @@ const DB_READ_TABLE_ALLOWLIST = new Set([
 ]);
 
 // Column names that must never leave the database, wherever they appear.
-const DB_READ_COLUMN_DENYLIST = /\b(passwordhash|apikeyhash|tokenhash|clientsecrethash|encryptedcipher|encryptediv|secret|password|passwd)\b/i;
+export const DB_READ_COLUMN_DENYLIST = /\b(passwordhash|apikeyhash|tokenhash|clientsecrethash|encryptedcipher|encryptediv|secret|password|passwd)\b/i;
 
 // Every model in the schema. Any model NOT in DB_READ_TABLE_ALLOWLIST is denied
 // by NAME PRESENCE, independently of SQL syntax — see assertNoDeniedTable.
@@ -946,7 +968,7 @@ export async function shellRead(input: { command: string }): Promise<ExecResult>
     }
     // Parse into plain tokens. Any shell metacharacter is rejected outright —
     // we never hand this to a shell, and their presence signals injection intent.
-    if (/[;&|`$(){}<>\\'"\n\r]/.test(input.command)) {
+    if (SHELL_METACHARS.test(input.command)) {
       return structuredError("shell", "COMMAND_REJECTED", "shell metacharacters are not permitted", {}, Date.now() - start);
     }
     const tokens = input.command.trim().split(/\s+/);
