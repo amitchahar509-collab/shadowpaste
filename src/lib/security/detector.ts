@@ -85,6 +85,55 @@ export function providerLabel(raw: string, ctx = ""): ProviderClass {
   return { provider, scope: cls.scope === "generic.use" ? "env.secret" : cls.scope };
 }
 
+/**
+ * Entropy floor for the generic `entropy_*` catalog patterns, in bits/char.
+ *
+ * Chosen from measurement, not taste. Observed false positives (GitHub API URL
+ * paths, which match the pattern's character class exactly) score 3.78-3.86.
+ * Real credentials score 4.57-5.00: Stripe live key 5.00, GitHub PAT 4.82,
+ * Google API key 4.92, JWT 4.69, base64 blob 4.57, AWS secret key 4.66.
+ *
+ * 4.2 sits clear of both sides. Raising it further would start eating real
+ * secrets, which is the failure direction that matters for this product — so
+ * any future change here must be re-validated against the 100k-secret corpus
+ * in tests/load-secret-detector.ts, not adjusted by feel.
+ */
+export const MIN_GENERIC_ENTROPY = 4.2;
+
+/**
+ * Spans of `text` occupied by the STRUCTURAL part of a URL — scheme, host and
+ * path, stopping at `?` or `#`.
+ *
+ * An entropy floor alone does not solve URL false positives, and measuring
+ * proved it rather than assuming: dictionary-ish GitHub paths score 3.78-3.86
+ * and fall below the floor, but realistic API URLs carrying resource IDs score
+ * 4.28-4.83 —
+ *
+ *   com/v1/charges/ch_3MmlLrLkdIwHu7ix0snN0B15            4.83
+ *   com/repos/facebook/react/commits/a1b2c3d4e5f67890…    4.45
+ *   com/v2/users/550e8400-e29b-41d4-a716-446655440000/…   4.32
+ *
+ * — which overlaps real credentials (4.57-5.00). No threshold separates those
+ * two sets, so structure has to do the work the entropy floor cannot.
+ *
+ * The query string is deliberately EXCLUDED from these spans: `?token=…` and
+ * `?access_key=…` are exactly where credentials do turn up in URLs, and must
+ * stay scannable. Only scheme/host/path are treated as structure.
+ */
+function urlStructuralSpans(text: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  const re = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>\\]+/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const url = m[0];
+    const cut = Math.min(
+      ...[url.indexOf("?"), url.indexOf("#")].filter((i) => i !== -1).concat([url.length])
+    );
+    spans.push([m.index, m.index + cut]);
+  }
+  return spans;
+}
+
 // ---- Shannon entropy ----
 export function shannonEntropy(str: string): number {
   const freq: Record<string, number> = {};
@@ -267,6 +316,8 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
     return i === -1 ? "" : s.slice(0, i)
   }
   const seen = new Set(findings.map((f) => f.raw));
+  // Computed once per scan, not per pattern — this runs over every tool result.
+  const genericUrlSpans = urlStructuralSpans(text);
   for (const p of SECRET_PATTERNS) {
     if (p.confidence < 0.3) continue; // skip very-low-confidence patterns to reduce FP
     // Skip generic entropy/hex patterns unless they're in a credential context
@@ -300,6 +351,41 @@ export function scanForSecrets(text: string, contextHint = "", _depth = 0): Secr
           continue
         }
       }
+
+      // The `entropy_*` patterns are named for entropy but only ever tested
+      // LENGTH and character class — `[A-Za-z0-9+/=_-]{40,}`. A URL path sits
+      // entirely inside that class, so `github.read` on a public repository
+      // reported 11 "secrets", every one an API URL:
+      //
+      //   "contributors_url": "https://api.github.{{SHADOW_REDACTED:entropy_40:…}}"
+      //
+      // That corrupts the tool result the agent receives, escalates a routine
+      // read to risk 70/high, and would page on every GitHub call once a
+      // delivery webhook is configured. The generic-pattern context gate did not
+      // save it either: that gate accepts `before.includes(":")`, and in JSON
+      // every value is preceded by a colon.
+      //
+      // Measured separation on real data — URL paths 3.78-3.86 bits/char, real
+      // credentials 4.57-5.00 (Stripe, GitHub, JWT, base64, Google, and the AWS
+      // secret key, which contains slashes and still scores 4.66). A floor of
+      // 4.2 sits clear of both. Deliberately an entropy floor rather than a
+      // slash ban, because slashes are legitimate inside base64 secrets.
+      if (p.provider === "HighEntropy") {
+        // Low-entropy candidates are prose-shaped, never credentials.
+        if (shannonEntropy(raw) < MIN_GENERIC_ENTROPY) {
+          if (raw.length === 0) re.lastIndex++;
+          continue;
+        }
+        // High-entropy candidates that lie inside a URL's scheme/host/path are
+        // resource identifiers, not secrets. Query strings are excluded from
+        // those spans, so `?token=<secret>` is still caught.
+        const end = m.index + raw.length;
+        if (genericUrlSpans.some(([s, e]) => m!.index >= s && end <= e)) {
+          if (raw.length === 0) re.lastIndex++;
+          continue;
+        }
+      }
+
       seen.add(raw);
       const { line, column } = lineColOf(text, m.index);
       findings.push({
