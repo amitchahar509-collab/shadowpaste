@@ -162,3 +162,29 @@ describe("import resource limits", () => {
     expect(IMPORT_LIMITS.skipDirs?.has("node_modules")).toBe(true);
   });
 });
+
+describe("workspace virtualization gating", () => {
+  // createSafeWorkspace used to call scanForSecrets as a gate and then
+  // virtualizeWithFakes, which scans again internally. Removing the gate is not
+  // a speedup (measured: within noise) but it is safer — a file with no
+  // replacement is now byte-copied instead of being round-tripped through utf8.
+  test("virtualizeWithFakes reports replacements, so a separate gate scan is redundant", async () => {
+    const { virtualizeWithFakes } = await import("@/lib/security/fake-secrets");
+    const clean = virtualizeWithFakes("const a = 1;\nconst b = 2;\n", "clean.ts");
+    expect(clean.replacements.length).toBe(0);
+    expect(clean.text).toBe("const a = 1;\nconst b = 2;\n"); // unchanged
+
+    const dirty = virtualizeWithFakes('const k = "sk_live_51ABCDEFGHIJKLMNOPQRSTUV";\n', "dirty.ts");
+    expect(dirty.replacements.length).toBeGreaterThan(0);
+    expect(dirty.text).not.toContain("sk_live_51ABCDEFGHIJKLMNOPQRSTUV");
+  });
+
+  test("the workspace writer no longer double-scans", async () => {
+    const src = await Bun.file("src/lib/workspace.ts").text();
+    // The gate call is gone; only virtualizeWithFakes performs the scan.
+    expect(src).not.toContain("scanForSecrets(content");
+    expect(src).toContain("virtualized.replacements.length > 0");
+    // The no-secret branch must stay a byte copy, not a utf8 rewrite.
+    expect(src).toContain("await fs.copyFile(srcPath, destPath)");
+  });
+});
