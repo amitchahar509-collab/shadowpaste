@@ -855,6 +855,13 @@ export async function aiGenerate(input: { prompt: string; model?: string; provid
     return { ok: true, output: out, redactedOutput: JSON.stringify({ provider: r.provider, model: r.model, usage: r.usage, costUsd: r.costUsd }), adapter: "ai", durationMs: Date.now() - start };
   } catch (e) {
     if (e instanceof ProviderNotConfiguredError) return structuredError("ai", "PROVIDER_NOT_CONFIGURED", e.message, {}, Date.now() - start);
+    // A rejected credential is a CONFIGURATION fault, not a transient AI error.
+    // Reported as AI_ERROR it looked like flakiness worth retrying; the operator
+    // had no way to tell "your key is wrong" from "the provider is having a bad
+    // day". Observed live as `AI_ERROR: Gemini 400: API key not valid`.
+    if ((e as Error)?.name === "ProviderAuthError") {
+      return structuredError("ai", "PROVIDER_AUTH_FAILED", (e as Error).message, {}, Date.now() - start);
+    }
     return structuredError("ai", "AI_ERROR", (e as Error).message, {}, Date.now() - start);
   }
 }

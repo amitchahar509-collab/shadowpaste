@@ -53,10 +53,50 @@ interface ProviderAdapter {
   call(key: string, req: Required<Pick<GenerateRequest, "prompt" | "model" | "maxTokens">>, signal: AbortSignal): Promise<{ text: string; promptTokens: number; completionTokens: number }>;
 }
 
+/**
+ * Strip whitespace and a single layer of surrounding quotes from an env value.
+ *
+ * Pasting `GEMINI_API_KEY="AIza..."` into a dashboard field stores the quotes as
+ * part of the value, and the provider then rejects it as malformed. This exact
+ * failure already cost this codebase once: UPSTASH_REDIS_REST_URL was set to the
+ * whole `KEY="value"` line and the limiter silently degraded to per-instance
+ * memory. Cheap to defend against, and the alternative is an operator staring at
+ * a key that looks correct.
+ */
+export function cleanEnvValue(raw: string | undefined): string {
+  let v = (raw ?? "").trim();
+  if (v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) {
+    v = v.slice(1, -1).trim();
+  }
+  // A pasted `NAME=value` line is a paste error, not a key.
+  const eq = v.match(/^[A-Z0-9_]+=(.*)$/);
+  if (eq) v = eq[1].trim().replace(/^["']|["']$/g, "");
+  return v;
+}
+
+/** Provider rejected the credential itself — configuration, not a transient fault. */
+export class ProviderAuthError extends Error {
+  constructor(public readonly provider: string, message: string) {
+    super(message);
+    this.name = "ProviderAuthError";
+  }
+}
+
+/**
+ * True when an upstream failure means "this key is wrong", not "try again".
+ * Retrying a rejected credential burns three upstream calls and ~600 ms of
+ * backoff on EVERY invocation while never being able to succeed.
+ */
+export function isAuthFailure(e: unknown): boolean {
+  const msg = (e as Error)?.message ?? "";
+  return /\b(400|401|403)\b/.test(msg) &&
+    /api[_ -]?key|unauthorized|invalid.*credential|permission denied|invalid authentication/i.test(msg);
+}
+
 // ---- Credential resolver -----------------------------------------------------
 async function resolveKey(p: ProviderAdapter, orgId?: string): Promise<string | null> {
   for (const name of p.envKeys) {
-    const v = process.env[name]?.trim();
+    const v = cleanEnvValue(process.env[name]);
     if (v) return v;
   }
   // Fall back to the encrypted Vault (single-use capability token minted + consumed).
@@ -157,12 +197,15 @@ export async function generate(req: GenerateRequest, opts: { orgId?: string } = 
   const order = req.provider ? [req.provider, ...fallbackOrder().filter((p) => p !== req.provider)] : fallbackOrder();
   let anyConfigured = false;
   let lastErr: Error | null = null;
+  const authFailures: ProviderAuthError[] = [];
+  let providersTried = 0;
 
   for (const name of order) {
     const p = PROVIDER_REGISTRY[name];
     const key = await resolveKey(p, opts.orgId);
     if (!key) continue;
     anyConfigured = true;
+    providersTried++;
     const model = req.model || p.defaultModel;
 
     // Retry with backoff; honor external cancellation via the caller's signal.
@@ -185,6 +228,16 @@ export async function generate(req: GenerateRequest, opts: { orgId?: string } = 
         clearTimeout(to);
         lastErr = e as Error;
         if (req.signal?.aborted) throw lastErr; // caller cancelled — do not retry
+        // A rejected credential can never succeed on retry. Observed live:
+        // `Gemini 400: API key not valid` was retried three times with backoff on
+        // every single call — three wasted upstream requests and ~600 ms, and the
+        // operator still saw it as a generic AI_ERROR rather than "your key is
+        // wrong". Record it as a configuration fault and move to the next
+        // configured provider immediately.
+        if (isAuthFailure(e)) {
+          authFailures.push(new ProviderAuthError(name, lastErr.message));
+          break;
+        }
         if (attempt < 3) await new Promise((res) => setTimeout(res, 200 * attempt));
       }
     }
@@ -194,6 +247,17 @@ export async function generate(req: GenerateRequest, opts: { orgId?: string } = 
   if (!anyConfigured) {
     throw new ProviderNotConfiguredError(
       "No AI provider is configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY or GEMINI_API_KEY (or vault a key), then retry."
+    );
+  }
+  // Every configured provider rejected its credential. That is a configuration
+  // fault the operator must fix, not a transient failure to retry — say so, and
+  // name which providers so they know which key to replace.
+  if (authFailures.length > 0 && authFailures.length === providersTried) {
+    throw new ProviderAuthError(
+      authFailures.map((f) => f.provider).join(", "),
+      `Every configured AI provider rejected its API key (${authFailures
+        .map((f) => `${f.provider}: ${f.message}`)
+        .join("; ")}). Replace the key — retrying cannot help. Check for surrounding quotes or a pasted NAME=value line in the environment variable.`
     );
   }
   throw lastErr ?? new Error("AI generation failed");
