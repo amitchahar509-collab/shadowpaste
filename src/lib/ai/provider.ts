@@ -74,6 +74,29 @@ export function cleanEnvValue(raw: string | undefined): string {
   return v;
 }
 
+/**
+ * Strip credential fragments out of an upstream provider's error text.
+ *
+ * Providers echo the rejected key back in their own masked form. OpenAI returns
+ * `Incorrect API key provided: sk-proj-****…7890` — the asterisks mean the
+ * secret scanner does not match it, so it flowed straight through to the agent's
+ * context. Not a usable credential, but this product's entire promise is that
+ * secret-shaped material does not reach the model, and "it was already masked by
+ * someone else" is a weak place to draw that line. Removed here, at the boundary
+ * where the upstream string is first wrapped.
+ */
+export function scrubProviderMessage(msg: string): string {
+  return (msg ?? "")
+    // Anything key-shaped, including partially-masked forms (sk-proj-***…1234).
+    .replace(/\b(sk|rk|pk)[-_][A-Za-z0-9*_\-]{6,}/g, "<redacted-key>")
+    .replace(/\bAIza[A-Za-z0-9*_\-]{6,}/g, "<redacted-key>")
+    .replace(/\bgh[pousr]_[A-Za-z0-9*]{6,}/g, "<redacted-key>")
+    // Generic "key: <value>" / "key provided: <value>" tails.
+    .replace(/((?:api[ _-]?key|token|secret)\s*(?:provided)?\s*[:=]\s*)\S+/gi, "$1<redacted-key>")
+    // Runs of masking asterisks with any trailing identifier characters.
+    .replace(/\*{4,}[A-Za-z0-9]*/g, "<redacted-key>");
+}
+
 /** Provider rejected the credential itself — configuration, not a transient fault. */
 export class ProviderAuthError extends Error {
   constructor(public readonly provider: string, message: string) {
@@ -118,7 +141,7 @@ const OPENAI: ProviderAdapter = {
       body: JSON.stringify({ model: req.model, max_tokens: req.maxTokens, messages: [{ role: "user", content: req.prompt }] }),
     });
     const data = await res.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number }; error?: { message?: string } } | null;
-    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${data?.error?.message ?? "request failed"}`);
+    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${scrubProviderMessage(data?.error?.message ?? "request failed")}`);
     return { text: data?.choices?.[0]?.message?.content ?? "", promptTokens: data?.usage?.prompt_tokens ?? 0, completionTokens: data?.usage?.completion_tokens ?? 0 };
   },
 };
@@ -133,7 +156,7 @@ const ANTHROPIC: ProviderAdapter = {
       body: JSON.stringify({ model: req.model, max_tokens: req.maxTokens, messages: [{ role: "user", content: req.prompt }] }),
     });
     const data = await res.json().catch(() => null) as { content?: Array<{ text?: string }>; usage?: { input_tokens?: number; output_tokens?: number }; error?: { message?: string } } | null;
-    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${data?.error?.message ?? "request failed"}`);
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${scrubProviderMessage(data?.error?.message ?? "request failed")}`);
     return { text: (data?.content ?? []).map((c) => c.text ?? "").join(""), promptTokens: data?.usage?.input_tokens ?? 0, completionTokens: data?.usage?.output_tokens ?? 0 };
   },
 };
@@ -148,7 +171,7 @@ const GEMINI: ProviderAdapter = {
       body: JSON.stringify({ contents: [{ parts: [{ text: req.prompt }] }], generationConfig: { maxOutputTokens: req.maxTokens } }),
     });
     const data = await res.json().catch(() => null) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }; error?: { message?: string } } | null;
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${data?.error?.message ?? "request failed"}`);
+    if (!res.ok) throw new Error(`Gemini ${res.status}: ${scrubProviderMessage(data?.error?.message ?? "request failed")}`);
     return { text: (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join(""), promptTokens: data?.usageMetadata?.promptTokenCount ?? 0, completionTokens: data?.usageMetadata?.candidatesTokenCount ?? 0 };
   },
 };

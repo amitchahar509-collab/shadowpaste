@@ -124,7 +124,16 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true  # tests are environment-dependent (external creds etc.)
+    # `continue-on-error: true` was removed. It made the run report SUCCESS while
+    # this job failed, so a red Test job was invisible to `gh run list --json
+    # conclusion` and to anyone glancing at the checks. The war suite failed on
+    # three consecutive commits (bab3761, cc63a95, b236419) and every one of them
+    # was reported as green.
+    #
+    # The original reason — "tests are environment-dependent (external creds)" —
+    # is handled properly inside the suite instead: tests that need credentials
+    # or a live third party SKIP explicitly (GitHub rate limits, absent server),
+    # and a skip is not a failure. Anything that actually fails now fails CI.
 
     # `prisma db push` and the app both need a REAL PostgreSQL server (the schema
     # declares provider = "postgresql"). A service container gives CI an ephemeral

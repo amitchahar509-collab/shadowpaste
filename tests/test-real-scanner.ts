@@ -123,7 +123,15 @@ async function main() {
   const t1Ok = scanRes.data?.ok === true;
   const t1Files = typeof scanRes.data?.filesScanned === "number" && scanRes.data.filesScanned >= 0;
   const t1Score = typeof scanRes.data?.score === "number" && scanRes.data.score >= 0 && scanRes.data.score <= 100;
-  const t1Grade = typeof scanRes.data?.grade === "string" && VALID_GRADES.has(scanRes.data.grade);
+  // A scan that read NOTHING must not carry a letter grade — that was the whole
+  // point of the "A+ on 0 files scanned" fix. So the contract is conditional:
+  // graded when files were read, "N/A" when they were not. Asserting only
+  // "grade is a letter" is what failed here, and asserting only "grade is in a
+  // wider set" would let the original bug back in.
+  const t1Assessed = (scanRes.data?.filesScanned ?? 0) > 0;
+  const t1Grade =
+    typeof scanRes.data?.grade === "string" &&
+    (t1Assessed ? VALID_GRADES.has(scanRes.data.grade) : scanRes.data.grade === "N/A");
   const t1NoDemo = !containsDemoRepo(scanRes.data);
   const t1Pass = t1Ok && t1Files && t1Score && t1Grade && t1NoDemo;
 

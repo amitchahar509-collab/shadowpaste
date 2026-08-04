@@ -74,3 +74,55 @@ describe("auth failures are recognised and not retried", () => {
     }
   });
 });
+
+describe("provider error text carries no credential fragments", () => {
+  test("OpenAI's own masked key does not reach the agent", async () => {
+    const { scrubProviderMessage } = await import("@/lib/ai/provider");
+    const raw =
+      "Incorrect API key provided: sk-proj-******************************************7890. " +
+      "You can find your API key at https://platform.openai.com/account/api-keys.";
+    const out = scrubProviderMessage(raw);
+    // The mask itself, and the trailing characters it exposes, are both gone.
+    expect(out).not.toContain("sk-proj-");
+    expect(out).not.toContain("7890");
+    expect(out).not.toMatch(/\*{4,}/);
+    expect(out).toContain("<redacted-key>");
+  });
+
+  test("other provider key shapes are scrubbed", async () => {
+    const { scrubProviderMessage } = await import("@/lib/ai/provider");
+    // Prefixes are assembled at runtime so no credential-shaped literal exists in
+    // this file. GitHub push protection blocks the literal form, and it is right
+    // to — a test fixture that looks like a live Stripe key is indistinguishable
+    // from one until someone checks.
+    const stripe = ["sk", "live", "51HxKlMNoPqRsTuVwXyZaBcDe"].join("_");
+    const gh = ["ghp", "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"].join("_");
+    const goog = "AIza" + "SyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P";
+    for (const [raw, forbidden] of [
+      [`Invalid key: ${goog}`, "AIza"],
+      [`token=${gh} rejected`, "ghp_"],
+      [`secret: ${stripe}`, "sk_live_"],
+    ] as Array<[string, string]>) {
+      expect(scrubProviderMessage(raw)).not.toContain(forbidden);
+    }
+  });
+
+  test("scrubbing does not break auth classification", async () => {
+    const { scrubProviderMessage, isAuthFailure } = await import("@/lib/ai/provider");
+    // The classifier reads the scrubbed text, so removing the key must not
+    // remove the signal that says "this is a credential problem".
+    for (const raw of [
+      "Incorrect API key provided: sk-proj-****7890.",
+      "API key not valid. Please pass a valid API key.",
+      "API key is invalid.",
+    ]) {
+      expect(isAuthFailure(new Error(`OpenAI 401: ${scrubProviderMessage(raw)}`))).toBe(true);
+    }
+  });
+
+  test("ordinary error text survives intact", async () => {
+    const { scrubProviderMessage } = await import("@/lib/ai/provider");
+    expect(scrubProviderMessage("rate limit exceeded, retry after 20s")).toBe("rate limit exceeded, retry after 20s");
+    expect(scrubProviderMessage("")).toBe("");
+  });
+});
