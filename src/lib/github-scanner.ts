@@ -20,6 +20,10 @@ export interface ScanFinding {
 
 export interface RealScanResult {
   ok: boolean
+  /** True only when at least one file was actually read and scanned. */
+  assessed?: boolean
+  /** Human explanation when no grade could be given. */
+  note?: string
   repo: { name: string; url: string; stars?: number; defaultBranch: string }
   filesScanned: number
   files: string[]
@@ -88,24 +92,24 @@ export async function scanGitHubRepo(repo: string, opts: { token?: string; orgId
   try {
     repoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers, signal: AbortSignal.timeout(10000) })
   } catch (e) {
-    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: (e as Error).message }
+    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "N/A", assessed: false, error: (e as Error).message }
   }
   if (!repoRes.ok) {
-    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: `GitHub API ${repoRes.status}` }
+    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "N/A", assessed: false, error: `GitHub API ${repoRes.status}` }
   }
   const repoMeta = await repoRes.json()
   // Refuse to lend the server's credentials to a private repo the caller did not
   // authenticate for. Without this, setting GITHUB_TOKEN would silently grant
   // every caller read access to every repo that token can reach.
   if (usingServerToken && repoMeta.private === true) {
-    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: "private repository requires your own GitHub token" }
+    return { ok: false, repo: { name: repo, url: "", defaultBranch: "main" }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "N/A", assessed: false, error: "private repository requires your own GitHub token" }
   }
   const defaultBranch = repoMeta.default_branch || "main"
 
   // 2. Tree (recursive)
   const treeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees/${defaultBranch}?recursive=1`, { headers, signal: AbortSignal.timeout(10000) })
   if (!treeRes.ok) {
-    return { ok: false, repo: { name: repo, url: repoMeta.html_url, stars: repoMeta.stargazers_count, defaultBranch }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "F", error: `Cannot fetch tree: ${treeRes.status}` }
+    return { ok: false, repo: { name: repo, url: repoMeta.html_url, stars: repoMeta.stargazers_count, defaultBranch }, filesScanned: 0, files: [], findings: [], secretsCount: 0, configsCount: 0, vaultedCount: 0, score: 0, grade: "N/A", assessed: false, error: `Cannot fetch tree: ${treeRes.status}` }
   }
   const tree = await treeRes.json()
   const files = (tree.tree as Array<{ path: string; type: string; size?: number }>)
@@ -140,8 +144,15 @@ export async function scanGitHubRepo(repo: string, opts: { token?: string; orgId
 
   const findings = [...allFindings, ...configFindings]
   const score = computeTrustScore(findings as never)
+  // A grade must mean "we looked". computeTrustScore starts at 100 and only
+  // deducts, so a repository where NOTHING was scanned scored 100 and graded
+  // A+ — observed live on octocat/Hello-World: filesScanned 0, findings 0,
+  // grade "A+". For a security scanner, confidently clearing a repository it
+  // never read is the most damaging output it can produce.
+  const assessed = scannedFiles.length > 0
   return {
     ok: true,
+    assessed,
     repo: { name: repo, url: repoMeta.html_url, stars: repoMeta.stargazers_count, defaultBranch },
     filesScanned: scannedFiles.length,
     files: scannedFiles,
@@ -149,7 +160,8 @@ export async function scanGitHubRepo(repo: string, opts: { token?: string; orgId
     secretsCount: allFindings.length,
     configsCount: configFindings.length,
     vaultedCount,
-    score,
-    grade: scoreToGrade(score),
+    score: assessed ? score : 0,
+    grade: assessed ? scoreToGrade(score) : "N/A",
+    note: assessed ? undefined : "No scannable files were found in this repository — nothing was assessed, so no grade is given.",
   }
 }

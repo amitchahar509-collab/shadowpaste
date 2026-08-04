@@ -491,12 +491,31 @@ async function shadowpasteScan(input: { repo: string; token?: string }, opts: { 
   try {
     const { scanGitHubRepo } = await import("@/lib/github-scanner");
     const result = await scanGitHubRepo(input.repo, { token: input.token, orgId: opts.orgId });
+    // Propagate `error` and `assessed`. They used to be dropped here, so a scan
+    // that never ran — rate-limited, repo unreachable, private without a token —
+    // reached the agent as `score: 0, grade: "F"` with no indication of failure.
+    // Observed live: a rate-limited scan of a healthy repository was reported as
+    // grade F, which reads as "your repository is insecure" rather than "the
+    // scan did not happen".
+    const assessed = result.assessed !== false && result.filesScanned > 0;
+    const body = {
+      repo: result.repo,
+      filesScanned: result.filesScanned,
+      findings: result.findings.length,
+      score: result.score,
+      grade: result.grade,
+      vaulted: result.vaultedCount,
+      assessed,
+      ...(result.error ? { error: result.error } : {}),
+      ...(result.note ? { note: result.note } : {}),
+    };
     return {
       ok: result.ok,
-      output: { repo: result.repo, filesScanned: result.filesScanned, findings: result.findings.length, score: result.score, grade: result.grade, vaulted: result.vaultedCount },
-      redactedOutput: JSON.stringify({ repo: result.repo, filesScanned: result.filesScanned, findings: result.findings.length, score: result.score, grade: result.grade }),
+      output: body,
+      redactedOutput: JSON.stringify({ repo: result.repo, filesScanned: result.filesScanned, findings: result.findings.length, score: result.score, grade: result.grade, assessed, error: result.error }),
       adapter: "shadowpaste",
       durationMs: Date.now() - start,
+      ...(result.error ? { error: result.error } : {}),
     };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "shadowpaste", durationMs: Date.now() - start, error: (e as Error).message };
