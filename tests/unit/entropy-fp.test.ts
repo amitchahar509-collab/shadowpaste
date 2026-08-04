@@ -26,6 +26,19 @@
 
 import { describe, expect, test } from "bun:test";
 import { scanForSecrets, shannonEntropy, MIN_GENERIC_ENTROPY } from "@/lib/security/detector";
+// Credential-shaped fixtures are assembled at runtime in demo-fixtures.ts, so no
+// scannable literal sits in this file. GitHub push protection blocks the literal
+// form and is right to: a fixture that looks like a live key is indistinguishable
+// from one until somebody checks.
+import {
+  DEMO_STRIPE_KEY,
+  DEMO_GITHUB_TOKEN,
+  DEMO_AWS_KEY_ID,
+  DEMO_AWS_SECRET_KEY,
+  DEMO_GOOGLE_KEY,
+  DEMO_JWT,
+  DEMO_DB_URL,
+} from "@/lib/security/demo-fixtures";
 
 const GH_PAYLOAD = JSON.stringify(
   {
@@ -68,8 +81,8 @@ describe("URL paths are not secrets", () => {
 
   test("a secret in a QUERY STRING is still caught — the query is not structure", () => {
     for (const u of [
-      "https://api.example.com/v1/data?access_token=ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8",
-      "https://hooks.example.com/send?key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      `https://api.example.com/v1/data?access_token=${DEMO_GITHUB_TOKEN}`,
+      `https://hooks.example.com/send?key=${DEMO_AWS_SECRET_KEY}`,
     ]) {
       expect(scanForSecrets(JSON.stringify({ url: u }), "api").length).toBeGreaterThan(0);
     }
@@ -81,13 +94,13 @@ describe("real credentials are still detected", () => {
     const mixed = JSON.stringify(
       {
         contributors_url: "https://api.github.com/repos/octocat/Hello-World/contributors",
-        stripe: "sk_live_51HxKlMNoPqRsTuVwXyZaBcDeFgHiJkLmNoPq",
-        github_token: "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8",
-        aws: "AKIAIOSFODNN7EXAMPLE",
-        aws_secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        google: "AIzaSyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P",
-        jwt: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSJ9.abc",
-        db: "postgresql://admin:hunter2@prod-db.internal:5432/main",
+        stripe: DEMO_STRIPE_KEY,
+        github_token: DEMO_GITHUB_TOKEN,
+        aws: DEMO_AWS_KEY_ID,
+        aws_secret_access_key: DEMO_AWS_SECRET_KEY,
+        google: DEMO_GOOGLE_KEY,
+        jwt: DEMO_JWT,
+        db: DEMO_DB_URL,
       },
       null,
       2
@@ -101,7 +114,7 @@ describe("real credentials are still detected", () => {
   test("a slash-bearing base64 secret survives — this is why the fix is entropy, not slashes", () => {
     // AWS secret access keys routinely contain "/" and would be lost to any
     // rule that treated slashes as a URL signal.
-    const awsKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+    const awsKey = DEMO_AWS_SECRET_KEY;
     expect(shannonEntropy(awsKey)).toBeGreaterThan(MIN_GENERIC_ENTROPY);
     const found = scanForSecrets(`aws_secret_access_key = "${awsKey}"`, "cfg");
     expect(found.length).toBeGreaterThan(0);
@@ -118,10 +131,10 @@ describe("the entropy floor is where the measurements put it", () => {
       expect(shannonEntropy(url)).toBeLessThan(MIN_GENERIC_ENTROPY);
     }
     for (const secret of [
-      "sk_live_51HxKlMNoPqRsTuVwXyZaBcDeFgHiJkLmNoPq",
-      "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8",
-      "AIzaSyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSJ9",
+      DEMO_STRIPE_KEY,
+      DEMO_GITHUB_TOKEN,
+      DEMO_GOOGLE_KEY,
+      DEMO_JWT,
       "dGhpcy1pcy1hLXZlcnktbG9uZy1iYXNlNjQtc2VjcmV0LXZhbHVl",
     ]) {
       expect(shannonEntropy(secret)).toBeGreaterThan(MIN_GENERIC_ENTROPY);

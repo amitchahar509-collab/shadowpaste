@@ -174,9 +174,14 @@ describe("workspace virtualization gating", () => {
     expect(clean.replacements.length).toBe(0);
     expect(clean.text).toBe("const a = 1;\nconst b = 2;\n"); // unchanged
 
-    const dirty = virtualizeWithFakes('const k = "sk_live_51ABCDEFGHIJKLMNOPQRSTUV";\n', "dirty.ts");
+    // Fixture assembled at runtime in demo-fixtures.ts — no credential-shaped
+    // literal in this file. GitHub push protection blocks the literal form, and
+    // is right to: a fixture that looks like a live key is indistinguishable
+    // from one until somebody checks.
+    const { DEMO_STRIPE_KEY } = await import("@/lib/security/demo-fixtures");
+    const dirty = virtualizeWithFakes(`const k = "${DEMO_STRIPE_KEY}";\n`, "dirty.ts");
     expect(dirty.replacements.length).toBeGreaterThan(0);
-    expect(dirty.text).not.toContain("sk_live_51ABCDEFGHIJKLMNOPQRSTUV");
+    expect(dirty.text).not.toContain(DEMO_STRIPE_KEY);
   });
 
   test("the workspace writer no longer double-scans", async () => {

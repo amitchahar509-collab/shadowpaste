@@ -14,6 +14,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { cleanEnvValue, isAuthFailure } from "@/lib/ai/provider";
+import { DEMO_GOOGLE_KEY, DEMO_STRIPE_KEY, DEMO_GITHUB_TOKEN } from "@/lib/security/demo-fixtures";
 
 describe("env values are cleaned before use", () => {
   test("surrounding quotes are stripped", () => {
@@ -28,7 +29,7 @@ describe("env values are cleaned before use", () => {
   });
 
   test("a normal key is untouched", () => {
-    expect(cleanEnvValue("AIzaSyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P")).toBe("AIzaSyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P");
+    expect(cleanEnvValue(DEMO_GOOGLE_KEY)).toBe(DEMO_GOOGLE_KEY);
     expect(cleanEnvValue("sk-proj-abcDEF123")).toBe("sk-proj-abcDEF123");
   });
 
@@ -91,17 +92,12 @@ describe("provider error text carries no credential fragments", () => {
 
   test("other provider key shapes are scrubbed", async () => {
     const { scrubProviderMessage } = await import("@/lib/ai/provider");
-    // Prefixes are assembled at runtime so no credential-shaped literal exists in
-    // this file. GitHub push protection blocks the literal form, and it is right
-    // to — a test fixture that looks like a live Stripe key is indistinguishable
-    // from one until someone checks.
-    const stripe = ["sk", "live", "51HxKlMNoPqRsTuVwXyZaBcDe"].join("_");
-    const gh = ["ghp", "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"].join("_");
-    const goog = "AIza" + "SyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P";
+    // Fixtures come from demo-fixtures.ts, which assembles them at runtime, so no
+    // credential-shaped literal exists in this file.
     for (const [raw, forbidden] of [
-      [`Invalid key: ${goog}`, "AIza"],
-      [`token=${gh} rejected`, "ghp_"],
-      [`secret: ${stripe}`, "sk_live_"],
+      [`Invalid key: ${DEMO_GOOGLE_KEY}`, "AIza"],
+      [`token=${DEMO_GITHUB_TOKEN} rejected`, "ghp_"],
+      [`secret: ${DEMO_STRIPE_KEY}`, "sk_live_"],
     ] as Array<[string, string]>) {
       expect(scrubProviderMessage(raw)).not.toContain(forbidden);
     }

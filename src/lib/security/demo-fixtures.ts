@@ -42,6 +42,23 @@ export const DEMO_AWS_KEY_ID = j("AKIA", "IOSFODNN7", "EXAMPLE");
 /** Postgres URL carrying an inline password. */
 export const DEMO_DB_URL = j("postgresql://admin:", "s3cretP@ss", "@prod-db.internal:5432/app");
 
+/** Google/Gemini API key shape. Matches /AIza[A-Za-z0-9_-]{35}/. */
+export const DEMO_GOOGLE_KEY = j("AIza", "SyD-1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P");
+
+/**
+ * AWS secret access key shape. Deliberately contains "/" — that is what makes it
+ * the load-bearing fixture for the entropy/URL work: any rule that treated a
+ * slash as a URL signal would silently stop detecting keys of this shape.
+ */
+export const DEMO_AWS_SECRET_KEY = j("wJalrXUtnFEMI", "/K7MDENG/", "bPxRfiCYEXAMPLEKEY");
+
+/** JWT shape (header.payload.signature), high-entropy base64url segments. */
+export const DEMO_JWT = j(
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+  ".eyJzdWIiOiIxMjM0NSJ9",
+  ".s1gn4tur3Pl4c3h0ld3r"
+);
+
 /** A .env file body containing several detectable credentials. */
 export const DEMO_ENV_FILE = [
   `DATABASE_URL="postgresql://localhost/dev"`,
