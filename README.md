@@ -462,11 +462,15 @@ charges, customer deletion, and arbitrary shell or filesystem execution.
   `shell.exec` therefore refuses outright rather than pretending.
 - **`db.migrate` and `ai.train` are registered but not implemented** — they return a
   structured `NOT_IMPLEMENTED` error.
-- **Import size is capped by the request deadline.** A full import scans every
-  file for secrets at a measured ~0.33 MB/s, so a serverless deployment accepts
-  about 9.9 MB (half of the 60 s `maxDuration`) and a self-hosted one 100 MB.
-  Over-budget imports are rejected immediately with a 413 rather than dying as a
-  gateway timeout. `SHADOWPASTE_MAX_IMPORT_MB` overrides it.
+- **Import size is capped twice on serverless, and the platform cap is lower.**
+  A full import scans every file for secrets at a measured ~0.33 MB/s, so the app
+  budgets ~9.9 MB on a 60 s deadline (100 MB self-hosted, `SHADOWPASTE_MAX_IMPORT_MB`
+  overrides). But Vercel rejects request bodies over ~4.5 MB at the edge, before
+  any of that runs — measured: a 4 MB upload succeeds, 5 MB returns
+  `FUNCTION_PAYLOAD_TOO_LARGE`. So on Vercel a **direct upload is limited to
+  ~4.5 MB**; the app's budget governs archive *expansion* and the clone path,
+  where the server fetches the repository itself and no request body is involved.
+  For a larger project, use clone-import or self-host.
 - **Workspaces need a persistent filesystem.** On serverless hosts they are written
   to the instance's temp directory, which is per-instance and ephemeral, so a
   workspace may not survive to the next request. Set `SHADOWPASTE_WORKSPACE_ROOT` to
@@ -523,7 +527,8 @@ Annotated list: **[.env.example](.env.example)**. The ones that matter most:
 
 | Symptom | Cause and fix |
 |---|---|
-| 413 `project too large to import` | Importing scans every file (~0.33 MB/s), so the ceiling is derived from the request deadline — about 9.9 MB on serverless, 100 MB self-hosted. Import a subdirectory, or raise `SHADOWPASTE_MAX_IMPORT_MB` if your platform allows longer requests. |
+| 413 `project too large to import` | The app's own budget: importing scans every file (~0.33 MB/s), so the ceiling follows the request deadline — ~9.9 MB serverless, 100 MB self-hosted. Import a subdirectory, or raise `SHADOWPASTE_MAX_IMPORT_MB`. |
+| 413 `FUNCTION_PAYLOAD_TOO_LARGE` | Vercel's edge rejected the body before the app ran — its request limit is ~4.5 MB. Use clone-import (the server fetches the repo, so no body is uploaded) or self-host. |
 | 500 with an HTML page on `/api/health` or `/api/mcp` | The Prisma client was never generated. Run `bun run db:generate`. The underlying error is `@prisma/client did not initialize yet`. |
 | `P1001: Can't reach database server at localhost:5432` | Postgres is not running. `docker compose up -d db`, or point `DATABASE_URL` at a hosted Postgres. |
 | MCP calls succeed with an obviously fake token | Expected locally: unauthenticated and invalid tokens both fall back to the local-dev agent. Set `REQUIRE_OAUTH=true` to enforce tokens. |
