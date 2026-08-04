@@ -14,33 +14,33 @@ the recording.
 
 ## Catalogue
 
-Status legend: `script` = written · `recorded` = screen capture done · `composed` = video built · `published` = linked from README.
+Status legend: `planned` = catalogued, not yet written · `written` = script complete · `recorded` = screen capture done · `composed` = video built · `published` = linked from README.
 
 | # | Title | Len | Audience | Playlist | Status |
 |---|---|---|---|---|---|
-| 01 | What ShadowPaste actually does | 60s | Everyone | Beginner, Launch | script |
-| 02 | Install and first run | 3m | New contributor | Beginner, Onboarding | script |
-| 03 | Your first secret scan | 60s | Developer | Beginner | script |
-| 04 | Secret virtualization: how fakes keep code running | 3m | Developer | Beginner, Advanced | script |
-| 05 | Restore: getting your real secrets back | 60s | Developer | Beginner | script |
-| 06 | The MCP gateway: risk → policy → audit | 3m | AI engineer | MCP, Advanced | script |
-| 07 | Watching an attack get blocked | 30s | Everyone | Security, Social | script |
-| 08 | Connecting Claude Code, Cursor and VS Code | 3m | AI engineer | MCP, Onboarding | script |
-| 09 | The vault and single-use capability tokens | 60s | Security engineer | Security, Advanced | script |
-| 10 | Tamper-evident audit chain | 60s | Security engineer | Security, Enterprise | script |
-| 11 | OAuth 2.1 for MCP, end to end | 3m | Platform engineer | MCP, Enterprise | script |
-| 12 | CLI walkthrough | 3m | Developer | Beginner, Onboarding | script |
-| 13 | API walkthrough | 3m | Developer | Advanced | script |
-| 14 | Importing a project four ways | 60s | Developer | Beginner | script |
-| 15 | Alerting: from blocked call to page | 60s | SRE | Security, Enterprise | script |
-| 16 | Security architecture in five minutes | 5m | Security reviewer | Security, Enterprise | script |
-| 17 | The full developer workflow | 5m | Developer | Advanced, Onboarding | script |
-| L1 | Show HN demo | 90s | HN | Launch | script |
-| L2 | Product Hunt | 60s | PH | Launch | script |
-| L3 | GitHub repo banner | 30s | Repo visitors | Launch | script |
-| R1 | Reel: 11 fake secrets, 0 real ones | 30s | Social | Social | script |
-| R2 | Reel: the call that gets denied | 30s | Social | Social | script |
-| R3 | Reel: 501 patterns, 0 misses | 30s | Social | Social | script |
+| 01 | What ShadowPaste actually does | 60s | Everyone | Beginner, Launch | **written** |
+| 02 | Install and first run | 3m | New contributor | Beginner, Onboarding | **written** |
+| 03 | Your first secret scan | 60s | Developer | Beginner | planned |
+| 04 | Secret virtualization: how fakes keep code running | 3m | Developer | Beginner, Advanced | **written** |
+| 05 | Restore: getting your real secrets back | 60s | Developer | Beginner | planned |
+| 06 | The MCP gateway: risk → policy → audit | 3m | AI engineer | MCP, Advanced | **written** |
+| 07 | Watching an attack get blocked | 30s | Everyone | Security, Social | **written** |
+| 08 | Connecting Claude Code, Cursor and VS Code | 3m | AI engineer | MCP, Onboarding | planned |
+| 09 | The vault and single-use capability tokens | 60s | Security engineer | Security, Advanced | planned |
+| 10 | Tamper-evident audit chain | 60s | Security engineer | Security, Enterprise | **written** |
+| 11 | OAuth 2.1 for MCP, end to end | 3m | Platform engineer | MCP, Enterprise | planned |
+| 12 | CLI walkthrough | 3m | Developer | Beginner, Onboarding | **written** |
+| 13 | API walkthrough | 3m | Developer | Advanced | planned |
+| 14 | Importing a project four ways | 60s | Developer | Beginner | planned |
+| 15 | Alerting: from blocked call to page | 60s | SRE | Security, Enterprise | planned |
+| 16 | Security architecture in five minutes | 5m | Security reviewer | Security, Enterprise | planned |
+| 17 | The full developer workflow | 5m | Developer | Advanced, Onboarding | planned |
+| L1 | Show HN demo | 90s | HN | Launch | **written** |
+| L2 | Product Hunt | 60s | PH | Launch | planned |
+| L3 | GitHub repo banner | 30s | Repo visitors | Launch | planned |
+| R1 | Reel: the secret your agent never sees | 30s | Social | Social | **written** |
+| R2 | Reel: the call that is never allowed | 30s | Social | Social | **written** |
+| R3 | Reel: 501 patterns, zero misses | 30s | Social | Social | **written** |
 
 ## Playlists
 
