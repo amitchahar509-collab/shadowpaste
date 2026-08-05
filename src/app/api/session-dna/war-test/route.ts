@@ -13,7 +13,12 @@ export async function POST() {
 
   // Attack 1: Copy fake secret to another session
   try {
-    const { capsule: capA, fake } = await createCapsule({ session: sessionA, rawSecret: "sk-proj-realsecret1234567890abcdef", secretName: "openai-key" })
+    // Assembled at runtime, and named for what it is. The literal previously
+    // read "sk-proj-realsecret…" — invented and inert, but in a public repo a
+    // reader scanning for leaked keys hits the word "realsecret" before they hit
+    // the context, and a security tool cannot afford that half-second.
+    const fixtureSecret = ["sk", "proj", "fixtureNotARealKey1234567890"].join("-")
+    const { capsule: capA, fake } = await createCapsule({ session: sessionA, rawSecret: fixtureSecret, secretName: "openai-key" })
     // Session B tries to restore session A's secret
     const restoreB = await restoreFromCapsule({ sessionId: sessionB.sessionId, sessionFingerprint: sessionB.fingerprint, fakeSecret: fake })
     results.push({

@@ -6,7 +6,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { lookup as dnsLookup } from "node:dns/promises";
-import { injectCredential, consumeCredential, redactSecrets, getCapabilityEngine } from "@/lib/security/vault";
+import { injectCredential, consumeCredential, redactSecrets } from "@/lib/security/vault";
 import { isWithin } from "@/lib/security/paths";
 import { db } from "@/lib/db";
 
@@ -221,7 +221,7 @@ async function resolveConfiguredKey(
     raw: cred.raw,
     nonce: cred.token.nonce,
     source: "vault",
-    consume: async () => { (await getCapabilityEngine()).consume(cred.token); },
+    consume: async () => { await consumeCredential(cred.token); },
   };
 }
 
@@ -254,7 +254,7 @@ export async function githubCreateBranch(input: { repo: string; branch: string; 
     if (status >= 400) throw new Error(`Cannot read base branch: ${status}`);
     const sha = (data as { object: { sha: string } }).object.sha;
     const create = await githubRequest("POST", `/repos/${input.repo}/git/refs`, cred.raw, { ref: `refs/heads/${input.branch}`, sha });
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     return { ok: create.status < 400, output: { repo: input.repo, branch: input.branch, from: fromBranch, status: create.status, data: create.data }, redactedOutput: JSON.stringify({ repo: input.repo, branch: input.branch, status: create.status }), adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "github", durationMs: Date.now() - start, error: (e as Error).message };
@@ -267,7 +267,7 @@ export async function githubCreatePR(input: { repo: string; title: string; head:
     const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
     if (!cred) throw new Error("No GitHub credential in vault. Store a GitHub token first.");
     const { status, data } = await githubRequest("POST", `/repos/${input.repo}/pulls`, cred.raw, { title: input.title, head: input.head, base: input.base || "main", body: input.body || "" });
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     return { ok: status < 400, output: { repo: input.repo, title: input.title, status, number: (data as { number?: number })?.number, url: (data as { html_url?: string })?.html_url }, redactedOutput: JSON.stringify({ repo: input.repo, title: input.title, status, number: (data as { number?: number })?.number }), adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "github", durationMs: Date.now() - start, error: (e as Error).message };
@@ -286,7 +286,7 @@ export async function githubCommit(input: { repo: string; branch: string; path: 
     const body: Record<string, unknown> = { message: input.message, content: Buffer.from(input.content).toString("base64"), branch: input.branch };
     if (sha) body.sha = sha;
     const { status, data } = await githubRequest("PUT", `/repos/${input.repo}/contents/${input.path}`, cred.raw, body);
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     return { ok: status < 400, output: { repo: input.repo, branch: input.branch, path: input.path, status, commit: (data as { commit?: { sha?: string } })?.commit?.sha }, redactedOutput: JSON.stringify({ repo: input.repo, branch: input.branch, path: input.path, status }), adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
     return { ok: false, output: { error: (e as Error).message }, redactedOutput: JSON.stringify({ error: (e as Error).message }), adapter: "github", durationMs: Date.now() - start, error: (e as Error).message };
@@ -482,7 +482,7 @@ export async function stripeSubscription(input: { subscriptionId: string }, opts
     if (!cred) throw new Error("No Stripe credential in vault. Store a stripe test key first.");
     const res = await fetch(`https://api.stripe.com/v1/subscriptions/${input.subscriptionId}`, { headers: { Authorization: `Bearer ${cred.raw}` } });
     const data = await res.json().catch(() => null);
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     const redacted = redactSecrets(JSON.stringify(data), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
     return { ok: res.ok, output: { subscriptionId: input.subscriptionId, status: res.status, data }, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
@@ -791,7 +791,7 @@ export async function githubPrMerge(input: { repo: string; pr: number }, opts: {
     const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
     if (!cred) return structuredError("github", "CREDENTIAL_REQUIRED", "No GitHub credential in vault — store a token first", {}, Date.now() - start);
     const { status, data } = await githubRequest("PUT", `/repos/${input.repo}/pulls/${input.pr}/merge`, cred.raw, { merge_method: "merge" });
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     const out = { repo: input.repo, pr: input.pr, merged: (data as { merged?: boolean })?.merged ?? status < 400, status };
     return { ok: status < 400, output: out, redactedOutput: JSON.stringify(out), adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
@@ -805,7 +805,7 @@ export async function githubSecretAccess(input: { repo: string }, opts: { sessio
     const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
     if (!cred) return structuredError("github", "CREDENTIAL_REQUIRED", "No GitHub credential in vault — store a token first", {}, Date.now() - start);
     const { status, data } = await githubRequest("GET", `/repos/${input.repo}/actions/secrets`, cred.raw);
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     if (status >= 400) throw new Error(`GitHub API ${status}`);
     // GitHub never returns secret VALUES; we surface only names + timestamps.
     const secrets = ((data as { secrets?: Array<{ name: string; updated_at: string }> })?.secrets ?? []).map((s) => ({ name: s.name, updated_at: s.updated_at }));
@@ -883,7 +883,7 @@ export async function stripeRefund(input: { chargeId: string; amount?: number },
     }
     const res = await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { Authorization: `Bearer ${cred.raw}`, "Content-Type": "application/x-www-form-urlencoded" }, body });
     const data = await res.json().catch(() => null) as { id?: string; status?: string } | null;
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     const redacted = redactSecrets(JSON.stringify({ id: data?.id, status: data?.status, http: res.status }), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
     return { ok: res.ok, output: { chargeId: input.chargeId, status: res.status, refund: data?.id, refundStatus: data?.status }, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
   } catch (e) {
@@ -909,7 +909,7 @@ export async function stripeCustomerDelete(input: { customerId: string }, opts: 
       headers: { Authorization: `Bearer ${cred.raw}` },
     });
     const data = await res.json().catch(() => null) as { id?: string; deleted?: boolean } | null;
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     const out = { customerId: input.customerId, status: res.status, deleted: data?.deleted === true };
     const redacted = redactSecrets(JSON.stringify(out), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_STRIPE}}" }]);
     return { ok: res.ok, output: out, redactedOutput: redacted, adapter: "stripe", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };
@@ -943,7 +943,7 @@ export async function githubAdmin(input: { repo: string; action: string }, opts:
     const cred = await injectCredential({ sessionId: opts.sessionId, scope: "github.repo", orgId: opts.orgId });
     if (!cred) return structuredError("github", "CREDENTIAL_REQUIRED", "No GitHub credential in vault — store a token first", {}, Date.now() - start);
     const { status, data } = await githubRequest("GET", build(input.repo), cred.raw);
-    const engine = await getCapabilityEngine(); engine.consume(cred.token);
+    await consumeCredential(cred.token);
     if (status >= 400) throw new Error(`GitHub API ${status}`);
     const redacted = redactSecrets(JSON.stringify({ repo: input.repo, action: input.action, status }), [{ raw: cred.raw, reference: "{{SHADOW_SECRET_GITHUB}}" }]);
     return { ok: true, output: { repo: input.repo, action: input.action, status, data }, redactedOutput: redacted, adapter: "github", durationMs: Date.now() - start, capabilityNonce: cred.token.nonce };

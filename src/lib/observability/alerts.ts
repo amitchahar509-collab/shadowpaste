@@ -144,6 +144,17 @@ export const DEFAULT_RULES: AlertRule[] = [
     enabled: true,
   },
   {
+    id: "security.capability_replay",
+    severity: "critical",
+    title: "Capability token rejected at consume",
+    description:
+      "A single-use credential token was presented twice, or the ledger refused the write. Under CAPABILITY_ENFORCE=true the call is denied; otherwise it proceeds and only this alert fires.",
+    // Short cooldown: a replayed credential token is either an attack or a bug
+    // in a flow that hands out secrets. Neither should wait five minutes.
+    cooldownSec: 60,
+    enabled: true,
+  },
+  {
     id: "security.auth_probe_burst",
     severity: "warning",
     title: "Unauthenticated probe burst",

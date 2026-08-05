@@ -379,3 +379,35 @@ model PublicScan {
   shareId       String   @unique
   createdAt     DateTime @default(now())
 }
+
+// ============================================================
+// CAPABILITY NONCE LEDGER — replay protection that survives a restart
+// ============================================================
+// The ledger used to be a Map in CapabilityEngine. On serverless every cold
+// start is a fresh process, so a consumed nonce became unconsumed and the
+// replay check reset. Measured directly: a token that verified as
+// "nonce already consumed (replay)" verified as {"ok":true} on a new engine
+// instance holding the same HMAC key.
+//
+// The unique constraint on `nonce` is the enforcement point, not the read in
+// verify(). Two concurrent replays racing each other are resolved by the
+// database rejecting the second insert, which a read-then-write check cannot
+// do. `usedCount` supports tokens minted with usageLimit > 1.
+model CapabilityNonce {
+  id          String   @id @default(cuid())
+  nonce       String   @unique
+  sessionId   String
+  secretId    String
+  scope       String
+  oneTime     Boolean  @default(true)
+  usageLimit  Int?
+  usedCount   Int      @default(0)
+  expiresAt   DateTime
+  firstUsedAt DateTime @default(now())
+  lastUsedAt  DateTime @updatedAt
+
+  // Expired rows carry no security value — the token cannot verify anyway —
+  // so they are prunable. Indexed so the sweep does not table-scan.
+  @@index([expiresAt])
+  @@index([sessionId])
+}

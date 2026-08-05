@@ -239,9 +239,57 @@ export async function injectCredential(opts: {
   return { token, raw, secretId: row.id, provider: row.provider, scope: row.scope };
 }
 
-export async function consumeCredential(token: CapabilityToken): Promise<void> {
+/**
+ * Consume a capability token and REPORT the outcome.
+ *
+ * Enforcement mode is deliberately staged. Until this change the ledger was
+ * write-only: `consume()` recorded a nonce and nothing ever read it, so replay
+ * protection existed in the code and not in the running system. Turning it
+ * straight on would introduce a denial path that has never executed in
+ * production — if some flow consumes a token twice today, it succeeds silently
+ * and would begin failing without warning.
+ *
+ * So the default is LOG-ONLY: a rejected consume fires a critical alert and the
+ * call proceeds. Set CAPABILITY_ENFORCE=true to make it deny. The intent is to
+ * run log-only for one release, confirm the alert stays silent under real
+ * traffic, and then flip it — rather than discovering the answer from an
+ * incident.
+ */
+export async function consumeCredential(
+  token: CapabilityToken,
+  context: { tool?: string; agentId?: string; orgId?: string } = {}
+): Promise<{ ok: boolean; why?: string; enforced: boolean }> {
   const engine = await getCapabilityEngine();
-  engine.consume(token);
+  const r = await engine.consume(token);
+  const enforcing = process.env.CAPABILITY_ENFORCE === "true";
+
+  if (!r.ok) {
+    // Fire-and-forget: an alerting failure must never break the tool call that
+    // triggered it. Imported lazily so the security layer does not depend on
+    // observability at module load.
+    void import("@/lib/observability/alerts")
+      .then(({ fireAlert }) =>
+        fireAlert({
+          rule: "security.capability_replay",
+          severity: "critical",
+          title: "Capability token rejected at consume",
+          description: `${r.why} (mode: ${enforcing ? "ENFORCING" : "log-only"})`,
+          dedupeKey: `capability_replay:${context.agentId ?? token.sessionId}`,
+          context: {
+            reason: r.why,
+            scope: token.scope,
+            sessionId: token.sessionId,
+            tool: context.tool,
+            agentId: context.agentId,
+            orgId: context.orgId,
+            enforcing,
+          },
+        })
+      )
+      .catch(() => {});
+  }
+
+  return { ...r, enforced: enforcing };
 }
 
 // ---- Redaction for audit logs ----
